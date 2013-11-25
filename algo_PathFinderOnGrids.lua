@@ -12,7 +12,7 @@ hjsGrid:setEvaluationFunction(myEvalFunc);
 hjsGrid:evaluate();
 -- create Finder and search a path
 local hjsFinder = courseplay.algo.Pathfinder:new(hjsGrid, 'HJS');
-hjsFinder.allowDiagonal = true;
+hjsFinder:setMode('ORTHOGONAL');
 local hjsPath = hjsFinder:getPath(from.x, from.y, to.x, to.y)
 --]]
 

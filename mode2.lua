@@ -1045,62 +1045,110 @@ function courseplay:unload_combine(self, dt)
 end
 
 function courseplay:calculate_course_to(self, target_x, target_z)
-	local curFile = "mode2.lua"
+	if not self.realistic_driving then
+		return false;
+	end
 
-	self.calculated_course = true
+	local tileSize = 5; -- meters
+	self.calculated_course = true;
+	
 	-- check if there is fruit between me and the target, return false if not to avoid the calculating
-	local node = self.cp.DirectionNode
-	local x, y, z = getWorldTranslation(node)
-	local hx, hy, hz = localToWorld(node, -2, 0, 0)
-	local lx, ly, lz = nil, nil, nil
-	local dlx, dly, dlz = worldToLocal(node, target_x, y, target_z)
-	local dnx = dlz * -1
-	local dnz = dlx
-	local angle = math.atan(dnz / dnx)
-	dnx = math.cos(angle) * -2
-	dnz = math.sin(angle) * -2
-	hx, hy, hz = localToWorld(node, dnx, 0, dnz)
-	local density = 0
+	local node = self.cp.DirectionNode;
+	local x, y, z = getWorldTranslation(node);
+	local hx, hy, hz = localToWorld(node, -2, 0, 0);
+	local dlx, dly, dlz = worldToLocal(node, target_x, y, target_z);
+	local dnx = dlz * -1;
+	local dnz = dlx;
+	local angle = math.atan(dnz / dnx);
+	dnx = math.cos(angle) * -2;
+	dnz = math.sin(angle) * -2;
+	hx, hy, hz = localToWorld(node, dnx, 0, dnz);
+	
+	local density = 0;
 	for i = 1, FruitUtil.NUM_FRUITTYPES do
 		if i ~= FruitUtil.FRUITTYPE_GRASS then
 			density = density + Utils.getFruitArea(i, x, z, target_x, target_z, hx, hz);
 		end
 	end
 	if density == 0 then
-		return false
+		return false;
 	end
-	if not self.realistic_driving then
-		return false
-	end
-	if self.active_combine ~= nil then
-		local fruit_type = self.active_combine.lastValidInputFruitType
-	elseif self.tipper_attached then
-		local fruit_type = self.tippers[1].getCurrentFruitType
-	else
-		local fruit_type = nil
-	end
-	--courseplay:debug(string.format("position x: %d z %d", x, z ), 4)
-	local wp_counter = 0
-	local wps = CalcMoves(z, x, target_z, target_x, fruit_type)
-	--courseplay:debug(tableShow(wps, nameNum(self) .. " wps"), 4)
-	if wps ~= nil then
-		self.next_targets = {}
-		for _, wp in pairs(wps) do
-			wp_counter = wp_counter + 1
-			local next_wp = { x = wp.y, y = 0, z = wp.x }
-			table.insert(self.next_targets, next_wp)
-			wp_counter = 0
+
+	local course = self.cp.field_course; -- todo: set self.cp.field_course or similar	
+	if course then
+		-- use new function to search a path
+		local function myEvalFunc(grid, x, y)
+			local category, wakable, costs = 1, true, 1;
+		
+			local hasFruit = courseplay:area_has_fruit(x, y, nil, grid.tileSize/2, grid.tileSize/2);
+			if hasFruit then
+				category = 2;
+			end;
+			
+			return category, wakable, costs;
 		end
-		self.target_x = self.next_targets[1].x
-		self.target_y = self.next_targets[1].y
-		self.target_z = self.next_targets[1].z
-		self.no_speed_limit = true
-		table.remove(self.next_targets, 1)
-		self.ai_state = 5
+		
+		-- create grid
+		local grid = courseplay.algo.helpers.Grid:new(tileSize, course.waypoints, 'cx', 'cz');
+		grid:setEvaluationFunction(myEvalFunc);
+		grid:evaluate();
+		
+		-- create Finder and search a path
+		local finder = cppf.Pathfinder:new(grid, 'HJS');
+		local path = finder:getPath(z, x, target_z, target_x);
+		
+		if path then
+			self.next_targets = {};
+			for node, count in path:nodes() do
+				local p = {};
+				p.x = finder.grid:getX(node.y);
+				p.y = 0;
+				p.z = finder.grid:getY(node.x);
+				table.insert(self.next_targets, p);
+			end
+			self.target_x = self.next_targets[1].x;
+			self.target_y = self.next_targets[1].y;
+			self.target_z = self.next_targets[1].z;
+			self.no_speed_limit = true;
+			table.remove(self.next_targets, 1);
+			self.ai_state = 5;
+		else
+			return false;
+		end
 	else
-		return false
+		-- use old search function
+		if self.active_combine ~= nil then
+			local fruit_type = self.active_combine.lastValidInputFruitType;
+		elseif self.tipper_attached then
+			local fruit_type = self.tippers[1].getCurrentFruitType;
+		else
+			local fruit_type = nil;
+		end
+
+		--courseplay:debug(string.format("position x: %d z %d", x, z ), 4);
+		local wp_counter = 0
+		local wps = CalcMoves(z, x, target_z, target_x, fruit_type);
+		--courseplay:debug(tableShow(wps, nameNum(self) .. " wps"), 4);
+		if wps ~= nil then
+			self.next_targets = {};
+			for _, wp in pairs(wps) do
+				wp_counter = wp_counter + 1;
+				local next_wp = { x = wp.y, y = 0, z = wp.x };
+				table.insert(self.next_targets, next_wp);
+				wp_counter = 0;
+			end
+			self.target_x = self.next_targets[1].x;
+			self.target_y = self.next_targets[1].y;
+			self.target_z = self.next_targets[1].z;
+			self.no_speed_limit = true;
+			table.remove(self.next_targets, 1);
+			self.ai_state = 5;
+		else
+			return false;
+		end
 	end
-	return true
+
+	return true;
 end
 
 function courseplay:calculateCombineOffset(self, combine)
