@@ -24,6 +24,7 @@ courseplay = {
 			hoses = {};
 		};
 	};
+	algo = {};
 };
 if courseplay.path ~= nil then
 	if not Utils.endsWith(courseplay.path, "/") then
@@ -48,6 +49,9 @@ courseplay.numActiveCoursePlayers = 0;
 
 function courseplay:initialize()
 	local fileList = {
+		"algo_helpers",
+		"algo",
+		"algo_PathFinderOnGrids",
 		"astar", 
 		"base",
 		"button", 
