@@ -33,7 +33,7 @@ function courseplay:isSprayer(workTool) -- is the tool a sprayer/spreader?
 	return workTool.cp.hasSpecializationSprayer or courseplay:isSpecialSprayer(workTool)
 end;
 function courseplay:is_sowingMachine(workTool) -- is the tool a sowing machine?
-	return workTool.cp.hasSpecializationSowingMachine;
+	return workTool.cp.hasSpecializationSowingMachine or courseplay:isSpecialSowingMachine(workTool);
 end;
 function courseplay:isFoldable(workTool) --is the tool foldable?
 	return workTool.cp.hasSpecializationFoldable or workTool.foldingParts ~= nil;
@@ -111,6 +111,9 @@ function courseplay:update_tools(self, tractor_or_implement)
 				courseplay:setMarkers(self, object);
 				self.cp.noStopOnTurn = courseplay:isBaler(object) or courseplay:is_baleLoader(object) or courseplay:isSpecialBaleLoader(object) or courseplay:isMower(object);
 				self.cp.noStopOnEdge = courseplay:isBaler(object) or courseplay:is_baleLoader(object) or courseplay:isSpecialBaleLoader(object);
+				if object.cp.hasSpecializationPlough then 
+					self.cp.hasPlough = true;
+				end;
 			end
 		elseif self.ai_mode == 8 then -- Liquid manure transfer
 			--if SpecializationUtil.hasSpecialization(RefillTrigger, object.specializations) then
@@ -139,6 +142,13 @@ function courseplay:update_tools(self, tractor_or_implement)
 
 		courseplay:setNameVariable(object);
 
+		--FRONT or BACK?
+		local implX,implY,implZ = getWorldTranslation(object.rootNode);
+		local _,_,tractorToImplZ = worldToLocal(self.rootNode, implX,implY,implZ);
+		object.cp.positionAtTractor = Utils.sign(tractorToImplZ);
+		courseplay:debug(string.format("%s: tractorToImplZ=%.4f, positionAtTractor=%d", nameNum(object), tractorToImplZ, object.cp.positionAtTractor), 6);
+
+		--ADD TO self.tippers
 		if self.ai_mode == 1 or self.ai_mode == 2 then
 			--	if object.cp.hasSpecializationTrailer then
 			if object.allowTipDischarge then
@@ -187,10 +197,13 @@ function courseplay:update_tools(self, tractor_or_implement)
 				courseplay:setMarkers(self, object)
 				self.cp.noStopOnTurn = courseplay:isBaler(object) or courseplay:is_baleLoader(object) or courseplay:isSpecialBaleLoader(object);
 				self.cp.noStopOnEdge = courseplay:isBaler(object) or courseplay:is_baleLoader(object) or courseplay:isSpecialBaleLoader(object);
+				if object.cp.hasSpecializationPlough then 
+					self.cp.hasPlough = true;
+				end;
 			end;
 			if courseplay:is_baleLoader(object) then
-				self.cp.hasBaleLoader = true
-			end
+				self.cp.hasBaleLoader = true;
+			end;
 		elseif self.ai_mode == 8 then --Liquid manure transfer
 			--if SpecializationUtil.hasSpecialization(RefillTrigger, object.specializations) then
 			tipper_attached = true
@@ -206,8 +219,10 @@ function courseplay:update_tools(self, tractor_or_implement)
 
 		if object.aiLeftMarker ~= nil and object.aiForceTurnNoBackward == true then 
 			self.cp.aiTurnNoBackward = true
-		elseif object.aiLeftMarker == nil and table.getn(object.wheels) > 0 then
+			courseplay:debug(string.format("%s: object.aiLeftMarker ~= nil and object.aiForceTurnNoBackward == true --> self.cp.aiTurnNoBackward = true", nameNum(object)), 6);
+		elseif object.aiLeftMarker == nil and table.getn(object.wheels) > 0 and object.cp.positionAtTractor <= 0 then
 			self.cp.aiTurnNoBackward = true
+			courseplay:debug(string.format("%s: object.aiLeftMarker == nil and table.getn(object.wheels) > 0 and object.cp.positionAtTractor <= 0 --> self.cp.aiTurnNoBackward = true", nameNum(object)), 6);
 		end
 		courseplay:askForSpecialSettings(self,object)
 		
@@ -750,10 +765,14 @@ function courseplay:getAutoTurnradius(self, tipper_attached)
 	--if tipper_attached and self.ai_mode == 2 then
 	if tipper_attached and (self.ai_mode == 2 or self.ai_mode == 3 or self.ai_mode == 4 or self.ai_mode == 6) then --JT: I've added modes 3, 4 & 6 - needed?
 		self.autoTurnRadius = turnRadius;
-		local n = table.getn(self.tippers);
-		if (n == 1 and self.tippers[1].attacherVehicle ~= self) or (n > 1) then
-			self.autoTurnRadius = turnRadius * 1.5;
+		local n = #(self.tippers);
+		--print(string.format("self.tippers[1].sizeLength = %s  turnRadius = %s", tostring(self.tippers[1].sizeLength),tostring( turnRadius)))
+		if n == 1 and self.tippers[1].attacherVehicle ~= self and (self.tippers[1].sizeLength > turnRadius) then
+			self.autoTurnRadius = self.tippers[1].sizeLength;
 		end;
+		if (n > 1) then
+			self.autoTurnRadius = turnRadius * 1.5;
+		end
 	end;
 
 	if self.turnRadiusAutoMode then

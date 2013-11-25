@@ -64,9 +64,12 @@ function courseplay:start(self)
 	end
 
 	-- add do working players if not already added
-	if self.working_course_player_num == nil then
-		self.working_course_player_num = courseplay:add_working_player(self)
-	end
+	if self.cp.coursePlayerNum == nil then
+		self.cp.coursePlayerNum = courseplay:addToTotalCoursePlayers(self)
+	end;
+	--add to activeCoursePlayers
+	courseplay:addToActiveCoursePlayers(self);
+
 	self.cp.backMarkerOffset = nil
 	self.cp.aiFrontMarker = nil
 
@@ -101,7 +104,7 @@ function courseplay:start(self)
 	for i,wp in pairs(self.Waypoints) do
 		local cx, cz = wp.cx, wp.cz
 
-		if self.ai_state == 0 then
+		if self.ai_state == 0 or self.ai_state == 1 then
 			dist = courseplay:distance(ctx, ctz, cx, cz)
 			if dist <= nearestpoint then
 				nearestpoint = dist
@@ -232,6 +235,11 @@ function courseplay:getCanUseAiMode(vehicle)
 				vehicle.cp.infoText = courseplay.locales.CPWrongTrailer;
 				return false;
 			end;
+		elseif mode == 7 then
+			if vehicle.isAutoCombineActivated ~= nil and vehicle.isAutoCombineActivated then
+				vehicle.cp.infoText = courseplay.locales.COURSEPLAY_NO_AUTOCOMBINE_MODE_7;
+				return false;
+			end;
 		end;
 
 	elseif mode == 4 or mode == 6 then
@@ -299,6 +307,7 @@ function courseplay:stop(self)
 	AITractor.removeCollisionTrigger(self, self);
 	self.cpTrafficCollisionIgnoreList = {}
 	self.cp.foundColli = {}
+	self.cp.inTraffic = false
 	--deactivate beacon lights
 	if self.beaconLightsActive then
 		self:setBeaconLightsVisibility(false);
@@ -332,13 +341,17 @@ function courseplay:stop(self)
 	
 	self.cp.hasBaleLoader = false;
 	self.cp.hasSowingMachine = false;
-	if self.cp.tempWpOffsetX ~= nil then
-		self.WpOffsetX = self.cp.tempWpOffsetX
-		self.cp.tempWpOffsetX = nil
+	self.cp.hasPlough = false;
+	if self.cp.tempToolOffsetX ~= nil then
+		self.cp.toolOffsetX = self.cp.tempToolOffsetX 
+		self.cp.tempToolOffsetX = nil
 	end
 
 	--reset EifokLiquidManure
 	courseplay.thirdParty.EifokLiquidManure.resetData(self);
+
+	--remove from activeCoursePlayers
+	courseplay:removeFromActiveCoursePlayers(self);
 
 	--validation: can switch ai_mode?
 	courseplay:validateCanSwitchMode(self);

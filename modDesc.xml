@@ -1,6 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no" ?>
 <modDesc descVersion="13">
-	<version>3.41.0198</version>
+	<version>3.41.0231</version>
 	<author>Jakob Tischler / Thomas Gärtner / Horoman</author>
 	<title>
 		<de>Courseplay</de>
@@ -13,32 +13,32 @@
 	<description>
 		<de>
 <![CDATA[Entwickler: Jakob Tischler, Thomas Gärtner, Horoman
-Übersetzungen: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
+Übersetzungen: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530, Cristiano Magro
 ]]>
 		</de>
 		<en>
 <![CDATA[Developers: Jakob Tischler, Thomas Gärtner, Horoman
-Translations: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
+Translations: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530, Cristiano Magro
 ]]>
 		</en>
 		<es>
 <![CDATA[Desarrolladores: Jakob Tischler, Thomas Gärtner, Horoman
-Tradduciónes: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
+Tradduciónes: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530, Cristiano Magro
 ]]>
 		</es>
 		<fr>
 <![CDATA[Développeurs: Jakob Tischler, Thomas Gärtner, Horoman
-Traductions: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
+Traductions: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530, Cristiano Magro
 ]]>
 		</fr>
 		<it>
 <![CDATA[Sviluppatori: Jakob Tischler, Thomas Gärtner, Horoman
-Traduzioni: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
+Traduzioni: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530, Cristiano Magro
 ]]>
 		</it>
 		<cz>
 <![CDATA[Vývojáři: Jakob Tischler, Thomas Gärtner, Horoman
-Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
+Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530, Cristiano Magro
 ]]>
 		</cz>
  	</description>
@@ -161,7 +161,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<it>automatico</it>
 			<cz>automaticky</cz>
 		</text>
-		<text name="CoursePlayPlayerSideLeft">
+		<text name="COURSEPLAY_LEFT">
 			<en>left</en>
 			<de>links</de>
 			<fr>gauche</fr>
@@ -169,7 +169,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<it>sinistra</it>
 			<cz>vlevo</cz>
 		</text>
-		<text name="CoursePlayPlayerSideRight">
+		<text name="COURSEPLAY_RIGHT">
 			<en>right</en>
 			<de>rechts</de>
 			<fr>droite</fr>
@@ -298,7 +298,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Typ: Schaufel befüllen und entleeren</de>
 			<fr>Type: Charger et décharger un godet</fr>
 			<es>Tipo: Cargar y descargar una pala</es>
-			<it>Modo: Fill + empty shovel</it>
+			<it>Modo: Riempi e svuota pala</it>
 			<cz>Mod: Nakladač</cz>
 		</text>
 		<text name="CourseWaitpointSet">
@@ -363,14 +363,6 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<es>Reiniciar ruta</es>
 			<it>Azzera percorso</it>
 			<cz>Odstranit orientační body</cz>
-		</text>
-		<text name="CourseGenerate">
-			<en>Generate course</en>
-			<de>Kurs generieren</de>
-			<fr>Générer la course</fr>
-			<es>Generar ruta</es>
-			<it>Genera percorso</it>
-			<cz>Generovat trasu</cz>
 		</text>
 		<text name="HudControl">
 			<en>Courseplay HUD</en>
@@ -465,7 +457,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Kurse filtern:</de>
 			<fr>Filtrer les courses:</fr>
 			<es>Filter courses:</es> <!-- !!! -->
-			<it>Filter courses:</it> <!-- !!! -->
+			<it>Filtro percorsi:</it>
 			<cz>Filter courses:</cz> <!-- !!! -->
 		</text>
 		<text name="CPcoursesFilterTitle">
@@ -473,7 +465,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Kurse: "%s"</de>
 			<fr>Courses: "%s"</fr>
 			<es>Rutas: "%s"</es>
-			<it>Percorsos: "%s"</it>
+			<it>Percorsi: "%s"</it>
 			<cz>Trasy: "%s"</cz>
 		</text>
 		<text name="CPReachedOverloadPoint">
@@ -521,7 +513,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>muss entladen werden.</de>
 			<fr>a besoin d'être vidé.</fr>
 			<es>needs to be unloaded.</es> <!-- !!! -->
-			<it>needs to be unloaded.</it> <!-- !!! -->
+			<it>necessita di essere scaricato.</it>
 			<cz>potřebuje vyložit.</cz>
 		</text>
 		<text name="CPworkToolNeedsToBeRefilled">
@@ -529,7 +521,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Gerät muss aufgefüllt werden.</de>
 			<fr>l'outil a besoin d'être rechargé.</fr>
 			<es>work tool needs to be refilled.</es> <!-- !!! -->
-			<it>work tool needs to be refilled.</it> <!-- !!! -->
+			<it>attrezzo deve essere rifornito.</it> <!-- !!! -->
 			<cz>pracovní stroj musí být doplněn.</cz>
 		</text>
 		<text name="CPUnloadBale">
@@ -835,7 +827,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<it>nessuno</it>
 			<cz>nezobrazovat</cz>
 		</text>
-		<text name="Rul">
+		<text name="COURSEPLAY_BEACON_LIGHTS">
 			<en>Beacon lights:</en>
 			<de>Rundumleuchte:</de>
 			<fr>Girophares:</fr>
@@ -843,7 +835,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<it>Lampeggianti:</it>
 			<cz>Maják:</cz>
 		</text>
-		<text name="RulMode1">
+		<text name="COURSEPLAY_BEACON_LIGHTS_MODE_1">
 			<en>only on the road</en>
 			<de>Auf der Straße</de>
 			<fr>seulement sur la route</fr>
@@ -851,7 +843,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<it>solo su strada</it>
 			<cz>zapnout jen na silnici</cz>
 		</text>
-		<text name="RulMode2">
+		<text name="COURSEPLAY_BEACON_LIGHTS_MODE_2">
 			<en>always turn on</en>
 			<de>eingeschaltet</de>
 			<fr>toujours allumés</fr>
@@ -859,7 +851,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<it>sempre accesi</it>
 			<cz>vždy zapnout</cz>
 		</text>
-		<text name="RulMode3">
+		<text name="COURSEPLAY_BEACON_LIGHTS_MODE_3">
 			<en>never turn on</en>
 			<de>ausgeschaltet</de>
 			<fr>jamais allumés</fr>
@@ -1009,7 +1001,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<fr>Attend que le niveau soit atteint</fr>
 			<es>Esperar hasta llegue al nivel de llenado</es>
 			<it>Aspettando che il livello di riempimento sia raggiunto</it>
-			<cz>Čekám než se kombajn/rezačka otočí</cz>
+			<cz>Waiting until fill level is reached</cz> <!-- !!! -->
 		</text>
 		<text name="CPnoCombineInReach">
 			<en>No combine in reach</en>
@@ -1115,28 +1107,52 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<it>Parametri</it>
 			<cz>Nastavení</cz>
 		</text>
-		<text name="CPWpOffsetX">
-			<en>horizontal offset</en>
-			<de>horiz. Versatz</de>
-			<fr>décalage latéral</fr>
-			<es>Mov. horizontal</es>
-			<it>distanza orizzontale</it>
-			<cz>Horiz. posunutí:</cz>
+		<text name="COURSEPLAY_LANE_OFFSET">
+			<en>Lane offset</en>
+			<de>Bahnversatz</de>
+			<fr>Décalage de la voie</fr>
+			<es>Mov. de la calzada</es>
+			<it>Distanza corsia</it>
+			<cz>Lane offset</cz> <!-- !!! -->
 		</text>
-		<text name="CPWpOffsetZ">
-			<en>vertical offset</en>
-			<de>vertik. Versatz</de>
-			<fr>décalage Av/Ar</fr>
-			<es>Mov. vertical</es>
-			<it>distanza verticale</it>
-			<cz>Vertik. posunutí:</cz>
+		<text name="COURSEPLAY_TOOL_OFFSET_X">
+			<en>Tool offset horizontal</en>
+			<de>Gerät-Versatz (horizontal)</de>
+			<fr>Outil: décalage latéral</fr>
+			<es>Herramienta: mov. horiz.</es>
+			<it>Utensile: distanza orizz.</it>
+			<cz>Horiz. posunutí nástroje</cz>
 		</text>
-		<text name="CPWorkingWidht">
-			<en>working width</en>
+		<text name="COURSEPLAY_TOOL_OFFSET_Z">
+			<en>Tool offset vertical</en>
+			<de>Gerät-Versatz (vertikal)</de>
+			<fr>Outil: décalage av/ar</fr>
+			<es>Herramienta: mov. vert.</es>
+			<it>Utensile: distanza vert.</it>
+			<cz>Vertik. posunutí nástroje</cz>
+		</text>
+		<text name="COURSEPLAY_FRONT">
+			<en>front</en>
+			<de>vorne</de>
+			<fr>avant</fr>
+			<es>delante</es>
+			<it>anteriore</it>
+			<cz>přední</cz>
+		</text>
+		<text name="COURSEPLAY_BACK">
+			<en>back</en>
+			<de>hinten</de>
+			<fr>arrière</fr>
+			<es>detrás</es>
+			<it>posteriore</it>
+			<cz>zadní</cz>
+		</text>
+		<text name="COURSEPLAY_WORK_WIDTH">
+			<en>Working width</en>
 			<de>Arbeitsbreite</de>
-			<fr>largeur de travail</fr>
-			<es>ancho de trabajo</es>
-			<it>larghezza di lavoro</it>
+			<fr>Largeur de travail</fr>
+			<es>Ancho de trabajo</es>
+			<it>Larghezza di lavoro</it>
 			<cz>Pracovní šířka:</cz>
 		</text>
 		<text name="CPWaterDrive">
@@ -1202,73 +1218,84 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>Course generation</en>
 			<es>Generación de una ruta</es>
 			<fr>Génération d'une course</fr>
-			<it>Course generation</it> <!-- !! IT -->
+			<it>Generazione percorso</it>
 			<cz>Generovat trasu</cz>
 		</text>
 		<text name="CPstartingCorner">
 			<en>Starting corner</en>
 			<de>Startecke</de>
 			<fr>Coin de départ</fr>
+			<it>Angolo di partenza</it>
 			<cz>Počáteční roh:</cz>
 		</text>
 		<text name="CPstartingDirection">
 			<en>Starting direction</en>
 			<de>Startrichtung</de>
 			<fr>Direction de départ</fr>
+			<it>Direzione di partenza</it>
 			<cz>Směr trasy:</cz>
 		</text>
 		<text name="CPreturnToFirstPoint">
 			<en>Return to first point</en>
 			<de>Am Startpunkt enden</de>
 			<fr>Retour au depart</fr>
+			<it>Ritorna al primo punto</it>
 			<cz>Návrat na první bod:</cz>
 		</text>
 		<text name="CPcorner1">
 			<en>South-West</en>
 			<de>Südwest</de>
 			<fr>Sud-Ouest</fr>
+			<it>Sud-Ovest</it>
 			<cz>jihozápad</cz>
 		</text>
 		<text name="CPcorner2">
 			<en>North-West</en>
 			<de>Nordwest</de>
 			<fr>Nord-Ouest</fr>
+			<it>Nord-Ovest</it>
 			<cz>severozápad</cz>
 		</text>
 		<text name="CPcorner3">
 			<en>North-East</en>
 			<de>Nordost</de>
 			<fr>Nord-Est</fr>
+			<it>Nord-Est</it>
 			<cz>severovýchod</cz>
 		</text>
 		<text name="CPcorner4">
 			<en>South-East</en>
 			<de>Südost</de>
 			<fr>Sud-Est</fr>
+			<it>Sud-Est</it>
 			<cz>jihovýchod</cz>
 		</text>
 		<text name="CPdirection1">
 			<en>North</en>
 			<de>Norden</de>
 			<fr>Nord</fr>
+			<it>Nord</it>	
 			<cz>sever</cz>
 		</text>
 		<text name="CPdirection2">
 			<en>East</en>
 			<de>Osten</de>
 			<fr>Est</fr>
+			<it>Est</it>		
 			<cz>východ</cz>
 		</text>
 		<text name="CPdirection3">
 			<en>South</en>
 			<de>Süden</de>
 			<fr>Sud</fr>
+			<it>Sud</it>			
 			<cz>jih</cz>
 		</text>
 		<text name="CPdirection4">
 			<en>West</en>
 			<de>Westen</de>
 			<fr>Ouest</fr>
+			<it>Ovest</it>
 			<cz>západ</cz>
 		</text>
 		<text name="CPheadland">
@@ -1284,7 +1311,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>lane</en>
 			<es>carril</es>
 			<fr>voie</fr>
-			<it>corsia</it> <!-- !!! -->
+			<it>corsia</it>
 			<cz>pruh</cz>
 		</text>
 		<text name="CPheadlandLanes">
@@ -1292,7 +1319,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>lanes</en>
 			<es>carriles</es>
 			<fr>voies</fr>
-			<it>corsie</it> <!-- !!! -->
+			<it>corsie</it>
 			<cz>pruhy</cz>
 		</text>
 		<text name="CPactivated">
@@ -1316,7 +1343,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>before</en>
 			<es>antes</es>
 			<fr>avant</fr>
-			<it>prima</it> <!-- !!! -->
+			<it>prima</it>
 			<cz>před</cz>
 		</text>
 		<text name="CPafter">
@@ -1324,7 +1351,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>after</en>
 			<es>después</es>
 			<fr>après</fr>
-			<it>dopo</it> <!-- !!! -->
+			<it>dopo</it>
 			<cz>po</cz>
 		</text>
 
@@ -1341,7 +1368,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>Unloading on field</en>
 			<es>Unloading on field</es> <!-- !!! -->
 			<fr>Déchargement aux champs</fr> <!-- !!! -->
-			<it>Unloading on field</it> <!-- !!! -->
+			<it>Scaricando sul campo</it>
 			<cz>Unloading on field</cz> <!-- !!! -->
 		</text>
 		<text name="CPautomatic">
@@ -1390,7 +1417,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>Course is not valid</en>
 			<fr>La course n'est pas valide</fr>
 			<es>El curso no es válida</es>
-			<it>Il percorso non è valida</it>
+			<it>Il percorso non è valido</it>
 			<cz>Trasa není platná</cz>
 		</text>
 		<text name="CPNoShovel">
@@ -1398,7 +1425,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>keine Schaufel vorhanden</de>
 			<fr>Pas de godet trouvée</fr>
 			<es>Falta una pala</es>
-			<it>No shovel could be found</it> <!-- !! -->
+			<it>Pala non trovata</it>
 			<cz>Lžíce nenalezena</cz>
 		</text>
 		<text name="CPShovelPositions">
@@ -1406,7 +1433,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Schaufelstellung</de>
 			<fr>Positions de la pelle</fr>
 			<es>Posiciónes de la pala</es>
-			<it>Shovel positions</it> <!-- !! -->
+			<it>Posizioni della pala</it>
 			<cz>Pozice lžíce:</cz>
 		</text>
 		<text name="CPAssignShovel">
@@ -1414,7 +1441,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Es fehlen Schaufelstellungen</de>
 			<fr>Il faux unes positions du godet</fr>
 			<es>Faltan unas posiciónes de la pala</es>
-			<it>Missing shovel positions</it> <!-- !! -->
+			<it>Mancano le posizioni della pala</it>
 			<cz>Chybí pozice lžíce</cz>
 		</text>
 		<text name="setLoad">
@@ -1422,7 +1449,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Position "Beladen"</de>
 			<fr>Position charger</fr>
 			<es>Posición cargar</es>
-			<it>Loading position</it> <!-- !! -->
+			<it>Posizione di caricamento</it>
 			<cz>Pozice lžíce při nakládání:</cz>
 		</text>
 		<text name="setTransport">
@@ -1430,7 +1457,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Position "Transport"</de>
 			<fr>Position transporter</fr>
 			<es>Posición transportar</es>
-			<it>Transport position</it> <!-- !! -->
+			<it>Posizione di trasporto</it>
 			<cz>Pozice lžíce při převozu:</cz>
 		</text>
 		<text name="setPreUnload">
@@ -1438,7 +1465,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Position "vor Abladen"</de>
 			<fr>Position avant de décharger</fr>
 			<es>Posición antes de descargar</es>
-			<it>Pre-unloading position</it> <!-- !! -->
+			<it>Posizione di Pre-caricamento</it>
 			<cz>Pozice lžíce před vykládáním:</cz>
 		</text>
 		<text name="setUnload">
@@ -1446,7 +1473,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<de>Position "Abladen"</de>
 			<fr>Position décharger</fr>
 			<es>Posición descargar</es>
-			<it>Unloading position</it> <!-- !! -->
+			<it>Posizione di scaricamento</it>
 			<cz>Pozice lžíce při vykládání:</cz>
 		</text>
 		<text name="cpShovelStopAndGo">
@@ -1454,7 +1481,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>Stop + go loading</en>
 			<es>Stop + go loading</es> <!-- !! -->
 			<fr>Arreter et aller charger</fr>
-			<it>Stop + go loading</it> <!-- !! -->
+			<it>Caricamento Stop + go</it>
 			<cz>Zastavit a jet nákládat:</cz>
 		</text>
 
@@ -1487,7 +1514,7 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>Field edge path</en>
 			<es>Camino de aristas del campo</es> <!-- !!! -->
 			<fr>Voie de bord de champ</fr>
-			<it>Percorso bordo di campo</it> <!-- !!! -->
+			<it>Percorso bordo del campo</it>
 			<cz>Pole cesta na okraji</cz> <!-- !!! -->
 		</text>
 		<text name="CPfield">
@@ -1495,8 +1522,48 @@ Překlady: [CZ] Albi, [ES] JFMtb, [FR] Guillaume Dupuy, [IT] JD7530
 			<en>Field</en>
 			<es>Campo</es> <!-- !!! -->
 			<fr>Champ</fr>
-			<it>Camp</it> <!-- !!! -->
+			<it>Campo</it>
 			<cz>Pole</cz> <!-- !!! -->
+		</text>
+		<text name="COURSEPLAY_HOSEMISSING">
+			<de>Schlauch fehlt - Befüllung abgebrochen</de>
+			<en>No hose could be found - cancel refill</en>
+			<es>Falta una manguera - cancelar la recarga</es>
+			<fr>Manque un tuyau - annuler la recharge</fr> <!-- !!! -->
+			<it>Manca un tubo - annullare la ricarica</it> <!-- !!! -->
+			<cz>No hose could be found - cancel refill</cz> <!-- !!! -->
+		</text>
+		<text name="COURSEPLAY_SYMMETRIC_LANE_CHANGE">
+			<de>Symmetrischer Bahnwechsel</de>
+			<en>Symmetric lane change</en>
+			<es>Cambio de carril simétrico</es>
+			<fr>Changement de voie symétrique</fr>
+			<it>Cambio di corsia simmetrica</it>
+			<cz>Symmetric lane change</cz> <!-- !!! -->
+		</text>
+		<text name="COURSEPLAY_DRIVERPRIOTITY">
+			<de>Abfahrer-Priorität</de>
+			<en>Driver priority</en>
+			<es>Prioridad del conductor</es>
+			<fr>Priorité du chauffeur</fr>
+			<it>Priorità dell'autista</it>
+			<cz>Priority odvozce</cz>
+		</text>
+		<text name="COURSEPLAY_FILLEVEL">
+			<en>fill level</en>
+			<de>Füllstand</de>
+			<fr>niveau de remplissage</fr>
+			<es>nivel de llenado</es>
+			<it>livello di riempimento</it>
+			<cz>vyplnit úrovně</cz>
+		</text>
+		<text name="COURSEPLAY_NO_AUTOCOMBINE_MODE_7">
+			<en>AutoCombine is not supported</en>
+			<de>AutoCombine wird nicht unterstützt</de>
+			<fr>AutoCombine n'est pas supporté</fr> <!-- !!! -->
+			<es>AutoCombine no está soportado</es> <!-- !!! -->
+			<it>AutoCombine non è supportato</it> <!-- !!! -->
+			<cz>AutoCombine není podporován</cz> <!-- !!! -->
 		</text>
 
 

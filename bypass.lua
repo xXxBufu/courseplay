@@ -5,7 +5,7 @@ function courseplay:isTheWayToTargetFree(self,lx,lz)
 		lx = -0.5;
 	end;
 	local distance = 20
-	local heigth = 0.5
+	local heigth = 0.25
 	local tx, ty, tz = localToWorld(self.cp.DirectionNode,0,heigth,4)
 	local nx, _, nz = localDirectionToWorld(self.cp.DirectionNode, lx, 0, lz)
 	local terrainHeight = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, tx+(nx*distance), 0, tz+(nz*distance))
@@ -71,6 +71,7 @@ end
 function courseplay:AnalyseRaycastResponse(self,side,transformId, x, y, z, distance)
 	if courseplay.debugChannels[3] then drawDebugPoint(x, y, z, 1, 1, 1, 1) end;
 	local parent = getParent(transformId)
+	local parentParent = getParent(parent)
 	local vehicle = g_currentMission.nodeToVehicle[transformId];
 	if vehicle == nil then
 		vehicle = g_currentMission.nodeToVehicle[parent]
@@ -80,17 +81,21 @@ function courseplay:AnalyseRaycastResponse(self,side,transformId, x, y, z, dista
 	if side == "left" then
 		sideFactor = -1
 	end
-	--print("found : "..tostring(transformId).." terrain root: "..tostring(g_currentMission.terrainRootNode).."	self.rootNode: "..tostring(self.rootNode).."	parent: "..tostring(parent).."	self.active_combine.rootNode: "..tostring(self.active_combine.rootNode).."  self.cpTrafficCollisionIgnoreList: "..tostring(self.cpTrafficCollisionIgnoreList[transformId] or self.cpTrafficCollisionIgnoreList[parent]))	
+	
 	if transformId == g_currentMission.terrainRootNode or parent == g_currentMission.terrainRootNode 
-	or (self.active_combine ~= nil and (self.active_combine.rootNode == transformId or self.active_combine.rootNode == parent))
-	or self.cpTrafficCollisionIgnoreList[transformId] or self.cpTrafficCollisionIgnoreList[parent]
+	or (self.active_combine ~= nil and (self.active_combine.rootNode == transformId or self.active_combine.rootNode == parent or self.active_combine.rootNode == parentParent ))
+	or self.cpTrafficCollisionIgnoreList[transformId] or self.cpTrafficCollisionIgnoreList[parent] or self.cpTrafficCollisionIgnoreList[parentParent]
 	or (self.cp.foundColli ~= nil and table.getn(self.cp.foundColli) > 0 and (self.cp.foundColli[1].id == transformId 
 									      or (self.cp.foundColli[1].vehicleId ~= nil and vehicleId ~= nil
 									      and self.cp.foundColli[1].vehicleId == vehicle.id)))
 	then
 		return true
 	end
-	courseplay:debug(nameNum(self) .. ": set \"self.cp.foundColli\"",3)
+	if self.active_combine ~= nil then
+		courseplay:debug(nameNum(self) .."found : "..tostring(getName(transformId)).."["..tostring(transformId).."]	self.rootNode: "..tostring(self.rootNode).."	parent: "..tostring(parent).."	self.active_combine.rootNode: "..tostring(self.active_combine.rootNode).."  self.cpTrafficCollisionIgnoreList: "..tostring(self.cpTrafficCollisionIgnoreList[transformId] or self.cpTrafficCollisionIgnoreList[parent]),3)	
+	else
+		courseplay:debug(nameNum(self) .."found : "..tostring(getName(transformId)).."["..tostring(transformId).."]	self.rootNode: "..tostring(self.rootNode).."	parent: "..tostring(parent).."  self.cpTrafficCollisionIgnoreList: "..tostring(self.cpTrafficCollisionIgnoreList[transformId] or self.cpTrafficCollisionIgnoreList[parent]),3)	
+	end
 	self.cp.foundColli ={}
 	self.cp.foundColli[1] = {}
 	self.cp.foundColli[1].x = x

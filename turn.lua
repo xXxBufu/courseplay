@@ -97,6 +97,7 @@ function courseplay:turn(self, dt) --!!!
 					self.cp.isTurning = nil 
 					self.cp.waitForTurnTime = self.time + turnOutTimer; 
 				end;
+
 			elseif self.cp.turnStage == 6 then
 				self.turnStageTimer = self.turnStageTimer - dt;
 				if self.turnStageTimer < 0 then
@@ -131,13 +132,11 @@ function courseplay:turn(self, dt) --!!!
 				self.aiTractorTurnLeft = false;
 			else
 				self.aiTractorTurnLeft = true;
-			end
-			if self.WpOffsetX ~= nil and self.WpOffsetZ ~= nil and (self.WpOffsetX ~= 0 or self.WpOffsetZ ~= 0 ) then
+			end;
+			local cx,cz = self.Waypoints[self.recordnumber+1].cx, self.Waypoints[self.recordnumber+1].cz;
+			if (self.cp.laneOffset ~= nil and self.cp.laneOffset ~= 0) or (self.cp.toolOffsetX ~= nil and self.cp.toolOffsetX ~= 0) then
 				cx,cz = courseplay:turnWithOffset(self)
-			else
-				cx = self.Waypoints[self.recordnumber+1].cx		
-				cz = self.Waypoints[self.recordnumber+1].cz
-			end
+			end;
 			newTargetX = cx
 			newTargetY = y;
 			newTargetZ = cz
@@ -158,7 +157,7 @@ function courseplay:turn(self, dt) --!!!
 			updateWheels = false;
 		end;
 	else
-		local offset = Utils.getNoNil(self.WpOffsetX ,0)
+		local offset = Utils.getNoNil(self.cp.totalOffsetX, 0)
 		local x,y,z = localToWorld(self.rootNode, offset, 0, backMarker)
 		local dist = courseplay:distance(self.Waypoints[self.recordnumber].cx, self.Waypoints[self.recordnumber].cz, x, z)
 		if self.grainTankCapacity ~= nil then
@@ -289,10 +288,26 @@ function courseplay:lowerImplements(self, direction, workToolonOff)
 	end
 end
 function courseplay:turnWithOffset(self)
+	--SYMMETRIC LANE CHANGE
+	if self.cp.symmetricLaneChange then
+		if self.cp.switchLaneOffset then
+			courseplay:changeLaneOffset(self, nil, self.cp.laneOffset * -1);
+			self.cp.switchLaneOffset = false;
+			courseplay:debug(string.format("%s: cp.turnStage == 1, switchLaneOffset=true -> new laneOffset=%.1f, new totalOffset=%.1f, set switchLaneOffset to false", nameNum(self), self.cp.laneOffset, self.cp.totalOffsetX), 12);
+		end;
+	end;
+	--TOOL OFFSET TOGGLE
+	if self.cp.hasPlough then
+		if self.cp.switchToolOffset then
+			courseplay:changeToolOffsetX(self, nil, self.cp.toolOffsetX * -1, true);
+			self.cp.switchToolOffset = false;
+			courseplay:debug(string.format("%s: cp.turnStage == 1, switchToolOffset=true -> new toolOffset=%.1f, new totalOffset=%.1f, set switchToolOffset to false", nameNum(self), self.cp.toolOffsetX, self.cp.totalOffsetX), 12);
+		end;
+	end;
+
 	local curPoint = self.Waypoints[self.recordnumber+1]
-	local cx = curPoint.cx;
-	local cz = curPoint.cz;
-	local offsetX = self.WpOffsetX
+	local cx, cz = curPoint.cx, curPoint.cz;
+	local offsetX = self.cp.totalOffsetX
 	if curPoint.turnEnd and curPoint.laneDir ~= nil then
 		local dir = curPoint.laneDir;
 		local turnDir = curPoint.turn;

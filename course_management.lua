@@ -1,4 +1,4 @@
--- saving // loading courses
+﻿-- saving // loading courses
 
 -- enables input for course name
 function courseplay:showSaveCourseForm(self, saveWhat)
@@ -942,7 +942,9 @@ function courseplay.courses.delete_save_all(self)
 			local file = io.open(savegame.savegameDirectory .. "/courseplay.xml", "w");
 			if file ~= nil then
 				local node_xml, conn_xml;
-				file:write('<?xml version="1.0" encoding="utf-8" standalone="no" ?>\n<XML>\n\t<courseplayHud posX="' .. courseplay:round(courseplay.hud.infoBasePosX, 3) .. '" posY="' .. courseplay:round(courseplay.hud.infoBasePosY, 3) .. '" />\n');
+				file:write('<?xml version="1.0" encoding="utf-8" standalone="no" ?>\n<XML>\n');
+				file:write('\t<courseplayHud posX="' .. courseplay:round(courseplay.hud.infoBasePosX, 3) .. '" posY="' .. courseplay:round(courseplay.hud.infoBasePosY, 3) .. '" />\n');
+				file:write('\t<courseplayGlobalInfoText posX="' .. courseplay:round(courseplay.globalInfoText.posX, 3) .. '" posY="' .. courseplay:round(courseplay.globalInfoText.posY, 3) .. '" />\n');
 				
 				file:write('\t<folders>\n')
 				for i,folder in pairs(g_currentMission.cp_folders) do
@@ -1406,9 +1408,13 @@ function courseplay.courses.reload(vehicle)
 		else
 			local parent
 			local courses, folders = {}, {}
+			local searchTermClean = courseplay:normalizeUTF8(vehicle.cp.hud.filter);
+			courseplay:debug(string.format("%s: [filter] searchTermClean = %q", nameNum(vehicle), tostring(searchTermClean)), 8);
+
 			-- filter courses
 			for k, course in pairs(g_currentMission.cp_courses) do
-				if string.match(course.name, vehicle.cp.hud.filter) ~= nil then
+				if string.match(course.nameClean, searchTermClean) ~= nil then
+					courseplay:debug(string.format("\tmatch: course.nameClean=%q / searchTermClean = %q", tostring(course.nameClean), tostring(searchTermClean)), 8);
 					courses[k] = course
 					-- add parents
 					parent = course.parent

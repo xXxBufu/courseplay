@@ -253,6 +253,10 @@ end;
 
 ------------------------------------------------------------------------------------------
 
+function courseplay:isSpecialSowingMachine(workTool)
+	return workTool.cp.hasSpecializationSowingMachineWithTank;
+end;
+
 function courseplay:isSpecialSprayer(workTool)
 	return workTool.cp.isAbbeySprayerPack;
 end;
@@ -559,10 +563,10 @@ function courseplay:handleSpecialTools(self,workTool,unfold,lower,turnOn,allowed
 				workTool.crabSteerMode = workTool.cp.crabSteerMode
 				if ridgeMarker == 1 then
 					workTool.HGdirection = 1;
-					self.WpOffsetX = 3
+					self.cp.toolOffsetX = 3
 				elseif ridgeMarker == 2 then
 					workTool.HGdirection = -1;
-					self.WpOffsetX = -3
+					self.cp.toolOffsetX = -3
 				end
 			end
 		end
@@ -936,7 +940,7 @@ function courseplay:handleSpecialTools(self,workTool,unfold,lower,turnOn,allowed
 end
 function courseplay:askForSpecialSettings(self,object)
 	local offsetChanged = false
-	local tempOffset = self.WpOffsetX
+	local tempOffset = self.cp.toolOffsetX
 	if self.cp.isWeidemann4270CX100T  then
 		local frontPart_vis = getParent(self.movingTools[1].node)
 		local frontPart = getParent(frontPart_vis)
@@ -985,7 +989,7 @@ function courseplay:askForSpecialSettings(self,object)
 		self.cp.aiTurnNoBackward = true
 		self.cp.noStopOnEdge = true
 		self.cp.noStopOnTurn = true
-		self.WpOffsetX = -2.4
+		self.cp.toolOffsetX = -2.4
 		offsetChanged = true
 		object.cp.inversedFoldDirection = true
 
@@ -1000,27 +1004,27 @@ function courseplay:askForSpecialSettings(self,object)
 		object.cp.tankerId = 0
 	elseif object.cp.isGrimmeSE7555 then
 		self.cp.aiTurnNoBackward = true
-		self.WpOffsetX = -2.1
+		self.cp.toolOffsetX = -2.1
 		offsetChanged = true
 		print("Grimme SE 75-55 workwidth: 1 m");
 	elseif object.cp.isGrimmeRootster604 then
 		self.cp.aiTurnNoBackward = true
-		self.WpOffsetX = -0.9
+		self.cp.toolOffsetX = -0.9
 		offsetChanged = true
 		print("Grimme Rootster 604 workwidth: 2.8 m");
 	elseif object.cp.isPoettingerMex6 then
 		self.cp.aiTurnNoBackward = true
-		self.WpOffsetX = -2.5
+		self.cp.toolOffsetX = -2.5
 		offsetChanged = true
 		print("Pöttinger Mex 6 workwidth: 2.0 m");
 	elseif object.cp.isAbbeyAP900 then
 		self.cp.aiTurnNoBackward = true
-		self.WpOffsetX = -4.1
+		self.cp.toolOffsetX = -4.1
 		offsetChanged = true
 		print("Abbey AP900 workwidth: 5.8 m");
 	elseif object.cp.isJF1060 then
 		self.cp.aiTurnNoBackward = true
-		self.WpOffsetX = -2.5
+		self.cp.toolOffsetX = -2.5
 		offsetChanged = true
 	elseif object.cp.isClaasConspeedSFM or object.cp.isCaseIH3162Cutter then
 		object.cp.inversedFoldDirection = true;
@@ -1028,13 +1032,13 @@ function courseplay:askForSpecialSettings(self,object)
 		self.cp.aiTurnNoBackward = true
 		self.cp.noStopOnEdge = true
 		self.cp.noStopOnTurn = true
-		self.WpOffsetX = -2.5
+		self.cp.toolOffsetX = -2.5
 		offsetChanged = true
 	elseif object.cp.isSilageShield then
 		self.cp.hasShield = true
 	end
 	if offsetChanged then
-		self.cp.tempWpOffsetX = tempOffset
+		self.cp.tempToolOffsetX = tempOffset
 	end
 end
 
@@ -1045,6 +1049,7 @@ function courseplay:handleSpecialSprayer(self, activeTool, fill_level, driveOn, 
 
 	--Zunhammer 18500 PU [Eifok Team]
 	if activeTool.cp.isEifokZunhammer18500PU then
+		--courseplay:debug(string.format("\t%s handleSpecialSprayer() start - allowedToDrive==%s", nameNum(activeTool), tostring(allowedToDrive)), 14);
 		if vehicle.cp.EifokLiquidManure.searchMapHoseRefStation[pumpDir] and vehicle.cp.EifokLiquidManure.targetRefillObject[pumpDir] == nil and not isDone then
 			courseplay.thirdParty.EifokLiquidManure.findRefillObject(vehicle, activeTool, "MapHoseRefStation", pumpDir); --find MapHoseRefStations
 		end;
@@ -1070,6 +1075,7 @@ function courseplay:handleSpecialSprayer(self, activeTool, fill_level, driveOn, 
 			allowedToDrive = courseplay.thirdParty.EifokLiquidManure.refillAtLiquidManureTrigger(vehicle, activeTool, fill_level, driveOn, allowedToDrive, lx, lz, dt);
 		end;
 
+		--courseplay:debug(string.format("\t%s handleSpecialSprayer() end - allowedToDrive==%s", nameNum(activeTool), tostring(allowedToDrive)), 14);
 		return true, allowedToDrive, lx, lz;
 
 	--Kotte Zubringer [Eifok Team]
@@ -1128,7 +1134,9 @@ function courseplay:handleSpecialSprayer(self, activeTool, fill_level, driveOn, 
 						fz = -fz
 						if fz > 15 then
 							if self.lastSpeedReal > 20/3600 then
-								courseplay:brakeToStop(self)
+								if allowedToDrive then
+									allowedToDrive = courseplay:brakeToStop(self)
+								end;
 							else
 								self.cp.maxFieldSpeed = 10/3600
 							end
@@ -1380,6 +1388,7 @@ function courseplay.thirdParty.EifokLiquidManure.findRefillObject(vehicle, activ
 	end;
 end;
 function courseplay.thirdParty.EifokLiquidManure.refillViaHose(vehicle, activeTool, fill_level, driveOn, allowedToDrive, lx, lz, dt, pumpDir)
+	--courseplay:debug(string.format("\t%s refillViaHose() start - allowedToDrive==%s", nameNum(activeTool), tostring(allowedToDrive)), 14);
 	if vehicle.cp.EifokLiquidManure.targetRefillObject[pumpDir] ~= nil then --object found
 		local targetRefillObject = vehicle.cp.EifokLiquidManure.targetRefillObject[pumpDir];
 		local object, type, closestWaypoint, side, containerSide = targetRefillObject.object, targetRefillObject.type, targetRefillObject.closestWaypoint, targetRefillObject.side, targetRefillObject.containerSide;
@@ -1397,14 +1406,15 @@ function courseplay.thirdParty.EifokLiquidManure.refillViaHose(vehicle, activeTo
 
 		local proceedWithFilling = false;
 		if type == "MapHoseRefStation" and closestWaypoint ~= nil then
-			if vehicle.recordnumber >= closestWaypoint - 1 and vehicle.recordnumber < closestWaypoint + 4 then
+			if vehicle.recordnumber >= closestWaypoint - 1 and vehicle.recordnumber <= closestWaypoint + 4 then
 				--SLOW DOWN
 				if not isDone then 
 					if vehicle.lastSpeedReal > 15/3600 then
-						courseplay:brakeToStop(vehicle);
+						if allowedToDrive then
+							allowedToDrive = courseplay:brakeToStop(vehicle);
+						end;
 					elseif vehicle.lastSpeedReal > 5/3600 then
 						vehicle.cp.maxFieldSpeed = 5/3600;
-						--courseplay:debug(string.format("%s: set maxFieldSpeed to 5/3600", nameNum(activeTool)), 14);
 					end;
 				end;
 
@@ -1443,7 +1453,7 @@ function courseplay.thirdParty.EifokLiquidManure.refillViaHose(vehicle, activeTo
 			courseplay.thirdParty.EifokLiquidManure.findHoseToUse(vehicle, activeTool, object, correctSideRef, otherSideRef, checkOrder, side, pumpDir);
 
 			if vehicle.cp.EifokLiquidManure.hoseToUse == nil then
-				vehicle.cp.infoText = "No hose could be found - cancel refill";
+				courseplay:setGlobalInfoText(vehicle, courseplay.locales.COURSEPLAY_HOSEMISSING, -2);
 				return false;
 
 			--GO FOR GLORY
@@ -1453,6 +1463,7 @@ function courseplay.thirdParty.EifokLiquidManure.refillViaHose(vehicle, activeTo
 		end; --END if proceedWithFilling
 	end;
 
+	--courseplay:debug(string.format("\t%s refillViaHose() end - allowedToDrive==%s", nameNum(activeTool), tostring(allowedToDrive)), 14);
 	return allowedToDrive;
 end;
 function courseplay.thirdParty.EifokLiquidManure.findHoseToUse(vehicle, activeTool, object, correctSideRef, otherSideRef, checkOrder, side, pumpDir) --TODO: delete checkOrder, side from variables, as they're only needed for debug
@@ -1486,6 +1497,7 @@ function courseplay.thirdParty.EifokLiquidManure.findHoseToUse(vehicle, activeTo
 	end;
 end;
 function courseplay.thirdParty.EifokLiquidManure.connectRefillDisconnect(vehicle, activeTool, allowedToDrive, vehicleConnectionRef, correctSideRef, isDone, pumpDir)
+	--courseplay:debug(string.format("\t%s connectRefillDisconnect() start - allowedToDrive==%s", nameNum(activeTool), tostring(allowedToDrive)), 14);
 	local targetRefillObject = vehicle.cp.EifokLiquidManure.targetRefillObject[pumpDir];
 	local object, type, closestWaypoint, side, containerSide = targetRefillObject.object, targetRefillObject.type, targetRefillObject.closestWaypoint, targetRefillObject.side, targetRefillObject.containerSide;
 
@@ -1510,7 +1522,7 @@ function courseplay.thirdParty.EifokLiquidManure.connectRefillDisconnect(vehicle
 	distVehConnToOtherConn = Utils.vector3Length(vehConnX - tx, vehConnY - ty, vehConnZ - tz);
 
 	if distVehConnToOtherConn <= maxConnectionDistance then
-		allowedToDrive = false; --TODO: only continue if speed == 0
+		local tmpAllowedToDrive = false;
 
 		if not isDone then
 			--DETACH HOSE FROM PARK
@@ -1574,9 +1586,9 @@ function courseplay.thirdParty.EifokLiquidManure.connectRefillDisconnect(vehicle
 				local iAmFull  = activeTool.fillLevel == activeTool.capacity;
 				local iAmEmpty = activeTool.fillLevel == 0;
 				if pumpDir == "push" then
-					print(string.format("\t%s isDone=true, iAmEmpty=%s, objectIsFull=%s -> call stopAndDisconnect()", nameNum(activeTool), tostring(iAmEmpty), tostring(objectIsFull)));
+					courseplay:debug(string.format("\t%s isDone=true, iAmEmpty=%s, objectIsFull=%s -> call stopAndDisconnect()", nameNum(activeTool), tostring(iAmEmpty), tostring(objectIsFull)), 14);
 				else
-					print(string.format("\t%s isDone=true, iAmFull=%s, objectIsEmpty=%s -> call stopAndDisconnect()", nameNum(activeTool), tostring(iAmFull), tostring(objectIsEmpty)));
+					courseplay:debug(string.format("\t%s isDone=true, iAmFull=%s, objectIsEmpty=%s -> call stopAndDisconnect()", nameNum(activeTool), tostring(iAmFull), tostring(objectIsEmpty)), 14);
 				end;
 			end;
 			courseplay.thirdParty.EifokLiquidManure.stopAndDisconnect(vehicle, activeTool, hoseTargetType, object, hose, correctSideRef);
@@ -1584,11 +1596,17 @@ function courseplay.thirdParty.EifokLiquidManure.connectRefillDisconnect(vehicle
 			--ALLOW DRIVING
 			if (vehicle.cp.EifokLiquidManure.leaveHoseAtStation and hose.ctors[sId1][hoseTargetType] == object and hose.ctors[sId2].veh == 0) or (not vehicle.cp.EifokLiquidManure.leaveHoseAtStation and hose.ctors[sId1].isAttached and hose.ctors[sId1].veh == activeTool) then --disconnected from connRef OR connected to vehicle (park)
 				courseplay.thirdParty.EifokLiquidManure.resetData(vehicle, pumpDir, pumpDir, false);
-				allowedToDrive = true;
+				tmpAllowedToDrive = true;
 			end;
 		end; --END isDone
+
+		if not tmpAllowedToDrive then
+			allowedToDrive = false;
+			--courseplay:debug(string.format("\t%s tmpAllowedToDrive==false --> allowedToDrive=false", nameNum(activeTool)), 14);
+		end;
 	end; --END distVehConnToOtherConn <= maxConnectionDistance
 
+	--courseplay:debug(string.format("\t%s connectRefillDisconnect() end - allowedToDrive==%s", nameNum(activeTool), tostring(allowedToDrive)), 14);
 	return allowedToDrive;
 end;
 function courseplay.thirdParty.EifokLiquidManure.stopAndDisconnect(vehicle, activeTool, hoseTargetType, object, hose, correctSideRef)

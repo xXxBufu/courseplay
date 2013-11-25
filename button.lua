@@ -11,7 +11,7 @@ function courseplay:register_button(self, hudPage, img, function_to_call, parame
 		hoverText = false;
 	end;
 
-	button = { 
+	local button = { 
 		page = hudPage, 
 		overlay = overlay, 
 		overlays = { overlay }, 
@@ -111,11 +111,17 @@ function courseplay:renderButton(self, button)
 				button.canScrollDown = self.unload_speed >  3/3600;
 			end;
 
-		elseif pg == 7 then
+		elseif pg == 6 then
 			if fn == "change_wait_time" then
-				button.canScrollUp =   true;
-				button.canScrollDown = self.waitTime > 0;
-			elseif fn == "changeWpOffsetX" or fn == "changeWpOffsetZ" then
+				button.canScrollUp = not (self.ai_mode == 3 or self.ai_mode == 4 or self.ai_mode == 6 or self.ai_mode == 7);
+				button.canScrollDown = button.canScrollUp and self.waitTime > 0;
+			end;
+
+		elseif pg == 7 then
+			if fn == "changeLaneOffset" then
+				button.canScrollUp = self.ai_mode == 4 or self.ai_mode == 6;
+				button.canScrollDown = button.canScrollUp;
+			elseif fn == "changeToolOffsetX" or fn == "changeToolOffsetZ" then
 				button.canScrollUp = self.ai_mode == 3 or self.ai_mode == 4 or self.ai_mode == 6 or self.ai_mode == 7;
 				button.canScrollDown = button.canScrollUp;
 			end;
@@ -123,7 +129,7 @@ function courseplay:renderButton(self, button)
 		elseif pg == 8 then
 			if fn == "changeWorkWidth" then
 				button.canScrollUp =   true;
-				button.canScrollDown = self.toolWorkWidht > 0.1;
+				button.canScrollDown = self.cp.workWidth > 0.1;
 			end;
 
 		elseif pg == 10 then
@@ -219,11 +225,10 @@ function courseplay:renderButton(self, button)
 
 		--Page 6
 		elseif pg == 6 then
-			if fn == "setFieldEdgePath" and self.cp.selectedFieldEdgePathNumber ~= nil then
+			if fn == "change_wait_time" then
+				button.show = not (self.ai_mode == 3 or self.ai_mode == 4 or self.ai_mode == 6 or self.ai_mode == 7);
 				if prm < 0 then
-					button.show = self.cp.selectedFieldEdgePathNumber > 0;
-				elseif prm > 0 then
-					button.show = self.cp.selectedFieldEdgePathNumber < courseplay.fields.highestFieldNumber;
+					button.show = self.waitTime > 0;
 				end;
 			elseif fn == "toggleDebugChannel" then
 				button.show = prm >= courseplay.debugChannelSectionStart and prm <= courseplay.debugChannelSectionEnd;
@@ -237,9 +242,11 @@ function courseplay:renderButton(self, button)
 
 		--Page 7
 		elseif pg == 7 then
-			if fn == "change_wait_time" and prm < 0 then
-				button.show = self.waitTime > 0;
-			elseif fn == "changeWpOffsetX" or fn == "changeWpOffsetZ" then
+			if fn == "changeLaneOffset" then
+				button.show = self.ai_mode == 4 or self.ai_mode == 6;
+			elseif fn == "toggleSymmetricLaneChange" then
+				button.show = self.ai_mode == 4 or self.ai_mode == 6 and self.cp.laneOffset ~= 0;
+			elseif fn == "changeToolOffsetX" or fn == "changeToolOffsetZ" then
 				button.show = self.ai_mode == 3 or self.ai_mode == 4 or self.ai_mode == 6 or self.ai_mode == 7;
 			elseif fn == "switchDriverCopy" and prm < 0 then
 				button.show = self.cp.selectedDriverNumber > 0;
@@ -249,14 +256,22 @@ function courseplay:renderButton(self, button)
 
 		--Page 8
 		elseif pg == 8 then
-			if fn == "changeWorkWidth" and prm < 0 then
-				button.show = self.toolWorkWidht > 0.1;
+			if fn == "setFieldEdgePath" and self.cp.selectedFieldEdgePathNumber ~= nil then
+				if prm < 0 then
+					button.show = self.cp.selectedFieldEdgePathNumber > 0;
+				elseif prm > 0 then
+					button.show = self.cp.selectedFieldEdgePathNumber < courseplay.fields.highestFieldNumber;
+				end;
+			elseif fn == "changeWorkWidth" and prm < 0 then
+				button.show = self.cp.workWidth > 0.1;
 			elseif fn == "switchStartingDirection" then
 				button.show = self.cp.hasStartingCorner;
-			elseif fn == "setHeadlandLanes" and prm < 0 then
-				button.show = self.cp.headland.numLanes > -1;
-			elseif fn == "setHeadlandLanes" and prm > 0 then
-				button.show = self.cp.headland.numLanes <  1;
+			elseif fn == "setHeadlandLanes" then
+				if prm < 0 then
+					button.show = self.cp.headland.numLanes > -1;
+				elseif prm > 0 then
+					button.show = self.cp.headland.numLanes <  1;
+				end;
 			elseif fn == "generateCourse" then
 				button.show = self.cp.hasValidCourseGenerationData;
 			end;
@@ -375,17 +390,15 @@ end
 
 function courseplay.button.deleteButtonOverlays(vehicle)
 	for k,buttonSection in pairs(vehicle.cp.buttons) do
-		for i,buttons in pairs(buttonSection) do
-			if button.overlay ~= nil and button.overlay.overlayId ~= nil then
-				button.overlay:delete();
-			end;
+		for i,button in pairs(buttonSection) do
 			if button.overlays ~= nil then
 				for j,overlay in pairs(button.overlays) do
-					if overlay.overlayId ~= nil then
+					if overlay.overlayId ~= nil and overlay.delete ~= nil then
 						overlay:delete();
 					end;
 				end;
 			end;
+			--NOTE: deleting single overlays not necessary since all overlay in button.overlays have already been deleted.
 		end;
 	end;
 end;
