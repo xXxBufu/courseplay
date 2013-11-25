@@ -1,23 +1,14 @@
 -- inspired by fieldstatus of Alan R. (ls-uk.info: thebadtouch)
-function courseplay:area_has_fruit(x, z, fruit_type)
+function courseplay:area_has_fruit(x, z, fruit_type, widthX, widthZ)
 	if not courseplay:is_field(x, z) then
 		return false
 	end
-	local numFruits = table.getn(g_currentMission.fruits);
-	local getdenFunc = Utils.getDensity;
-	local getfruitFunc = Utils.getFruitArea;
-	local chnum = 0;
+	 
 	local density = 0
-	local startX, startZ, endX, endZ, widthX, widthZ, heightX, heightZ;
-
-	local widthX = 0.5;
-	local widthZ = 0.5;
-
-	--x = x - 2.5
-	--z = z - 2.5
+	widthX = widhtX or 0.5;
+	widthZ = widthZ or 0.5;
 	if fruit_type ~= nil then
 		density = Utils.getFruitArea(fruit_type, x, z, x - widthX, z - widthZ, x + widthX, z + widthZ);
-
 		if density > 0 then
 			--courseplay:debug(string.format("checking x: %d z %d - density: %d", x, z, density ), 3)
 			return true
@@ -25,9 +16,9 @@ function courseplay:area_has_fruit(x, z, fruit_type)
 	else
 		for i = 1, FruitUtil.NUM_FRUITTYPES do
 			if i ~= FruitUtil.FRUITTYPE_GRASS then
-
+			 
 				density = Utils.getFruitArea(i, x, z, x - widthX, z - widthZ, x + widthX, z + widthZ);
-
+				 
 				if density > 0 then
 					--courseplay:debug(string.format("checking x: %d z %d - density: %d", x, z, density ), 3)
 					return true
@@ -35,7 +26,7 @@ function courseplay:area_has_fruit(x, z, fruit_type)
 			end
 		end
 	end
-
+	 
 	--courseplay:debug(string.format(" x: %d z %d - is really cut!", x, z ), 3)
 	return false
 end
