@@ -292,6 +292,7 @@ Alternative Implementation
 -- A*: Best-First Search (Dijkstra) with lower bound --
 by Horoman 2013
 --]]
+-- todo sort the array based on the minimal possible costs over this node to the destination (instead of cost to node)
 
 -- Class to handle sorted arrays
 local SortedArrayClass = {};
