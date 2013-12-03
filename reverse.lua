@@ -4,7 +4,7 @@ function courseplay:goReverse(self,lx,lz)
 		local inverse = 1
 		local tipper = self.tippers[1]
 		local debugActive = courseplay.debugChannels[13]
-		local isNotValid = table.getn(self.tippers) == 0 or tipper.cp.inversedNodes == nil or tipper.cp.isPivot == nil or tipper.cp.frontNode == nil or self.ai_mode == 9 
+		local isNotValid = table.getn(self.tippers) == 0 or tipper.cp.inversedNodes == nil or tipper.cp.isPivot == nil or tipper.cp.frontNode == nil or self.cp.mode == 9 
 		if isNotValid then
 			return -lx,-lz,fwd
 		end
@@ -24,9 +24,30 @@ function courseplay:goReverse(self,lx,lz)
 		local frontNode = tipper.cp.frontNode
 		local xFrontNode,yFrontNode,zFrontNode = getWorldTranslation(frontNode)
 		local tipperFillLevel, tipperCapacity = self:getAttachedTrailersFillLevelAndCapacity();
-		if debugActive then drawDebugPoint(xFrontNode,yFrontNode+3,zFrontNode, 1, 0 , 0, 1)end;
 		local tcx,tcy,tcz =0,0,0
 		local index = self.recordnumber +1
+		if debugActive then drawDebugPoint(xFrontNode,yFrontNode+3,zFrontNode, 1, 0 , 0, 1)
+			if not self.cp.checkReverseValdityPrinted then
+				local checkValdity = false
+				for i=index, self.maxnumber do
+					if self.Waypoints[i].rev then 
+						tcx = self.Waypoints[i].cx
+						tcz = self.Waypoints[i].cz
+						local _,_,z = worldToLocal(node, tcx,yTipper,tcz)
+						if z*inverse < 0 then
+							checkValdity = true
+							break
+						end
+					else
+						break
+					end		
+				end
+				if not checkValdity then
+					print(nameNum(self) ..": reverse course is not valid")
+				end
+				self.cp.checkReverseValdityPrinted = true
+			end
+		end;
 		for i= index, self.maxnumber do
 			if self.Waypoints[i].rev then
 				tcx = self.Waypoints[i].cx
@@ -46,6 +67,7 @@ function courseplay:goReverse(self,lx,lz)
 		srX,srZ = self.Waypoints[self.recordnumber].cx,self.Waypoints[self.recordnumber].cz
 		local _,_,tsrZ = worldToLocal(self.rootNode,srX,yTipper,srZ)
 		if tsrZ > 0 then
+			self.cp.checkReverseValdityPrinted = false
 			self.recordnumber = self.recordnumber +1 
 		end 
 
@@ -129,7 +151,7 @@ function courseplay:goReverse(self,lx,lz)
 			drawDebugLine(xTipper,yTipper,zTipper, 1, 1, 0, xTipper+(nx*10), yTipper+(ny*10), zTipper+(nz*10), 1, 1, 0);
 		end;
 		courseplay:showDirection(self.rootNode,lx,lz)
-		if ((self.ai_mode == 1 or self.ai_mode == 2) and self.cp.tipperFillLevel == 0) or ((self.ai_mode == 4 or self.ai_mode == 6) and self.cp.tipperFillLevel == 100) then
+		if (self.cp.mode == 1 or self.cp.mode == 2 or self.cp.mode == 6) and self.cp.tipperFillLevel == 0 then
 			for i = self.recordnumber, self.maxnumber do
 				if  not self.Waypoints[i].rev then
 					local _,_,lz = worldToLocal(self.cp.DirectionNode, self.Waypoints[i].cx , y , self.Waypoints[i].cz)

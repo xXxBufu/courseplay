@@ -34,23 +34,23 @@ function courseplay:start(self)
 	end
 
 	self.CPnumCollidingVehicles = 0;
-	self.traffic_vehicle_in_front = nil
+	self.cp.collidingVehicle = nil
 	--self.numToolsCollidingVehicles = {};
 	self.drive = false
 	self.record = false
 	self.record_pause = false
-	self.calculated_course = false
+	self.cp.calculatedCourseToCombine = false
 
 	AITractor.addCollisionTrigger(self, self);
 
 	self.orig_maxnumber = self.maxnumber
-	-- set default ai_state if not in mode 2 or 3
-	if self.ai_mode ~= 2 and self.ai_mode ~= 3 then
-		self.ai_state = 0
+	-- set default modeState if not in mode 2 or 3
+	if self.cp.mode ~= 2 and self.cp.mode ~= 3 then
+		self.cp.modeState = 0
 	end
 
 	--TODO: section needed?
-	if (self.ai_mode == 4 or self.ai_mode == 6) and self.tipper_attached then
+	if (self.cp.mode == 4 or self.cp.mode == 6) and self.cp.tipperAttached then
 		local start_anim_time = self.tippers[1].startAnimTime
 		if start_anim_time == 1 then
 			self.fold_move_direction = 1
@@ -103,8 +103,7 @@ function courseplay:start(self)
 	local recordNumber = 0
 	for i,wp in pairs(self.Waypoints) do
 		local cx, cz = wp.cx, wp.cz
-
-		if self.ai_state == 0 or self.ai_state == 1 then
+		if self.cp.modeState == 0 or self.cp.modeState == 99 then
 			dist = courseplay:distance(ctx, ctz, cx, cz)
 			if dist <= nearestpoint then
 				nearestpoint = dist
@@ -118,20 +117,20 @@ function courseplay:start(self)
 		end
 
 		-- specific Workzone
-		if self.ai_mode == 4 or self.ai_mode == 6 or self.ai_mode == 7 then
-			if numWaitPoints == 1 and (self.startWork == nil or self.startWork == 0) then
-				self.startWork = i
+		if self.cp.mode == 4 or self.cp.mode == 6 or self.cp.mode == 7 then
+			if numWaitPoints == 1 and (self.cp.startWork == nil or self.cp.startWork == 0) then
+				self.cp.startWork = i
 			end
-			if numWaitPoints > 1 and (self.stopWork == nil or self.stopWork == 0) then
-				self.stopWork = i
+			if numWaitPoints > 1 and (self.cp.stopWork == nil or self.cp.stopWork == 0) then
+				self.cp.stopWork = i
 			end
 
 		--unloading point for transporter
-		elseif self.ai_mode == 8 then
+		elseif self.cp.mode == 8 then
 			--
 
 		--work points for shovel
-		elseif self.ai_mode == 9 then
+		elseif self.cp.mode == 9 then
 			if numWaitPoints == 1 and self.cp.shovelFillStartPoint == nil then
 				self.cp.shovelFillStartPoint = i;
 			end;
@@ -144,19 +143,19 @@ function courseplay:start(self)
 		end;
 	end;
 	-- mode 6 without start and stop point, set them at start and end, for only-on-field-courses
-	if (self.ai_mode == 4 or self.ai_mode == 6) then
-		if numWaitPoints == 0 or self.startWork == nil then
-			self.startWork = 1;
+	if (self.cp.mode == 4 or self.cp.mode == 6) then
+		if numWaitPoints == 0 or self.cp.startWork == nil then
+			self.cp.startWork = 1;
 		end;
-		if numWaitPoints == 0 or self.stopWork == nil then
-			self.stopWork = self.maxnumber;
+		if numWaitPoints == 0 or self.cp.stopWork == nil then
+			self.cp.stopWork = self.maxnumber;
 		end;
 	end;
 	self.cp.numWaitPoints = numWaitPoints;
 	courseplay:debug(string.format("%s: numWaitPoints=%d, waitPoints[1]=%s", nameNum(self), self.cp.numWaitPoints, tostring(self.cp.waitPoints[1])), 12);
 
 
-	if self.ai_state == 0 then
+	if self.cp.modeState == 0 or self.cp.modeState == 99 then
 		local changed = false
 		for i=recordNumber,recordNumber+3 do
 			if self.Waypoints[i]~= nil and self.Waypoints[i].turn ~= nil then
@@ -172,17 +171,27 @@ function courseplay:start(self)
 		if self.recordnumber > self.maxnumber then
 			self.recordnumber = 1
 		end
-	end --END if ai_state == 0
+	end --END if modeState == 0
 
-	if self.recordnumber > 2 and self.ai_mode ~= 4 and self.ai_mode ~= 6 then
-		self.loaded = true
-	elseif self.ai_mode == 4 or self.ai_mode == 6 then
-		self.loaded = false;
-		self.cp.hasUnloadingRefillingCourse = self.maxnumber > self.stopWork + 7;
-		courseplay:debug(string.format("%s: maxnumber=%d, stopWork=%d, hasUnloadingRefillingCourse=%s", nameNum(self), self.maxnumber, self.stopWork, tostring(self.cp.hasUnloadingRefillingCourse)), 12);
+	if self.recordnumber > 2 and self.cp.mode ~= 4 and self.cp.mode ~= 6 then
+		self.cp.isLoaded = true
+	elseif self.cp.mode == 4 or self.cp.mode == 6 then
+		self.cp.isLoaded = false;
+		self.cp.hasUnloadingRefillingCourse = self.maxnumber > self.cp.stopWork + 7;
+		if  self.Waypoints[self.cp.stopWork].cx == self.Waypoints[self.cp.startWork].cx 
+		and self.Waypoints[self.cp.stopWork].cz == self.Waypoints[self.cp.startWork].cz then
+			self.cp.finishWork = self.cp.stopWork-5
+		else
+			self.cp.finishWork = self.cp.stopWork
+		end
+
+		if self.cp.finishWork ~= self.cp.stopWork and self.recordnumber > self.cp.finishWork then --TODO: refine for refillingUnloadingCourses
+			self.recordnumber = 2
+		end
+		courseplay:debug(string.format("%s: maxnumber=%d, stopWork=%d, finishWork=%d, hasUnloadingRefillingCourse=%s, recordnumber=%d", nameNum(self), self.maxnumber, self.cp.stopWork, self.cp.finishWork, tostring(self.cp.hasUnloadingRefillingCourse), self.recordnumber), 12);
 	end
 
-	if self.ai_mode == 9 or self.cp.startAtFirstPoint then
+	if self.cp.mode == 9 or self.cp.startAtFirstPoint then
 		self.recordnumber = 1;
 		self.cp.shovelState = 1;
 	end;
@@ -196,7 +205,7 @@ function courseplay:start(self)
 	self.disableCharacterOnLeave = false
 	-- ok i am near the waypoint, let's go
 	self.checkSpeedLimit = false
-	self.runOnceStartCourse = true;
+	self.cp.runOnceStartCourse = true;
 	self.drive = true;
 	self.cp.maxFieldSpeed = 0
 	self.record = false
@@ -204,7 +213,6 @@ function courseplay:start(self)
 	
 	if self.isRealistic then
 		self.cpSavedRealAWDModeOn = self.realAWDModeOn
-		
 	end
 
 	--EifokLiquidManure
@@ -215,9 +223,9 @@ function courseplay:start(self)
 end;
 
 function courseplay:getCanUseAiMode(vehicle)
-	local mode = vehicle.ai_mode;
+	local mode = vehicle.cp.mode;
 
-	if mode ~= 5 and mode ~= 6 and mode ~= 7 and not vehicle.tipper_attached then
+	if mode ~= 5 and mode ~= 6 and mode ~= 7 and not vehicle.cp.tipperAttached then
 		vehicle.cp.infoText = courseplay.locales.CPWrongTrailer;
 		return false;
 	end;
@@ -243,9 +251,20 @@ function courseplay:getCanUseAiMode(vehicle)
 		end;
 
 	elseif mode == 4 or mode == 6 then
-		if vehicle.startWork == nil or vehicle.stopWork == nil then
+		if vehicle.cp.startWork == nil or vehicle.cp.stopWork == nil then
 			vehicle.cp.infoText = courseplay.locales.CPNoWorkArea;
 			return false;
+		end;
+		if mode == 6 then
+			if vehicle.cp.hasBaleLoader then
+				if vehicle.cp.numWaitPoints < 3 then
+					vehicle.cp.infoText = string.format(courseplay.locales.CPTooFewWaitingPoints, 3);
+					return false;
+				elseif vehicle.cp.numWaitPoints > 3 then
+					vehicle.cp.infoText = string.format(courseplay.locales.CPTooManyWaitingPoints, 3);
+					return false;
+				end;
+			end;
 		end;
 
 	elseif mode == 9 then
@@ -279,11 +298,11 @@ function courseplay:stop(self)
 		self.ESLimiter.percentage[3] =	self.cp.ESL[2]
 		self.ESLimiter.percentage[4] =	self.cp.ESL[3]  
 	end
-	self.forced_to_stop = false
+	self.cp.forcedToStop = false
 	self.record = false
 	self.record_pause = false
-	if self.ai_state > 4 then
-		self.ai_state = 1
+	if self.cp.modeState > 4 then
+		self.cp.modeState = 1
 	end
 	self.cp.turnStage = 0
 	self.cp.isTurning = nil
@@ -308,13 +327,14 @@ function courseplay:stop(self)
 	self.cpTrafficCollisionIgnoreList = {}
 	self.cp.foundColli = {}
 	self.cp.inTraffic = false
+	self.cp.bypassWaypointsSet = false
 	--deactivate beacon lights
 	if self.beaconLightsActive then
 		self:setBeaconLightsVisibility(false);
 	end;
 
 	--open all covers
-	if self.tipper_attached and self.cp.tipperHasCover and self.ai_mode == 1 or self.ai_mode == 2 or self.ai_mode == 5 or self.ai_mode == 6 then
+	if self.cp.tipperAttached and self.cp.tipperHasCover and self.cp.mode == 1 or self.cp.mode == 2 or self.cp.mode == 5 or self.cp.mode == 6 then
 		courseplay:openCloseCover(self, nil, false);
 	end;
 
@@ -325,20 +345,22 @@ function courseplay:stop(self)
 	self.checkSpeedLimit = true
 	self.cp.currentTipTrigger = nil
 	self.drive = false
-	self.play = true
+	self.cp.canDrive = true
 	self.dcheck = false
-	self.cp.numWaitPoints = 0;
-	self.cp.waitPoints = {};
 	self.cp.mode7GoBackBeforeUnloading = false
-
+	if self.cp.checkReverseValdityPrinted then
+		self.cp.checkReverseValdityPrinted = false
+	end
+	
 	self.motor:setSpeedLevel(0, false);
 	self.motor.maxRpmOverride = nil;
-	self.startWork = nil
-	self.stopWork = nil
+	self.cp.startWork = nil
+	self.cp.stopWork = nil
 	self.cp.hasUnloadingRefillingCourse = false;
-	self.StopEnd = false
-	self.unloaded = false
-	
+	self.cp.stopAtEnd = false
+	self.cp.isUnloaded = false;
+	self.cp.prevFillLevel = nil;
+
 	self.cp.hasBaleLoader = false;
 	self.cp.hasSowingMachine = false;
 	self.cp.hasPlough = false;

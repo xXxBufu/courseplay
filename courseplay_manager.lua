@@ -21,6 +21,10 @@ function courseplay_manager:loadMap(name)
 	};
 	self.playerOnFootMouseEnabled = false;
 	self.wasPlayerFrozen = false;
+
+	if g_server ~= nil then
+		courseplay.fields:loadAllCustomFields();
+	end;
 end;
 
 function courseplay_manager:registerButton(section, fn, prm, img, x, y, w, h)
@@ -83,6 +87,9 @@ function courseplay_manager:deleteMap()
 		end;
 		courseplay.signs.buffer[section] = {};
 	end;
+
+	courseplay.fields.allFieldsScanned = false;
+	courseplay.fields.ingameDataSetUp = false;
 end
 
 function courseplay_manager:draw()
@@ -135,6 +142,8 @@ function courseplay_manager:draw()
 			courseplay.globalInfoText.vehicleHasText = {};
 		end;
 	end;
+
+	courseplay.lightsNeeded = g_currentMission.environment.needsLights or (g_currentMission.environment.lastRainScale > 0.1 and g_currentMission.environment.timeSinceLastRain < 30);
 end;
 
 function courseplay_manager:mouseEvent(posX, posY, isDown, isUp, button)
@@ -188,7 +197,7 @@ function courseplay_manager:mouseEvent(posX, posY, isDown, isUp, button)
 	end;
 end;
 
-function courseplay_manager:update()
+function courseplay_manager:update(dt)
 	--courseplay:debug(table.getn(g_currentMission.courseplay_courses), 8);
 
 	if g_currentMission.controlledVehicle == nil then
@@ -198,6 +207,19 @@ function courseplay_manager:update()
 			g_currentMission:addExtraPrintText(courseplay.inputBindings.mouse.COURSEPLAY_MOUSEACTION_SECONDARY.displayName .. ": " .. courseplay:get_locale(self, "COURSEPLAY_MOUSEARROW_SHOW"));
 		end;
 	end;
+
+	--SETUP INGAME FIELD DATA
+	if not courseplay.fields.ingameDataSetUp then
+		courseplay.fields:setUpFieldsIngameData();
+	end;
+
+	--SCAN ALL FIELD EDGES
+	if not courseplay.fields.allFieldsScanned then
+		courseplay.fields:setAllFieldEdges();
+	end;
+end;
+
+function courseplay_manager:updateTick(dt)
 end;
 
 function courseplay_manager:keyEvent()
@@ -431,10 +453,10 @@ function courseplay_manager:removeCourseplayersFromCombine(vehicle, callDelete)
 			for i,tractor in pairs(combine.courseplayers) do
 				courseplay:unregister_at_combine(tractor, combine);
 				
-				if tractor.saved_combine ~= nil and tractor.saved_combine == combine then
-					tractor.saved_combine = nil;
+				if tractor.cp.savedCombine ~= nil and tractor.cp.savedCombine == combine then
+					tractor.cp.savedCombine = nil;
 				end;
-				tractor.reachable_combines = nil;
+				tractor.cp.reachableCombines = nil;
 			end;
 			courseplay:debug(nameNum(combine) .. " has " .. table.getn(combine.courseplayers) .. " courseplayers", 4);
 		end;
@@ -497,7 +519,7 @@ function CourseplayJoinFixEvent:writeStream(streamId, connection)
 			course_count = course_count + 1
 		end
 		streamDebugWriteInt32(streamId, course_count)
-		
+		courseplay:debug(string.format("writing %d courses ", course_count ),5)
 		for id, course in pairs(g_currentMission.cp_courses) do
 			streamDebugWriteString(streamId, course.name)
 			streamDebugWriteInt32(streamId, course.id)
@@ -519,14 +541,18 @@ function CourseplayJoinFixEvent:writeStream(streamId, connection)
 				streamDebugWriteInt32(streamId, course.waypoints[w].ridgeMarker)
 			end
 		end
+		courseplay:debug("writing courses end",5)
 	end;
 end
 
 function CourseplayJoinFixEvent:readStream(streamId, connection)
+	courseplay:debug("CourseplayJoinFixEvent:readStream",5)
 	if connection:getIsServer() then
+		courseplay:debug("connection:getIsServer()",5)
 		--courseplay:debug("manager receiving courses", 8);
 		-- course count
 		local course_count = streamDebugReadInt32(streamId)
+		courseplay:debug(string.format("reading %d couses ", course_count ),5)
 		--courseplay:debug("manager reading stream", 8);
 		--courseplay:debug(course_count, 8);
 		g_currentMission.cp_courses = {}
@@ -573,6 +599,7 @@ function CourseplayJoinFixEvent:readStream(streamId, connection)
 			local course = { name = course_name, waypoints = waypoints, id = course_id }
 			g_currentMission.cp_courses[course_id] = course
 		end
+		courseplay:debug("reading end",5)
 	end;
 end
 

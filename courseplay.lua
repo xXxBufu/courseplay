@@ -16,6 +16,7 @@ courseplay = {
 	settings = {};
 	hud = {};
 	button = {};
+	fields = {};
 	thirdParty = {
 		EifokLiquidManure = {
 			dockingStations = {};
@@ -38,7 +39,13 @@ if fileExists(modDescPath) then
 
 	courseplay.version = Utils.getNoNil(getXMLString(courseplay.modDescFile, "modDesc.version"), " [no version specified]");
 	if courseplay.version ~= " [no version specified]" then
-		courseplay.versionDisplay = Utils.splitString(".", courseplay.version);
+		courseplay.versionSeparate = Utils.splitString(".", courseplay.version);
+		if #courseplay.versionSeparate == 2 then
+			courseplay.versionSeparate[3] = "0000";
+		end;
+		courseplay.versionDisplay = string.format('v%s.%s\n.%s', courseplay.versionSeparate[1], courseplay.versionSeparate[2], courseplay.versionSeparate[3]);
+	else
+		courseplay.versionDisplay = 'no\nversion';
 	end;
 end;
 
@@ -62,6 +69,7 @@ function courseplay:initialize()
 		"debug", 
 		"distance", 
 		"drive", 
+		"fields", 
 		"fruit", 
 		"generateCourse", 
 		"global", 
@@ -114,8 +122,10 @@ function courseplay:initialize()
 end;
 
 function courseplay:setGlobalData()
+	--HUD
 	local customPosX, customPosY = nil, nil;
 	local customGitPosX, customGitPosY = nil, nil;
+	local fieldsDebugScan, fieldsDebugCustomLoad = false, false;
 	local savegame = g_careerScreen.savegames[g_careerScreen.selectedIndex];
 	if savegame ~= nil then
 		local cpFilePath = savegame.savegameDirectory .. "/courseplay.xml";
@@ -126,11 +136,19 @@ function courseplay:setGlobalData()
 				customPosX = getXMLFloat(cpFile, hudKey .. "#posX");
 				customPosY = getXMLFloat(cpFile, hudKey .. "#posY");
 			end;
+
 			local gitKey = "XML.courseplayGlobalInfoText";
 			if hasXMLProperty(cpFile, gitKey) then
 				customGitPosX = getXMLFloat(cpFile, gitKey .. "#posX");
 				customGitPosY = getXMLFloat(cpFile, gitKey .. "#posY");
 			end;
+
+			local fieldsKey = 'XML.courseplayFields';
+			if hasXMLProperty(cpFile, gitKey) then
+				fieldsDebugScan       = Utils.getNoNil(getXMLBool(cpFile, fieldsKey .. '#debugScannedFields'), false);
+				fieldsDebugCustomLoad = Utils.getNoNil(getXMLBool(cpFile, fieldsKey .. '#debugCustomLoadedFields'), false);
+			end;
+
 			delete(cpFile);
 		end;
 	end;
@@ -159,7 +177,7 @@ function courseplay:setGlobalData()
 		warningRed =    { 240/255,  25/255,  25/255, 1    };
 		shadow =        {  35/255,  35/255,  35/255, 1    };
 	};
-	ch.clickSound = createSample("clickSound");
+
 	ch.pagesPerMode = {
 		--Pg 0  Pg 1  Pg 2  Pg 3   Pg 4   Pg 5  Pg 6  Pg 7  Pg 8   Pg 9
 		{ true, true, true, true,  false, true, true, true, false, false }; --Mode 1
@@ -203,21 +221,30 @@ function courseplay:setGlobalData()
 		[5] = courseplay.hud.infoBasePosX + 0.122,
 		[6] = courseplay.hud.infoBasePosX + 0.182,
 		[7] = courseplay.hud.infoBasePosX + 0.192,
-		[8] = courseplay.hud.infoBasePosX + 0.182,
+		[8] = courseplay.hud.infoBasePosX + 0.142,
 		[9] = courseplay.hud.infoBasePosX + 0.230,
 	};
 	courseplay.hud.col2posXforce = {
+		[1] = {
+			[4] = courseplay.hud.infoBasePosX + 0.182;
+		};
 		[7] = {
 			[5] = courseplay.hud.infoBasePosX + 0.105;
 			[6] = courseplay.hud.infoBasePosX + 0.105;
 		};
 	};
 
+	ch.clickSound = createSample("clickSound");
+	loadSample(courseplay.hud.clickSound, Utils.getFilename("sounds/cpClickSound.wav", courseplay.path), false);
+
+	courseplay.lightsNeeded = false;
+
+	--GLOBALINFOTEXT
 	courseplay.globalInfoText = {};
 	courseplay.globalInfoText.fontSize = 0.02;
 	courseplay.globalInfoText.lineHeight = courseplay.globalInfoText.fontSize * 1.1;
 	courseplay.globalInfoText.posX = Utils.getNoNil(customGitPosX, 0.035);
-	courseplay.globalInfoText.posY = Utils.getNoNil(customGitPosY, 0);
+	courseplay.globalInfoText.posY = Utils.getNoNil(customGitPosY, 0.01238);
 	local pdaHeight = 0.3375;
 	courseplay.globalInfoText.hideWhenPdaActive = courseplay.globalInfoText.posY < pdaHeight; --g_currentMission.MissionPDA.hudPDABaseHeight;
 	courseplay.globalInfoText.backgroundImg = "dataS2/menu/white.png";
@@ -233,8 +260,8 @@ function courseplay:setGlobalData()
 	courseplay.globalInfoText.levelColors["-1"] = courseplay.hud.colors.activeRed;
 	courseplay.globalInfoText.levelColors["-2"] = courseplay.hud.colors.closeRed;
 
-	loadSample(courseplay.hud.clickSound, Utils.getFilename("sounds/cpClickSound.wav", courseplay.path), false);
 
+	--TRIGGERS
 	courseplay.confirmedNoneTriggers = {};
 	courseplay.confirmedNoneTriggersCounter = 0;
 
@@ -269,7 +296,7 @@ function courseplay:setGlobalData()
 	16	[empty]
 	--]]
 
-
+	--MULTIPLAYER
 	courseplay.checkValues = {
 		"infoText",
 		"HUD0noCourseplayer",
@@ -289,6 +316,7 @@ function courseplay:setGlobalData()
 		"HUD4savedCombineName"
 	};
 
+	--SIGNS
 	local signData = {
 		normal = { 10000, "current",  5 },
 		start =  {   500, "current",  3 },
@@ -320,9 +348,21 @@ function courseplay:setGlobalData()
 		courseplay.signs.protoTypes[signType] = itemNode;
 	end;
 
+	--FIELDS
+	courseplay.fields.fieldData = {};
+	courseplay.fields.numAvailableFields = 0;
+	courseplay.fields.fieldChannels = {};
+	courseplay.fields.lastChannel = 0;
+	courseplay.fields.allFieldsScanned = false;
+	courseplay.fields.ingameDataSetUp = false;
+	courseplay.fields.customFieldMaxNum = 150;
+	courseplay.fields.debugScannedFields = fieldsDebugScan;
+	courseplay.fields.debugCustomLoadedFields = fieldsDebugCustomLoad;
 
+	--PATHFINDING
 	courseplay.pathfinding = {};
 
+	--UTF8
 	courseplay.allowedCharacters = courseplay:getAllowedCharacters();
 	courseplay.utf8normalization = courseplay:getUtf8normalization();
 

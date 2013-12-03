@@ -3,20 +3,19 @@ function courseplay:drive(self, dt)
 	if g_server == nil or not self.isMotorStarted or not courseplay:getCanUseAiMode(self) then
 		return;
 	end;
-
 	local refSpeed = 0
 	local cx,cy,cz = 0,0,0
 	-- may i drive or should i hold position for some reason?
 	local allowedToDrive = true
 
 	-- combine self unloading
-	if self.ai_mode == 7 then
+	if self.cp.mode == 7 then
 		if self.isAIThreshing then
-			if (self.grainTankFillLevel * 100 / self.grainTankCapacity) >= self.required_fill_level_for_drive_on then
+			if (self.grainTankFillLevel * 100 / self.grainTankCapacity) >= self.cp.driveOnAtFillLevel then
 				self.maxnumber = table.getn(self.Waypoints)
 				cx7, cz7 = self.Waypoints[self.maxnumber].cx, self.Waypoints[self.maxnumber].cz
 				local lx7, lz7 = AIVehicleUtil.getDriveDirection(self.rootNode, cx7, cty7, cz7);
-				local fx,fy,fz = localToWorld(self.rootNode, 0, 0, -3*self.turn_radius)
+				local fx,fy,fz = localToWorld(self.rootNode, 0, 0, -3*self.cp.turnRadius)
 				local x7,y7,z7 = localToWorld(self.rootNode, 0, 0, -15)
 				self.cp.mode7tx7 = x7
 				self.cp.mode7ty7 = y7
@@ -25,24 +24,24 @@ function courseplay:drive(self, dt)
 					self.lastaiThreshingDirectionX = self.aiThreshingDirectionX
 					self.lastaiThreshingDirectionZ = self.aiThreshingDirectionZ
 					self:stopAIThreshing()
-					self.shortest_dist = nil
+					self.cp.shortestDistToWp = nil
 					self.next_targets = {}
 					if lx7 < 0 then
 						courseplay:debug(nameNum(self) .. ": approach from right", 11);
-						self.target_x, self.target_y, self.target_z = localToWorld(self.rootNode, -(0.34*3*self.turn_radius) , 0, -3*self.turn_radius);
-						courseplay:set_next_target(self, (0.34*2*self.turn_radius) , 0);
+						self.target_x, self.target_y, self.target_z = localToWorld(self.rootNode, -(0.34*3*self.cp.turnRadius) , 0, -3*self.cp.turnRadius);
+						courseplay:set_next_target(self, (0.34*2*self.cp.turnRadius) , 0);
 						courseplay:set_next_target(self, 0 , 3);
 					else
 						courseplay:debug(nameNum(self) .. ": approach from left", 11);
-						self.target_x, self.target_y, self.target_z = localToWorld(self.rootNode, (0.34*3*self.turn_radius) , 0, -3*self.turn_radius);
-						courseplay:set_next_target(self, -(0.34*2*self.turn_radius) , 0);
+						self.target_x, self.target_y, self.target_z = localToWorld(self.rootNode, (0.34*3*self.cp.turnRadius) , 0, -3*self.cp.turnRadius);
+						courseplay:set_next_target(self, -(0.34*2*self.cp.turnRadius) , 0);
 						courseplay:set_next_target(self, 0 ,3);
 					end
 					self.cp.mode7Unloading = true
 					self.cp.mode7GoBackBeforeUnloading = true
 					courseplay:start(self)
-					self.sl = 3
-					refSpeed = self.field_speed
+					self.cp.speeds.sl = 3
+					refSpeed = self.cp.speeds.field
 				else 
 					return
 				end
@@ -50,8 +49,8 @@ function courseplay:drive(self, dt)
 				return
 			end
 		elseif self.cp.mode7Unloading then
-			self.sl = 3
-			refSpeed = self.field_speed
+			self.cp.speeds.sl = 3
+			refSpeed = self.cp.speeds.field
 			if self.cp.mode7GoBackBeforeUnloading then
 				local dist = courseplay:distance_to_point(self, self.cp.mode7tx7,self.cp.mode7ty7,self.cp.mode7tz7)
 				if  dist  < 1 then
@@ -63,7 +62,7 @@ function courseplay:drive(self, dt)
 			allowedToDrive = false
 			courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPWorkEnd"), 1);
 		end
-		if self.ai_state == 5 then
+		if self.cp.modeState == 5 then
 			local targets = table.getn(self.next_targets)
 			local aligned  = false
 			local ctx7, cty7, ctz7 = getWorldTranslation(self.rootNode);
@@ -76,14 +75,14 @@ function courseplay:drive(self, dt)
 				drawDebugLine(cx, cty7+3, cz, 1, 0, 0, ctx7, cty7+3, ctz7, 1, 0, 0); 
 			end;
 
-			self.sl = 3
-			refSpeed = self.field_speed
+			self.cp.speeds.sl = 3
+			refSpeed = self.cp.speeds.field
 			distance_to_wp = courseplay:distance_to_point(self, cx, y, cz)
 			local distToChange = 4
-			if self.shortest_dist == nil or self.shortest_dist > distance_to_wp then
-				self.shortest_dist = distance_to_wp
+			if self.cp.shortestDistToWp == nil or self.cp.shortestDistToWp > distance_to_wp then
+				self.cp.shortestDistToWp = distance_to_wp
 			end
-			if distance_to_wp > self.shortest_dist and distance_to_wp < 6 then
+			if distance_to_wp > self.cp.shortestDistToWp and distance_to_wp < 6 then
 				distToChange = distance_to_wp + 1
 			end
 			if targets == 2 then 
@@ -104,8 +103,8 @@ function courseplay:drive(self, dt)
 				end
 			elseif targets  == 0 then
 				if distance_to_wp < 25 then
-					self.sl = 3
-					refSpeed = self.turn_speed
+					self.cp.speeds.sl = 3
+					refSpeed = self.cp.speeds.turn
 				end
 				if distance_to_wp < 15 then
 					self:setIsThreshing(true)
@@ -123,7 +122,7 @@ function courseplay:drive(self, dt)
 				end
 			end
 			if distance_to_wp < distToChange or aligned then
-				self.shortest_dist = nil
+				self.cp.shortestDistToWp = nil
 				if targets  > 0 then
 					self.target_x = self.next_targets[1].x
 					self.target_y = self.next_targets[1].y
@@ -131,7 +130,7 @@ function courseplay:drive(self, dt)
 					table.remove(self.next_targets, 1)
 					self.recordnumber = 2 
 				else
-					self.ai_state = 0
+					self.cp.modeState = 0
 					if self.lastaiThreshingDirectionX ~= nil then
 						self.aiThreshingDirectionX = self.lastaiThreshingDirectionX
 						self.aiThreshingDirectionZ = self.lastaiThreshingDirectionZ
@@ -147,15 +146,15 @@ function courseplay:drive(self, dt)
 
 	end
 	-- unregister at combine, if there is one
-	if self.loaded == true and courseplay_position ~= nil then
-		courseplay:unregister_at_combine(self, self.active_combine)
+	if self.cp.isLoaded == true and self.cp.positionWithCombine ~= nil then
+		courseplay:unregister_at_combine(self, self.cp.activeCombine)
 	end
 
 	-- switch lights on!
 	if not self.isControlled then
 		-- we want to hear our courseplayers
 		setVisibility(self.aiMotorSound, true)
-		if g_currentMission.environment.needsLights or (g_currentMission.environment.lastRainScale > 0.1 and g_currentMission.environment.timeSinceLastRain < 30) then
+		if courseplay.lightsNeeded then
 			self:setLightsVisibility(true);
 		else
 			self:setLightsVisibility(false);
@@ -179,9 +178,9 @@ function courseplay:drive(self, dt)
 		courseplay:debug(string.format("drive %i: %s: self.recordnumber (%s) > self.maxnumber (%s)", debug.getinfo(1).currentline, self.name, tostring(self.recordnumber), tostring(self.maxnumber)), 12); --this should never happen
 		self.recordnumber = self.maxnumber
 	end
-	if self.ai_mode ~= 7 then 
+	if self.cp.mode ~= 7 then 
 		cx, cz = self.Waypoints[self.recordnumber].cx, self.Waypoints[self.recordnumber].cz
-	elseif self.ai_mode == 7 and self.ai_state ~=5 then
+	elseif self.cp.mode == 7 and self.cp.modeState ~=5 then
 		if not self.cp.mode7GoBackBeforeUnloading then
 			cx, cz = self.Waypoints[self.recordnumber].cx, self.Waypoints[self.recordnumber].cz
 		else
@@ -189,21 +188,21 @@ function courseplay:drive(self, dt)
 		end
 	end
 
-	if courseplay.debugChannels[12] then
+	if courseplay.debugChannels[12] and self.cp.isTurning == nil then
 		drawDebugPoint(cx, cty+3, cz, 1, 0 , 1, 1);
 	end;
 
 	--HORIZONTAL/VERTICAL OFFSET
 	local offsetValid = self.cp.totalOffsetX ~= nil and self.cp.toolOffsetZ ~= nil and (self.cp.totalOffsetX ~= 0 or self.cp.toolOffsetZ ~= 0);
 	if offsetValid then
-		if self.ai_mode == 3 then
+		if self.cp.mode == 3 then
 			if self.cp.laneOffset ~= 0 then
 				courseplay:changeLaneOffset(self, nil, 0);
 			end;
 			offsetValid = self.recordnumber > 2 and self.recordnumber > self.cp.waitPoints[1] - 6 and self.recordnumber <= self.cp.waitPoints[1] + 3;
-		elseif self.ai_mode == 4 or self.ai_mode == 6 then
-			offsetValid = self.recordnumber > self.startWork and self.recordnumber < self.stopWork and self.recordnumber > 1; --TODO: recordnumber incl startWork/stopWork?
-		elseif self.ai_mode == 7 then
+		elseif self.cp.mode == 4 or self.cp.mode == 6 then
+			offsetValid = self.recordnumber > self.cp.startWork and self.recordnumber < self.cp.stopWork and self.recordnumber > 1; --TODO: recordnumber incl startWork/stopWork?
+		elseif self.cp.mode == 7 then
 			if self.cp.laneOffset ~= 0 then
 				courseplay:changeLaneOffset(self, nil, 0);
 			end;
@@ -240,7 +239,7 @@ function courseplay:drive(self, dt)
 		--courseplay:debug(string.format("new WP: %d x %d (angle) %d ", cx, cz, angle ), 2)
 	end
 
-	if courseplay.debugChannels[12] then
+	if courseplay.debugChannels[12] and self.cp.isTurning == nil then
 		drawDebugPoint(cx, cty+3, cz, 0, 1 , 1, 1);
 	end;
 
@@ -256,11 +255,11 @@ function courseplay:drive(self, dt)
 	if self.cp.tipperFillLevel ~= nil then
 		fill_level = self.cp.tipperFillLevel * 100 / self.cp.tipperCapacity
 	end
-	if self.ai_mode == 4 or self.ai_mode == 6 then
+	if self.cp.mode == 4 or self.cp.mode == 6 then
 		if  self.Waypoints[self.recordnumber].turn ~= nil then
 			self.cp.isTurning = self.Waypoints[self.recordnumber].turn
 		end
-		if self.abortWork ~= nil and fill_level == 0 then
+		if self.cp.abortWork ~= nil and fill_level == 0 then
 			self.cp.isTurning = nil
 		end
 
@@ -277,28 +276,26 @@ function courseplay:drive(self, dt)
 		end;
 	end;
 
-	if self.ai_mode == 4 or self.ai_mode == 8 then
+	if self.cp.mode == 4 or self.cp.mode == 8 then
 		self.implementIsFull = (fill_level ~= nil and fill_level == 100);
 	end;
 	
 	-- in a traffic yam?
-
-	self.max_speed_level = nil
 
 	-- coordinates of coli
 	local tx, ty, tz = getWorldTranslation(self.aiTrafficCollisionTrigger)
 	-- direction of tractor
 	local nx, ny, nz = localDirectionToWorld(self.cp.DirectionNode, lx, 0, lz)
 	--RulModiä
-	if self.RulMode == 1 then
-		if (self.sl == 3 and not self.beaconLightsActive) or (self.sl ~= 3 and self.beaconLightsActive) or (self.ai_mode == 7 and self.isAIThreshing and self.beaconLightsActive)  then
+	if self.cp.beaconLightsMode == 1 then
+		if (self.cp.speeds.sl == 3 and not self.beaconLightsActive) or (self.cp.speeds.sl ~= 3 and self.beaconLightsActive) or (self.cp.mode == 7 and self.isAIThreshing and self.beaconLightsActive)  then
 			self:setBeaconLightsVisibility(not self.beaconLightsActive);
 		end
-	elseif self.RulMode == 2 then
+	elseif self.cp.beaconLightsMode == 2 then
 		if (self.drive and not self.beaconLightsActive) or (not self.drive and self.beaconLightsActive) then
 			self:setBeaconLightsVisibility(not self.beaconLightsActive);
 		end
-	elseif self.RulMode == 3 then
+	elseif self.cp.beaconLightsMode == 3 then
 		if self.beaconLightsActive then
 			self:setBeaconLightsVisibility(false);
 		end
@@ -306,32 +303,32 @@ function courseplay:drive(self, dt)
 
 
 	-- the tipper that is currently loaded/unloaded
-	local active_tipper = nil
+	local activeTipper = nil
 	local isBypassing = false
 	--### WAITING POINTS - START
 	if self.Waypoints[self.cp.last_recordnumber].wait and self.wait then
-		if self.waitTimer == nil and self.waitTime > 0 then
-			self.waitTimer = self.timer + self.waitTime * 1000
+		if self.waitTimer == nil and self.cp.waitTime > 0 then
+			self.waitTimer = self.timer + self.cp.waitTime * 1000
 		end
-		if self.ai_mode == 3 and self.tipper_attached then
+		if self.cp.mode == 3 and self.cp.tipperAttached then
 			courseplay:handleMode3(self, fill_level, allowedToDrive, dt);
 
-		elseif self.ai_mode == 4 then
+		elseif self.cp.mode == 4 then
 			local drive_on = false
-			if self.cp.last_recordnumber == self.startWork and fill_level ~= 0 then
+			if self.cp.last_recordnumber == self.cp.startWork and fill_level ~= 0 then
 				self.wait = false
-			elseif self.cp.last_recordnumber == self.stopWork and self.abortWork ~= nil then
+			elseif self.cp.last_recordnumber == self.cp.stopWork and self.cp.abortWork ~= nil then
 				self.wait = false
 			else
-				local isInWorkArea = self.recordnumber > self.startWork and self.recordnumber <= self.stopWork;
-				if self.tipper_attached and self.startWork ~= nil and self.stopWork ~= nil and self.tippers ~= nil and not isInWorkArea then
+				local isInWorkArea = self.recordnumber > self.cp.startWork and self.recordnumber <= self.cp.stopWork;
+				if self.cp.tipperAttached and self.cp.startWork ~= nil and self.cp.stopWork ~= nil and self.tippers ~= nil and not isInWorkArea then
 					allowedToDrive,lx,lz = courseplay:refillSprayer(self, fill_level, 100, allowedToDrive, lx, lz, dt);
 				end;
-				if courseplay:timerIsThrough(self, "fillLevelChange") or self.last_fill_level == nil then
-					if self.last_fill_level ~= nil and fill_level == self.last_fill_level and fill_level > self.required_fill_level_for_drive_on then
+				if courseplay:timerIsThrough(self, "fillLevelChange") or self.cp.prevFillLevel == nil then
+					if self.cp.prevFillLevel ~= nil and fill_level == self.cp.prevFillLevel and fill_level > self.cp.driveOnAtFillLevel then
 						drive_on = true
 					end
-					self.last_fill_level = fill_level
+					self.cp.prevFillLevel = fill_level
 					courseplay:setCustomTimer(self, "fillLevelChange", 7);
 				end
 
@@ -340,47 +337,47 @@ function courseplay:drive(self, dt)
 				end
 				self.cp.infoText = string.format(courseplay:get_locale(self, "CPloading"), self.cp.tipperFillLevel, self.cp.tipperCapacity)
 			end
-		elseif self.ai_mode == 6 then
-			if self.cp.last_recordnumber == self.startWork then
+		elseif self.cp.mode == 6 then
+			if self.cp.last_recordnumber == self.cp.startWork then
 				self.wait = false
-			elseif self.cp.last_recordnumber == self.stopWork and self.abortWork ~= nil then
+			elseif self.cp.last_recordnumber == self.cp.stopWork and self.cp.abortWork ~= nil then
 				self.wait = false
-			elseif self.cp.last_recordnumber ~= self.startWork and self.cp.last_recordnumber ~= self.stopWork then 
+			elseif self.cp.last_recordnumber ~= self.cp.startWork and self.cp.last_recordnumber ~= self.cp.stopWork then 
 				courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPUnloadBale"));
 				if fill_level == 0 or drive_on then
 					self.wait = false
 				end;
 			end;
-		elseif self.ai_mode == 7 then
-			if self.cp.last_recordnumber == self.startWork then
+		elseif self.cp.mode == 7 then
+			if self.cp.last_recordnumber == self.cp.startWork then
 				if self.grainTankFillLevel > 0 then
 					self:setPipeState(2)
 					courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPReachedOverloadPoint"));
 				else
 					self.wait = false
-					self.unloaded = true
+					self.cp.isUnloaded = true
 				end
 			end
-		elseif self.ai_mode == 8 then
+		elseif self.cp.mode == 8 then
 			courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPReachedOverloadPoint"));
-			if self.tipper_attached then
-				-- drive on if fill_level doesn't change and fill level is < 100-self.required_fill_level_for_follow
+			if self.cp.tipperAttached then
+				-- drive on if fill_level doesn't change and fill level is < 100-self.cp.followAtFillLevel
 				courseplay:handle_mode8(self)
 				local drive_on = false
-				if courseplay:timerIsThrough(self, "fillLevelChange") or self.last_fill_level == nil then
-					if self.last_fill_level ~= nil and fill_level == self.last_fill_level and fill_level < self.required_fill_level_for_follow then
+				if courseplay:timerIsThrough(self, "fillLevelChange") or self.cp.prevFillLevel == nil then
+					if self.cp.prevFillLevel ~= nil and fill_level == self.cp.prevFillLevel and fill_level < self.cp.followAtFillLevel then
 						drive_on = true
 					end
-					self.last_fill_level = fill_level
+					self.cp.prevFillLevel = fill_level
 					courseplay:setCustomTimer(self, "fillLevelChange", 7);
 				end
 				if fill_level == 0 or drive_on then
 					self.wait = false
-					self.last_fill_level = nil
-					self.unloaded = true
+					self.cp.prevFillLevel = nil
+					self.cp.isUnloaded = true
 				end
 			end
-		elseif self.ai_mode == 9 then
+		elseif self.cp.mode == 9 then
 			self.wait = false;
 		else
 			courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPReachedWaitPoint"));
@@ -395,7 +392,7 @@ function courseplay:drive(self, dt)
 
 	else -- ende wartepunkt
 		-- abfahrer-mode
-		if (self.ai_mode == 1 or (self.ai_mode == 2 and self.loaded)) and self.cp.tipperFillLevel ~= nil and self.tipRefOffset ~= nil and self.tipper_attached then
+		if (self.cp.mode == 1 or (self.cp.mode == 2 and self.cp.isLoaded)) and self.cp.tipperFillLevel ~= nil and self.cp.tipRefOffset ~= nil and self.cp.tipperAttached then
 			if self.cp.currentTipTrigger == nil and self.cp.tipperFillLevel > 0 then
 				-- is there a tipTrigger within 10 meters?
 				courseplay:debug(nameNum(self) .. ": call 1st raycast", 1);
@@ -406,9 +403,9 @@ function courseplay:drive(self, dt)
 				if courseplay.debugChannels[1] then
 					drawDebugLine(tx, ty, tz, 1, 0, 0, tx+(nx*10), ty+(ny*10), tz+(nz*10), 1, 0, 0);
 				end;
-				if self.tipRefOffset ~= 0 then
+				if self.cp.tipRefOffset ~= 0 then
 					if self.cp.currentTipTrigger == nil then
-						local x1,y1,z1 = localToWorld(self.aiTrafficCollisionTrigger,self.tipRefOffset,0,0)
+						local x1,y1,z1 = localToWorld(self.aiTrafficCollisionTrigger,self.cp.tipRefOffset,0,0)
 						courseplay:debug(nameNum(self) .. ": call 2nd raycast", 1);
 						num = raycastAll(x1,y1,z1, nx, ny, nz, "findTipTriggerCallback", 10, self)
 						if num > 0 then 
@@ -419,7 +416,7 @@ function courseplay:drive(self, dt)
 						end;
 					end
 					if self.cp.currentTipTrigger == nil then
-						local x1,y1,z1 = localToWorld(self.aiTrafficCollisionTrigger,-self.tipRefOffset,0,0)
+						local x1,y1,z1 = localToWorld(self.aiTrafficCollisionTrigger,-self.cp.tipRefOffset,0,0)
 						courseplay:debug(nameNum(self) .. ": call 3rd raycast", 1);
 						num = raycastAll(x1,y1,z1, nx, ny, nz, "findTipTriggerCallback", 10, self)
 						if num > 0 then 
@@ -437,35 +434,39 @@ function courseplay:drive(self, dt)
 		end;
 
 		-- combi-mode
-		if (((self.ai_mode == 2 or self.ai_mode == 3) and self.recordnumber < 2) or self.active_combine) and self.tipper_attached then
+		if (((self.cp.mode == 2 or self.cp.mode == 3) and self.recordnumber < 2) or self.cp.activeCombine) and self.cp.tipperAttached then
+			self.cp.inTraffic = false
 			return courseplay:handle_mode2(self, dt)
-		elseif (self.ai_mode == 2 or self.ai_mode == 3) and self.recordnumber < 3 then
+		elseif (self.cp.mode == 2 or self.cp.mode == 3) and self.recordnumber < 3 then
 			isBypassing = true
 			lx, lz = courseplay:isTheWayToTargetFree(self,lx, lz)
-		elseif self.ai_mode ~= 7 then
-			self.ai_state = 0
+		elseif self.cp.mode == 6 and self.cp.hasBaleLoader and (self.recordnumber == self.cp.stopWork - 4 or (self.cp.abortWork ~= nil and self.recordnumber == self.cp.abortWork ))then
+			isBypassing = true
+			lx, lz = courseplay:isTheWayToTargetFree(self,lx, lz)			
+		elseif self.cp.mode ~= 7 then
+			self.cp.modeState = 0
 		end;
 
-		if self.ai_mode == 3 and self.tipper_attached and self.recordnumber >= 2 and self.ai_state == 0 then
+		if self.cp.mode == 3 and self.cp.tipperAttached and self.recordnumber >= 2 and self.cp.modeState == 0 then
 			courseplay:handleMode3(self, fill_level, allowedToDrive, dt);
 		end;
 
 		-- Fertilice loading --only for one Implement !
-		if self.ai_mode == 4 then
-			if self.tipper_attached and self.startWork ~= nil and self.stopWork ~= nil then
-				local isInWorkArea = self.recordnumber > self.startWork and self.recordnumber <= self.stopWork;
+		if self.cp.mode == 4 then
+			if self.cp.tipperAttached and self.cp.startWork ~= nil and self.cp.stopWork ~= nil then
+				local isInWorkArea = self.recordnumber > self.cp.startWork and self.recordnumber <= self.cp.stopWork;
 				if self.tippers ~= nil and not isInWorkArea then
 					allowedToDrive,lx,lz = courseplay:refillSprayer(self, fill_level, 100, allowedToDrive, lx, lz, dt);
 				end
 			end;
 		end
 
-		if self.ai_mode == 7 then
+		if self.cp.mode == 7 then
 			if self.recordnumber == self.maxnumber then
 				if self.target_x ~= nil then
-	 				self.ai_state = 5
+	 				self.cp.modeState = 5
 					self.recordnumber = 2
-					courseplay:debug(nameNum(self) .. ": " .. tostring(debug.getinfo(1).currentline) .. ": ai_state = 5", 11);
+					courseplay:debug(nameNum(self) .. ": " .. tostring(debug.getinfo(1).currentline) .. ": modeState = 5", 11);
 				else
 					allowedToDrive = false
 					--TODO local text no aithreshing
@@ -479,15 +480,41 @@ function courseplay:drive(self, dt)
 			end;
 		end;
 
-		if self.ai_mode == 8 then
+		--REFILL LIQUID MANURE TRANSPORT
+		if self.cp.mode == 8 then
 			raycastAll(tx, ty, tz, nx, ny, nz, "findTipTriggerCallback", 10, self)
-			if self.tipper_attached then
+			if self.cp.tipperAttached then
 				if self.tippers ~= nil then
 					allowedToDrive,lx,lz = courseplay:refillSprayer(self, fill_level, 100, allowedToDrive, lx, lz, dt);
 				end;
 			end;
 		end;
 
+		--VEHICLE DAMAGE
+		if self.damageLevel then
+			if self.damageLevel >= 90 then
+				allowedToDrive = courseplay:brakeToStop(self);
+				courseplay:setGlobalInfoText(self, string.format(courseplay:get_locale(self, courseplay.locales.COURSEPLAY_DAMAGE_MUST_BE_REPAIRED), self.damageLevel), -2);
+			elseif self.damageLevel >= 50 then
+				courseplay:setGlobalInfoText(self, string.format(courseplay:get_locale(self, courseplay.locales.COURSEPLAY_DAMAGE_SHOULD_BE_REPAIRED), self.damageLevel), -1);
+			end;
+			if  self.damageLevel > 70 then
+				raycastAll(tx, ty, tz, nx, ny, nz, "findTipTriggerCallback", 10, self)
+				if self.cp.fillTrigger ~= nil then
+					local trigger = courseplay.triggers.all[self.cp.fillTrigger]
+					if trigger.isDamageModTrigger then
+						--print("slow down , its a garage")
+						self.cp.isInFilltrigger = true
+					end
+				end
+				if self.isInRepairTrigger then
+					self.cp.fillTrigger = nil 
+					allowedToDrive = false
+				end
+			end			
+		end;
+
+		--FUEL LEVEL + REFILLING
 		if self.fuelCapacity > 0 then
 			local currentFuelPercentage = (self.fuelFillLevel / self.fuelCapacity + 0.0001) * 100;
 			if currentFuelPercentage < 5 then
@@ -517,12 +544,13 @@ function courseplay:drive(self, dt)
 			end
 		end;
 
+		--WATER WARNING
 		if self.showWaterWarning then
 			allowedToDrive = false
 			courseplay:setGlobalInfoText(self, courseplay:get_locale(self, courseplay.locales.CPWaterDrive), -2);
 		end
 
-		if self.StopEnd and (self.recordnumber == self.maxnumber or self.cp.currentTipTrigger ~= nil) then
+		if self.cp.stopAtEnd and (self.recordnumber == self.maxnumber or self.cp.currentTipTrigger ~= nil) then
 			allowedToDrive = false
 			courseplay:setGlobalInfoText(self, courseplay:get_locale(self, courseplay.locales.CPReachedEndPoint));
 		end
@@ -531,20 +559,20 @@ function courseplay:drive(self, dt)
 	-- ai_mode 4 = fertilize
 	local workArea = false
 	local workSpeed = 0;
-
-	if self.ai_mode == 4 and self.tipper_attached and self.startWork ~= nil and self.stopWork ~= nil then
-		allowedToDrive, workArea, workSpeed = courseplay:handle_mode4(self, allowedToDrive, workArea, workSpeed, fill_level)
+	local isFinishingWork = false
+	if self.cp.mode == 4 and self.cp.tipperAttached and self.cp.startWork ~= nil and self.cp.stopWork ~= nil then
+		allowedToDrive, workArea, workSpeed ,isFinishingWork = courseplay:handle_mode4(self, allowedToDrive, workSpeed, fill_level)
 	end
 
 	
 
 
 	-- Mode 6 Fieldwork for balers and foragewagon
-	if (self.ai_mode == 6 or self.ai_mode == 4) and self.startWork ~= nil and self.stopWork ~= nil then
-		if self.ai_mode == 6 then
-			allowedToDrive, workArea, workSpeed, active_tipper = courseplay:handle_mode6(self, allowedToDrive, workArea, workSpeed, fill_level, lx , lz )
+	if (self.cp.mode == 6 or self.cp.mode == 4) and self.cp.startWork ~= nil and self.cp.stopWork ~= nil then
+		if self.cp.mode == 6 then
+			allowedToDrive, workArea, workSpeed, activeTipper ,isFinishingWork = courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx , lz )
 		end
-		if not workArea and self.cp.tipperFillLevel ~= nil and ((self.grainTankCapacity == nil and self.tipRefOffset ~= nil) or self.cp.hasMachinetoFill) then
+		if not workArea and self.cp.tipperFillLevel ~= nil and ((self.grainTankCapacity == nil and self.cp.tipRefOffset ~= nil) or self.cp.hasMachinetoFill) then
 			if self.cp.currentTipTrigger == nil and self.cp.fillTrigger == nil then
 				-- is there a tipTrigger within 10 meters?
 				courseplay:debug(nameNum(self) .. ": call 1st raycast", 1);
@@ -556,9 +584,9 @@ function courseplay:drive(self, dt)
 					drawDebugLine(tx, ty, tz, 1, 0, 0, tx+(nx*10), ty+(ny*10), tz+(nz*10), 1, 0, 0);
 				end;
 
-				if self.tipRefOffset ~= 0 then
+				if self.cp.tipRefOffset ~= 0 then
 					if self.cp.currentTipTrigger == nil then
-						local x1,y1,z1 = localToWorld(self.aiTrafficCollisionTrigger,self.tipRefOffset,0,0)
+						local x1,y1,z1 = localToWorld(self.aiTrafficCollisionTrigger,self.cp.tipRefOffset,0,0)
 						courseplay:debug(nameNum(self) .. ": call 2nd raycast", 1);
 						num = raycastAll(x1,y1,z1, nx, ny, nz, "findTipTriggerCallback", 10, self)
 						if num > 0 then
@@ -569,7 +597,7 @@ function courseplay:drive(self, dt)
 						end;
 					end
 					if self.cp.currentTipTrigger == nil then
-						local x1,y1,z1 = localToWorld(self.aiTrafficCollisionTrigger,-self.tipRefOffset,0,0)
+						local x1,y1,z1 = localToWorld(self.aiTrafficCollisionTrigger,-self.cp.tipRefOffset,0,0)
 						courseplay:debug(nameNum(self) .. ": call 3rd raycast", 1);
 						num = raycastAll(x1,y1,z1, nx, ny, nz, "findTipTriggerCallback", 10, self)
 						if num > 0 then
@@ -583,7 +611,7 @@ function courseplay:drive(self, dt)
 			end;
 		end;
 	end
-	if self.ai_mode == 9 then
+	if self.cp.mode == 9 then
 		allowedToDrive = courseplay:handle_mode9(self, fill_level, allowedToDrive, dt);
 	end;
 	self.cp.inTraffic = false
@@ -596,12 +624,12 @@ function courseplay:drive(self, dt)
 	end
 
 	--Open/close cover
-	if self.cp.tipperHasCover and (self.ai_mode == 1 or self.ai_mode == 2 or self.ai_mode == 5 or self.ai_mode == 6) then
+	if self.cp.tipperHasCover and (self.cp.mode == 1 or self.cp.mode == 2 or self.cp.mode == 5 or self.cp.mode == 6) then
 		local showCover = false;
 
-		if self.ai_mode ~= 6 then
+		if self.cp.mode ~= 6 then
 			local minCoverWaypoint = 3;
-			if self.ai_mode == 1 then
+			if self.cp.mode == 1 then
 				minCoverWaypoint = 4;
 			end;
 
@@ -650,7 +678,7 @@ function courseplay:drive(self, dt)
 				allowedToDrive = false
 				courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPWorkEnd"), 1);
 			else
-				self.loaded = true;
+				self.cp.isLoaded = true;
 				self.recordnumber = i + 2
 			end
 		end
@@ -668,7 +696,7 @@ function courseplay:drive(self, dt)
 		else
 			AIVehicleUtil.driveInDirection(self, dt, 30, 0, 0, 28, false, moveForwards, 0, 1)
 			if g_server ~= nil then
-				AIVehicleUtil.driveInDirection(self, dt, self.steering_angle, 0.5, 0.5, 28, false, moveForwards, 0, 1)
+				AIVehicleUtil.driveInDirection(self, dt, self.cp.steeringAngle, 0.5, 0.5, 28, false, moveForwards, 0, 1)
 			end
 			return;
 		end
@@ -682,61 +710,45 @@ function courseplay:drive(self, dt)
 	end
 
 
-	-- which speed?
-	local slowEnd = self.ai_mode == 2 and self.recordnumber > self.maxnumber - 3;
-	local slowStart_lvl2 = (self.ai_mode == 2 or self.ai_mode == 3) and self.recordnumber < 3;
-	local slowStartEnd = self.ai_mode ~= 2 and self.ai_mode ~= 3 and self.ai_mode ~= 4 and self.ai_mode ~= 6 and self.ai_mode ~= 9 and (self.recordnumber > self.maxnumber - 3 or self.recordnumber < 3)
-	local slowDownWP = false
-	local slowDownRev = false
-	local real_speed = self.lastSpeedReal
-	local maxRpm = self.motor.maxRpm[self.sl]
-
-	if self.recordnumber < (self.maxnumber - 3) then
-		slowDownWP = (self.Waypoints[self.recordnumber + 2].wait or self.Waypoints[self.recordnumber + 1].wait or self.Waypoints[self.recordnumber].wait) --if mode4 or 6: last 3 points before stop or before start
-		slowDownRev = (self.Waypoints[self.recordnumber + 2].rev or self.Waypoints[self.recordnumber + 1].rev or self.Waypoints[self.recordnumber].rev)
+	--SPEED SETTING
+	local isAtEnd   = self.recordnumber > self.maxnumber - 3;
+	local isAtStart = self.recordnumber < 3;
+	if 	((self.cp.mode == 1 or self.cp.mode == 5 or self.cp.mode == 7 or self.cp.mode == 8) and (isAtStart or isAtEnd)) or
+		((self.cp.mode == 2 or self.cp.mode == 3) and isAtEnd) or
+		(self.cp.mode == 9 and self.recordnumber > self.cp.waitPoints[1] and self.recordnumber <= self.cp.waitPoints[2]) or
+		(not workArea and self.wait and ((isAtEnd and self.Waypoints[self.recordnumber].wait) or courseplay:waypointsHaveAttr(self, self.recordnumber, 0, 2, "wait", true, false))) or 
+		(isAtEnd and self.Waypoints[self.recordnumber].rev) or
+		(workSpeed ~= nil and workSpeed == 0.5) 
+	then
+		self.cp.speeds.sl = 1;
+		refSpeed = self.cp.speeds.turn;
+	elseif ((self.cp.mode == 2 or self.cp.mode == 3) and isAtStart) or (workSpeed ~= nil and workSpeed == 1) then
+		self.cp.speeds.sl = 2;
+		refSpeed = self.cp.speeds.field;
 	else
-		slowDownWP = self.Waypoints[self.recordnumber].wait;
-		slowDownRev = self.Waypoints[self.recordnumber].rev;
-	end
+		self.cp.speeds.sl = 3;
+		refSpeed = self.cp.speeds.max;
+	end;
+	if self.cp.speeds.useRecordingSpeed and self.Waypoints[self.recordnumber].speed ~= nil then
+		refSpeed = Utils.clamp(refSpeed, 3/3600, self.Waypoints[self.recordnumber].speed);
+	end;
+	refSpeed = courseplay:regulateTrafficSpeed(self, refSpeed, allowedToDrive);
 
-	if self.ai_mode ~= 7 then
-		if (workSpeed ~= nil and workSpeed == 0.5) or ((slowDownWP and not workArea) or slowDownRev or self.max_speed_level == 1 or slowStartEnd or slowEnd) then
-			self.sl = 1
-			refSpeed = self.turn_speed
-		elseif (workSpeed ~= nil and workSpeed == 1) or slowStart_lvl2 then
-			self.sl = 2
-			refSpeed = self.field_speed
-		else
-			self.sl = 3
-			refSpeed = self.max_speed
-		end
-	elseif slowDownWP then
-		self.sl = 1
-		refSpeed = self.turn_speed
-	end
-	
-	if self.Waypoints[self.recordnumber].speed ~= nil and self.use_speed and self.recordnumber > 3 then
-		refSpeed = math.max(self.Waypoints[self.recordnumber].speed, 3/3600)
-	end
-
-	if slowDownRev and refSpeed > self.turn_speed then
-		refSpeed = self.turn_speed
-	end
-
-	refSpeed = courseplay:regulateTrafficSpeed(self,refSpeed,allowedToDrive)
+	local real_speed = self.lastSpeedReal;
+	local maxRpm = self.motor.maxRpm[self.cp.speeds.sl];
 
 	--bunkerSilo speed by Thomas Gärtner
 	if self.cp.currentTipTrigger ~= nil then
 		if self.cp.currentTipTrigger.bunkerSilo ~= nil then
-			refSpeed = Utils.getNoNil(self.unload_speed, 3/3600);
+			refSpeed = Utils.getNoNil(self.cp.speeds.unload, 3/3600);
 		else
-			refSpeed = self.turn_speed
+			refSpeed = self.cp.speeds.turn
 		end
 	elseif self.cp.isInFilltrigger then
-		if self.lastSpeedReal > self.turn_speed then
+		if self.lastSpeedReal > self.cp.speeds.turn then
 			courseplay:brakeToStop(self)
 		else
-			refSpeed = self.turn_speed
+			refSpeed = self.cp.speeds.turn
 		end
 		self.cp.isInFilltrigger = false
 	else
@@ -758,18 +770,23 @@ function courseplay:drive(self, dt)
 			lz = lz2
 		end
 	end
-
+   --finishing field work
+	if isFinishingWork then
+		lx=0
+		lz=1
+	end
+	
 	--reverse
 	if self.Waypoints[self.recordnumber].rev then
 		lx,lz,fwd = courseplay:goReverse(self,lx,lz)
-		refSpeed = Utils.getNoNil(self.unload_speed, 3/3600)
+		refSpeed = Utils.getNoNil(self.cp.speeds.unload, 3/3600)
 	else
 		fwd = true
 	end
 
 	if self.cp.TrafficBrake then
 		if self.isRealistic then
-			AIVehicleUtil.mrDriveInDirection(self, dt, 1, false, true, 0, 1, self.sl, true, true)
+			AIVehicleUtil.mrDriveInDirection(self, dt, 1, false, true, 0, 1, self.cp.speeds.sl, true, true)
 			self.cp.TrafficBrake = false
 			self.cp.isTrafficBraking = false
 			self.cp.TrafficHasStopped = false
@@ -796,9 +813,9 @@ function courseplay:drive(self, dt)
 	end
 
 	if self.isRealistic then
-		courseplay:setMRSpeed(self, refSpeed, self.sl,allowedToDrive)
+		courseplay:setMRSpeed(self, refSpeed, self.cp.speeds.sl,allowedToDrive)
 	else
-		courseplay:setSpeed(self, refSpeed, self.sl)
+		courseplay:setSpeed(self, refSpeed, self.cp.speeds.sl)
 	end
 	
 	-- go, go, go!
@@ -813,9 +830,9 @@ function courseplay:drive(self, dt)
 			distToChange = 2
 		elseif self.Waypoints[self.recordnumber].rev then
 			distToChange = 2; --1
-		elseif self.ai_mode == 4 or self.ai_mode == 6 or self.ai_mode == 7 then
+		elseif self.cp.mode == 4 or self.cp.mode == 6 or self.cp.mode == 7 then
 			distToChange = 5;
-		elseif self.ai_mode == 9 then
+		elseif self.cp.mode == 9 then
 			distToChange = 4;
 		else
 			distToChange = 2.85; --orig: 5
@@ -829,12 +846,12 @@ function courseplay:drive(self, dt)
 	end  
 
 	-- record shortest distance to the next waypoint
-	if self.shortest_dist == nil or self.shortest_dist > self.dist then
-		self.shortest_dist = self.dist
+	if self.cp.shortestDistToWp == nil or self.cp.shortestDistToWp > self.dist then
+		self.cp.shortestDistToWp = self.dist
 	end
 
 	if beforeReverse then
-		self.shortest_dist = nil
+		self.cp.shortestDistToWp = nil
 	end
 
 	if self.invertedDrivingDirection then
@@ -843,16 +860,16 @@ function courseplay:drive(self, dt)
 	end
 
 	-- if distance grows i must be circling
-	if self.dist > self.shortest_dist and self.recordnumber > 3 and self.dist < 15 and self.Waypoints[self.recordnumber].rev ~= true then
+	if self.dist > self.cp.shortestDistToWp and self.recordnumber > 3 and self.dist < 15 and self.Waypoints[self.recordnumber].rev ~= true then
 		distToChange = self.dist + 1
 	end
 
-	if self.dist > distToChange or WpUnload or WpLoadEnd then
+	if self.dist > distToChange or WpUnload or WpLoadEnd or isFinishingWork then
 		if g_server ~= nil then
 			if self.isRealistic then 
 				courseplay:driveInMRDirection(self, lx,lz,fwd, dt,allowedToDrive);
 			else
-				AIVehicleUtil.driveInDirection(self, dt, self.steering_angle, 0.5, 0.5, 8, true, fwd, lx, lz, self.sl, 0.5);
+				AIVehicleUtil.driveInDirection(self, dt, self.cp.steeringAngle, 0.5, 0.5, 8, true, fwd, lx, lz, self.cp.speeds.sl, 0.5);
 			end
 			if not isBypassing then
 				courseplay:setTrafficCollision(self, lx, lz)
@@ -860,33 +877,33 @@ function courseplay:drive(self, dt)
 		end
 	else
 		-- reset distance to waypoint
-		self.shortest_dist = nil
+		self.cp.shortestDistToWp = nil
 		if self.recordnumber < self.maxnumber then -- = New
 			if not self.wait then
 				self.wait = true
 			end
-			if self.ai_mode == 7 and self.ai_state == 5 then
+			if self.cp.mode == 7 and self.cp.modeState == 5 then
 			else
 				self.recordnumber = self.recordnumber + 1
 			end
 			-- ignore reverse Waypoints for mode 6
 			local in_work_area = false
-			if self.startWork ~= nil and self.stopWork ~= nil and self.recordnumber >= self.startWork and self.recordnumber <= self.stopWork then
+			if self.cp.startWork ~= nil and self.cp.stopWork ~= nil and self.recordnumber >= self.cp.startWork and self.recordnumber <= self.cp.stopWork then
 				in_work_area = true
 			end
-			while self.ai_mode == 6 and self.recordnumber < self.maxnumber and in_work_area and self.Waypoints[self.recordnumber].rev do
+			while self.cp.mode == 6 and self.recordnumber < self.maxnumber and in_work_area and self.Waypoints[self.recordnumber].rev do
 				self.recordnumber = self.recordnumber + 1
 			end
 		else -- reset some variables
-			if (self.ai_mode == 4 or self.ai_mode == 6) and not self.cp.hasUnloadingRefillingCourse then
+			if (self.cp.mode == 4 or self.cp.mode == 6) and not self.cp.hasUnloadingRefillingCourse then
 			else
 				self.recordnumber = 1
 			end
-			self.unloaded = false
-			self.StopEnd = false
-			self.loaded = false
+			self.cp.isUnloaded = false
+			self.cp.stopAtEnd = false
+			self.cp.isLoaded = false
 			self.record = false
-			self.play = true
+			self.cp.canDrive = true
 		end
 	end
 end
@@ -894,7 +911,7 @@ end
 
 function courseplay:setTrafficCollision(self, lx, lz)
 	local distance = 15
-	local goForRaycast = self.ai_mode == 1 or (self.ai_mode == 3 and self.recordnumber > 3) or self.ai_mode == 5 or self.ai_mode == 8 or ((self.ai_mode == 4 or self.ai_mode == 6) and self.recordnumber > self.stopWork) or (self.ai_mode == 2 and self.recordnumber > 3)
+	local goForRaycast = self.cp.mode == 1 or (self.cp.mode == 3 and self.recordnumber > 3) or self.cp.mode == 5 or self.cp.mode == 8 or ((self.cp.mode == 4 or self.cp.mode == 6) and self.recordnumber > self.cp.stopWork) or (self.cp.mode == 2 and self.recordnumber > 3)
 	if self.isRealistic and math.abs(lx) < 0.1 then
 		local brakingDistance = self.realGroundSpeed/5
 		distance = math.max(distance, distance * brakingDistance)
@@ -924,22 +941,35 @@ function courseplay:setTrafficCollision(self, lx, lz)
 	end;
 	if self.aiTrafficCollisionTrigger ~= nil and g_server ~= nil then --!!!
 		AIVehicleUtil.setCollisionDirection(self.cp.DirectionNode, self.aiTrafficCollisionTrigger, colDirX, colDirZ);
-		if self.traffic_vehicle_in_front == nil and goForRaycast then
+		if self.cp.collidingVehicle == nil and goForRaycast then
 			local straight = true
-			for k=1,5 do
-				if self.recordnumber+k > self.maxnumber then
+			for k=1,4 do
+				if self.recordnumber+k+1 > self.maxnumber then
+					straight = false
 					break
 				end
-				local tx, ty, tz = localToWorld(self.cp.DirectionNode, 0,1,4)
+				local cy1 = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, self.Waypoints[self.recordnumber+k].cx,0, self.Waypoints[self.recordnumber+k].cz)+1
+				local cy2 = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, self.Waypoints[self.recordnumber+k+1].cx,0, self.Waypoints[self.recordnumber+k+1].cz)+1
 				local cx1, cz1 = self.Waypoints[self.recordnumber+k].cx, self.Waypoints[self.recordnumber+k].cz
-				local dist = math.min(courseplay:distance_to_point(self, cx1,ty, cz1),25)
+				local cx2, cz2 = self.Waypoints[self.recordnumber+k+1].cx, self.Waypoints[self.recordnumber+k+1].cz
 				local lx1, lz1 = AIVehicleUtil.getDriveDirection(self.cp.DirectionNode, cx1, ty, cz1);
-				local nx, ny, nz = localDirectionToWorld(self.cp.DirectionNode, lx1, 0,lz1)
+				local nx,nz = 0
+				local vx = cx2 - cx1
+				local vz = cz2 - cz1
+				local vy = cy2 - cy1
+				dist = Utils.vector3Length(vx,vy, vz)
+				if dist and dist > 0.01 then
+					nx = vx / dist
+					nz = vz / dist
+					ny = vy / dist					
+				end				
 				if math.abs(lx1) > 0.1 then 
 					courseplay:debug(nameNum(self)..": call traffic raycast curve ["..tostring(k).."]",3)
-					raycastAll(tx, ty, tz, nx, ny, nz, "findTrafficCollisionCallback", dist, self)
-					if courseplay.debugChannels[3] then drawDebugLine(tx, ty, tz, 1, 1, 1, tx +(nx*dist) , ty+(ny*dist), tz+(nz*dist), 1, 1, 1) end
-					straight = false 
+					raycastAll(cx1, cy1, cz1, nx, ny, nz, "findTrafficCollisionCallback", dist, self)
+					if courseplay.debugChannels[3] then drawDebugLine(cx1, cy1, cz1, 1, 1, 1, cx1 +(nx*dist) , cy1+(ny*dist), cz1+(nz*dist), 1, 1, 1) end
+					if k <= 3 then
+						straight = false 
+					end
 				end
 			end
 			if straight then
@@ -959,17 +989,17 @@ end
 
 function courseplay:check_traffic(self, display_warnings, allowedToDrive)
 	local ahead = false
-	local vehicle_in_front = g_currentMission.nodeToVehicle[self.traffic_vehicle_in_front]
+	local vehicle_in_front = g_currentMission.nodeToVehicle[self.cp.collidingVehicle]
 	--courseplay:debug(tableShow(self, nameNum(self), 4), 4)
 	if self.CPnumCollidingVehicles ~= nil and self.CPnumCollidingVehicles > 0 then
-		if vehicle_in_front ~= nil and not (self.ai_mode == 9 and vehicle_in_front.allowFillFromAir) then
-			local vx, vy, vz = getWorldTranslation(self.traffic_vehicle_in_front)
+		if vehicle_in_front ~= nil and not (self.cp.mode == 9 and vehicle_in_front.allowFillFromAir) then
+			local vx, vy, vz = getWorldTranslation(self.cp.collidingVehicle)
 			local tx, ty, tz = worldToLocal(self.aiTrafficCollisionTrigger, vx, vy, vz)
 			local xvx, xvy, xvz = getWorldTranslation(self.aiTrafficCollisionTrigger)
 			local x, y, z = getWorldTranslation(self.cp.DirectionNode)
 			local x1, y1, z1 = 0,0,0
 			local halfLength = Utils.getNoNil(vehicle_in_front.sizeLength,5)/2
-			x1,z1 = AIVehicleUtil.getDriveDirection(self.traffic_vehicle_in_front, x, y, z);
+			x1,z1 = AIVehicleUtil.getDriveDirection(self.cp.collidingVehicle, x, y, z);
 			if z1 > -0.9 then -- tractor in front of vehicle face2face or beside < 4 o'clock
 				ahead = true
 			end
@@ -1148,7 +1178,7 @@ function courseplay:refillSprayer(self, fill_level, driveOn, allowedToDrive, lx,
 
 			local canRefill = (activeToolFillLevel ~= nil and activeToolFillLevel < driveOn) and fillTypesMatch;
 			--ManureLager: activeTool.ReFillTrigger has to be nil so it doesn't refill
-			if self.ai_mode == 8 then
+			if self.cp.mode == 8 then
 				canRefill = canRefill and activeTool.ReFillTrigger == nil and not courseplay:waypointsHaveAttr(self, self.recordnumber, -2, 2, "wait", true, false);
 
 				if activeTool.isSpreaderInRange ~= nil and activeTool.isSpreaderInRange.manureTriggerc ~= nil then
@@ -1170,7 +1200,7 @@ function courseplay:refillSprayer(self, fill_level, driveOn, allowedToDrive, lx,
 				end;
 
 				self.cp.infoText = string.format(courseplay:get_locale(self, "CPloading"), self.cp.tipperFillLevel, self.cp.tipperCapacity);
-			elseif self.loaded or not self.cp.stopForLoading then
+			elseif self.cp.isLoaded or not self.cp.stopForLoading then
 				activeTool:setIsSprayerFilling(false, false);
 				courseplay:handleSpecialTools(self,activeTool,nil,nil,nil,allowedToDrive,false,false)
 				self.cp.fillTrigger = nil
@@ -1205,29 +1235,34 @@ function courseplay:regulateTrafficSpeed(self,refSpeed,allowedToDrive)
 	if self.cp.isTrafficBraking then
 		return refSpeed
 	end
-	if self.traffic_vehicle_in_front ~= nil then
-		local vehicle_in_front = g_currentMission.nodeToVehicle[self.traffic_vehicle_in_front];
+	if self.cp.collidingVehicle ~= nil then
+		local vehicle_in_front = g_currentMission.nodeToVehicle[self.cp.collidingVehicle];
 		local vehicleBehind = false
 		if vehicle_in_front == nil then
-			courseplay:debug(nameNum(self)..": regulateTrafficSpeed(1190):	setting self.traffic_vehicle_in_front nil",3)
-			self.traffic_vehicle_in_front = nil
+			courseplay:debug(nameNum(self)..": regulateTrafficSpeed(1216):	setting self.cp.collidingVehicle nil",3)
+			self.cp.collidingVehicle = nil
 			self.CPnumCollidingVehicles = math.max(self.CPnumCollidingVehicles-1, 0);
 			return refSpeed
 		else
-			local name = getName(self.traffic_vehicle_in_front)
+			local name = getName(self.cp.collidingVehicle)
 			courseplay:debug(nameNum(self)..": regulateTrafficSpeed:	 "..tostring(name),3)
 		end
-		local x, y, z = getWorldTranslation(self.traffic_vehicle_in_front)
+		local x, y, z = getWorldTranslation(self.cp.collidingVehicle)
 		local x1, y1, z1 = worldToLocal(self.rootNode, x, y, z)
-		if z1 < 0 or math.abs(x1) > 4 then -- vehicle behind tractor
+		if z1 < 0 or math.abs(x1) > 5 then -- vehicle behind tractor
 			vehicleBehind = true
 		end
-		if vehicle_in_front.rootNode == nil or vehicle_in_front.lastSpeedReal == nil or (vehicle_in_front.rootNode ~= nil and courseplay:distance_to_object(self, vehicle_in_front) > 40) or vehicleBehind then
-			courseplay:debug(nameNum(self)..": regulateTrafficSpeed(1205):	setting self.traffic_vehicle_in_front nil",3)
-			self.cp.tempCollis[self.traffic_vehicle_in_front] = nil
-			self.traffic_vehicle_in_front = nil
+		local distance = 0
+		if vehicle_in_front.rootNode ~= nil then
+			distance = courseplay:distance_to_object(self, vehicle_in_front)
+		end
+		if vehicle_in_front.rootNode == nil or vehicle_in_front.lastSpeedReal == nil or (distance > 40) or vehicleBehind then
+			courseplay:debug(string.format("%s: v.rootNode= %s,v.lastSpeedReal= %s, distance: %f, vehicleBehind= %s",nameNum(self),tostring(vehicle_in_front.rootNode),tostring(vehicle_in_front.lastSpeedReal),distance,tostring(vehicleBehind)),3)
+			courseplay:debug(nameNum(self)..": regulateTrafficSpeed(1230):	setting self.cp.collidingVehicle nil",3)
+			self.cp.tempCollis[self.cp.collidingVehicle] = nil
+			self.cp.collidingVehicle = nil
 		else
-			if allowedToDrive and not (self.ai_mode == 9 and vehicle_in_front.allowFillFromAir) then
+			if allowedToDrive and not (self.cp.mode == 9 and vehicle_in_front.allowFillFromAir) then
 				if (self.lastSpeed*3600) - (vehicle_in_front.lastSpeedReal*3600) > 15 or z1 < 3 then
 					self.cp.TrafficBrake = true
 				else
@@ -1273,12 +1308,12 @@ function courseplay:driveInMRDirection(self, lx,lz,fwd,dt,allowedToDrive)
 		lz = -lz
 	end
 	--AIVehicleUtil.mrDriveInDirection(self, dt, acceleration, allowedToDrive, moveForwards, lx, lz, speedLevel, useReduceSpeed, noDefaultHiredWorker)
-	AIVehicleUtil.mrDriveInDirection(self, dt, 1, allowedToDrive, fwd, lx, lz, self.sl, true, true)
+	AIVehicleUtil.mrDriveInDirection(self, dt, 1, allowedToDrive, fwd, lx, lz, self.cp.speeds.sl, true, true)
 			
 end
 
 
-function courseplay:setMRSpeed(self, refSpeed, sl,allowedToDrive)
+function courseplay:setMRSpeed(self, refSpeed, sl,allowedToDrive,workArea)
 	local currentSpeed = self.lastSpeedReal
 	local deltaMinus = currentSpeed*3600 - refSpeed*3600
 	local deltaPlus = refSpeed*3600 - currentSpeed*3600
@@ -1293,7 +1328,7 @@ function courseplay:setMRSpeed(self, refSpeed, sl,allowedToDrive)
 	self.motor.realSpeedLevelsAI[self.motor.speedLevel] = refSpeed*3600
 	
 	-- setting AWD if necessary
-	if self.realDisplaySlipPercent > 25 and self.realAWDModeOn == false then 
+	if (workArea or self.realDisplaySlipPercent > 25) and self.realAWDModeOn == false then 
 		self:realSetAwdActive(true);
 	elseif self.realDisplaySlipPercent < 1 and self.realAWDModeOn == true then 
 		self:realSetAwdActive(false);

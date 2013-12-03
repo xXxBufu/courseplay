@@ -32,11 +32,16 @@ function courseplay:area_has_fruit(x, z, fruit_type, widthX, widthZ)
 end
 
 function courseplay:is_field(x, z)
-	local widthX = 0.5;
-	local widthZ = 0.5;
-	
-	for i=0,3 do
-		if Utils.getDensity(g_currentMission.terrainDetailId, i, x, z, x - widthX, z - widthZ, x + widthX, z + widthZ) ~= 0 then
+	local widthX, widthZ = 0.5, 0.5;
+	if courseplay.fields.lastChannel ~= nil then
+		if Utils.getDensity(g_currentMission.terrainDetailId, courseplay.fields.lastChannel, x, z, x - widthX, z - widthZ, x + widthX, z + widthZ) ~= 0 then
+			return true;
+		end;
+	end;
+
+	for i,channel in ipairs(courseplay.fields.fieldChannels) do
+		if Utils.getDensity(g_currentMission.terrainDetailId, channel, x, z, x - widthX, z - widthZ, x + widthX, z + widthZ) ~= 0 then
+			courseplay.fields.lastChannel = channel;
 			return true;
 		end;
 	end;
@@ -175,7 +180,7 @@ function courseplay:side_to_drive(self, combine, distance,switchSide)
 	else
 		fruitSide = "none"
 	end
-	if combine.forced_side == nil then
+	if combine.cp.forcedSide == nil then
 		--print("	forced side == nil")
 		if not switchSide then
 			if fruitSide == "right" then
@@ -192,7 +197,7 @@ function courseplay:side_to_drive(self, combine, distance,switchSide)
 				self.sideToDrive = "left";
 			end;
 		end;
-	elseif combine.forced_side == "right" then
+	elseif combine.cp.forcedSide == "right" then
 		--print("	forced side right")
 		self.sideToDrive = "right";
 	else

@@ -11,13 +11,7 @@ end
 
 -- displays arrow and distance to previous point
 function courseplay:dcheck(vehicle)
-	local number = 1;
-	if vehicle.back then
-		number = vehicle.maxnumber - 2;
-	end;
-	if vehicle.record_pause then
-		number = vehicle.recordnumber - 1;
-	end
+	local number = vehicle.record_pause and vehicle.recordnumber - 1 or 1;
 
 	local ctx, cty, ctz = getWorldTranslation(vehicle.rootNode);
 	local cx, cz = vehicle.Waypoints[number].cx, vehicle.Waypoints[number].cz;
@@ -36,8 +30,8 @@ function courseplay:dcheck(vehicle)
 		[8] =  0.5 * sinAR + 0.5 * cosAR + 0.5;
 	};
 
-	setOverlayUVs(vehicle.ArrowOverlay.overlayId, arrowUV[1], arrowUV[2], arrowUV[3], arrowUV[4], arrowUV[5], arrowUV[6], arrowUV[7], arrowUV[8]);
-	vehicle.ArrowOverlay:render();
+	setOverlayUVs(vehicle.cp.directionArrowOverlay.overlayId, arrowUV[1], arrowUV[2], arrowUV[3], arrowUV[4], arrowUV[5], arrowUV[6], arrowUV[7], arrowUV[8]);
+	vehicle.cp.directionArrowOverlay:render();
 
 	vehicle.cp.infoText = string.format("%s: %.1fm", courseplay:get_locale(vehicle, "CPDistance"), courseplay:distance(ctx, ctz, cx, cz));
 end;

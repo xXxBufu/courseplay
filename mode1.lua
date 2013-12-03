@@ -1,7 +1,7 @@
 -- handles "mode1" : waiting at start until tippers full - driving course and unloading on trigger
 function courseplay:handle_mode1(self)
 	local allowedToDrive = true
-	local active_tipper = nil
+	local activeTipper = nil
 	local tipper_fill_level, tipper_capacity = self:getAttachedTrailersFillLevelAndCapacity()
 
 	if tipper_fill_level == nil then tipper_fill_level = 0 end
@@ -9,19 +9,18 @@ function courseplay:handle_mode1(self)
 
 
 	-- done tipping
-	if self.unloading_tipper ~= nil and self.unloading_tipper.fillLevel == 0 then
-		self.unloading_tipper = nil
+	if self.cp.unloadingTipper ~= nil and self.cp.unloadingTipper.fillLevel == 0 then
+		self.cp.unloadingTipper = nil
 		if tipper_fill_level == 0 then
-			self.unloaded = true
-			self.max_speed_level = 3
+			self.cp.isUnloaded = true
 			self.cp.currentTipTrigger = nil
 		end
 	end
 
 	-- tippers are not full
 	-- tipper should be loaded 10 meters before wp 2	
-	--if self.loaded ~= true and ((self.recordnumber == 2 and tipper_fill_level < tipper_capacity and self.unloaded == false and self.dist < 10) or self.lastTrailerToFillDistance) then
-  	if self.loaded ~= true and ((self.recordnumber == 2 and tipper_fill_level < tipper_capacity and self.unloaded == false ) or self.lastTrailerToFillDistance) then
+	--if self.cp.isLoaded ~= true and ((self.recordnumber == 2 and tipper_fill_level < tipper_capacity and self.cp.isUnloaded == false and self.dist < 10) or self.cp.lastTrailerToFillDistance) then
+  	if self.cp.isLoaded ~= true and ((self.recordnumber == 2 and tipper_fill_level < tipper_capacity and self.cp.isUnloaded == false ) or self.cp.lastTrailerToFillDistance) then
 		allowedToDrive = courseplay:load_tippers(self)
 		self.cp.infoText = string.format(courseplay:get_locale(self, "CPloading"), tipper_fill_level, tipper_capacity)
 	end
@@ -55,7 +54,6 @@ function courseplay:handle_mode1(self)
 
 	-- tipper is not empty and tractor reaches TipTrigger
 	if tipper_fill_level > 0 and self.cp.currentTipTrigger ~= nil and self.recordnumber > 3 then
-		self.max_speed_level = 1
 		allowedToDrive = courseplay:unload_tippers(self)
 
 

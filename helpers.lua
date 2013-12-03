@@ -794,3 +794,16 @@ function courseplay:normalizeUTF8(str)
 
 	return str:lower();
 end;
+
+function courseplay:checkAndPrintChange(vehicle, variable, VariableNameString)
+	if vehicle.cp.checkTable == nil then
+		vehicle.cp.checkTable = {}
+	end
+	if variable == nil then
+		variable = -32756
+	end
+	if variable ~= vehicle.cp.checkTable[VariableNameString] then
+		print(string.format("%s: changed Variable: %s: %s",nameNum(vehicle),VariableNameString,tostring(variable)))
+		vehicle.cp.checkTable[VariableNameString] = variable
+	end
+end
