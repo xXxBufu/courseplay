@@ -76,7 +76,7 @@ function courseplay:update_combines(self)
 
 	self.cp.reachableCombines = {}
 
-	if not self.search_combine and self.cp.savedCombine then
+	if not self.cp.searchCombineAutomatically and self.cp.savedCombine then
 		courseplay:debug(nameNum(self)..": combine is manual set",4)
 		table.insert(self.cp.reachableCombines, self.cp.savedCombine)
 		return
@@ -94,36 +94,24 @@ function courseplay:update_combines(self)
 	courseplay:debug(string.format("%s: combines found: %d", nameNum(self), table.getn(found_combines)), 4)
 
 	--DEV: check field pairing using fieldDefs
-	local tractorField, combineFound;
-	if courseplay.fields.numAvailableFields > 0 then
-		for k,fieldData in pairs(courseplay.fields.fieldData) do
-			if x >= fieldData.dimensions.minX and x <= fieldData.dimensions.maxX and z >= fieldData.dimensions.minZ and z <= fieldData.dimensions.maxZ then
-				courseplay:debug(string.format('%s: tractor is in field %d\'s dimensions', nameNum(self), k), 4);
-				if courseplay:pointInPolygonV2b(fieldData.points, x, z, true) then
-					tractorField = k;
-					courseplay:debug(string.format('\ttractor is in field %d\'s poly', k), 4);
-					break;
+	local combineFound;
+	if courseplay.fields.numAvailableFields > 0 and self.cp.searchCombineOnField > 0 then
+		local fieldData = courseplay.fields.fieldData[self.cp.searchCombineOnField];
+		for k,combine in pairs(found_combines) do
+			local combineX,_,combineZ = getWorldTranslation(combine.rootNode);
+			if combineX >= fieldData.dimensions.minX and combineX <= fieldData.dimensions.maxX and combineZ >= fieldData.dimensions.minZ and combineZ <= fieldData.dimensions.maxZ then
+				courseplay:debug(string.format('%s: combine %q is in field %d\'s dimensions', nameNum(self), nameNum(combine), self.cp.searchCombineOnField), 4);
+				if courseplay:pointInPolygonV2b(fieldData.points, combineX, combineZ, true) then
+					courseplay:debug(string.format('\tcombine is in field %d\'s poly', self.cp.searchCombineOnField), 4);
+					courseplay:debug(string.format('%s: adding %q to reachableCombines table', nameNum(self), nameNum(combine)), 4);
+					table.insert(self.cp.reachableCombines, combine);
+					combineFound = true;
 				end;
 			end;
 		end;
-		if tractorField then
-			local fieldData = courseplay.fields.fieldData[tractorField];
-			for k,combine in pairs(found_combines) do
-				local combineX,_,combineZ = getWorldTranslation(combine.rootNode);
-				if combineX >= fieldData.dimensions.minX and combineX <= fieldData.dimensions.maxX and combineZ >= fieldData.dimensions.minZ and combineZ <= fieldData.dimensions.maxZ then
-					courseplay:debug(string.format('%s: combine %q is in field %d\'s dimensions', nameNum(self), nameNum(combine), tractorField), 4);
-					if courseplay:pointInPolygonV2b(fieldData.points, combineX, combineZ, true) then
-						courseplay:debug(string.format('\tcombine is in field %d\'s poly', tractorField), 4);
-						courseplay:debug(string.format('%s: adding %q to reachableCombines table', nameNum(self), nameNum(combine)), 4);
-						table.insert(self.cp.reachableCombines, combine);
-						combineFound = true;
-					end;
-				end;
-			end;
-			courseplay:debug(string.format("%s: combines reachable: %d ", nameNum(self), #(self.cp.reachableCombines)), 4);
-			if combineFound then
-				return;
-			end;
+		courseplay:debug(string.format("%s: combines reachable: %d ", nameNum(self), #(self.cp.reachableCombines)), 4);
+		if combineFound then
+			return;
 		end;
 	end;
 

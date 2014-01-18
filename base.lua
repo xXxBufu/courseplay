@@ -331,9 +331,10 @@ function courseplay:load(xmlFile)
 
 	self.cp.workWidth = 3
 
-	self.search_combine = true
+	self.cp.searchCombineAutomatically = true
 	self.cp.savedCombine = nil
 	self.selected_combine_number = 0
+	self.cp.searchCombineOnField = 0;
 	
 	self.cp.EifokLiquidManure = {
 		targetRefillObject = {};
@@ -370,6 +371,9 @@ function courseplay:load(xmlFile)
 		maxPointDistance = 7.25;
 	};
 	link(getRootNode(), self.cp.headland.tg);
+	if courseplay.isDeveloper then
+		self.cp.headland.maxNumLanes = 50;
+	end;
 
 	self.cp.fieldEdge = {
 		selectedField = {
@@ -670,13 +674,16 @@ function courseplay:load(xmlFile)
 
 	-- ##################################################
 	-- Page 4: Combine management
-	courseplay:register_button(self, 4, "navigate_up.dds",   "switch_combine", -1, courseplay.hud.infoBasePosX + 0.285, courseplay.hud.linesButtonPosY[1], w16px, h16px, 1, nil, false);
-	courseplay:register_button(self, 4, "navigate_down.dds", "switch_combine",  1, courseplay.hud.infoBasePosX + 0.300, courseplay.hud.linesButtonPosY[1], w16px, h16px, 1, nil, false);
-	courseplay:register_button(self, 4, nil, nil, nil, courseplay.hud.infoBasePosX + 0.285, courseplay.hud.linesButtonPosY[1], 0.015 + w16px, mouseWheelArea.h, 1, nil, true, false);
+	courseplay:register_button(self, 4, "blank.png", "switchSearchCombineMode", nil, courseplay.hud.infoBasePosX, courseplay.hud.linesPosY[1], courseplay.hud.visibleArea.width, 0.015, 1, nil, true);
 
-	courseplay:register_button(self, 4, "blank.dds", "switch_search_combine", nil, courseplay.hud.infoBasePosX, courseplay.hud.linesPosY[2], courseplay.hud.visibleArea.width, 0.015, 2, nil, true);
+	courseplay:register_button(self, 4, "navigate_up.png",   "selectAssignedCombine", -1, courseplay.hud.infoBasePosX + 0.285, courseplay.hud.linesButtonPosY[2], w16px, h16px, 2, nil, false);
+	courseplay:register_button(self, 4, "navigate_down.png", "selectAssignedCombine",  1, courseplay.hud.infoBasePosX + 0.300, courseplay.hud.linesButtonPosY[2], w16px, h16px, 2, nil, false);
 
-	courseplay:register_button(self, 4, "blank.dds", "removeActiveCombineFromTractor", nil, courseplay.hud.infoBasePosX, courseplay.hud.linesPosY[4], courseplay.hud.visibleArea.width, 0.015, 4, nil, true);
+	courseplay:register_button(self, 4, "navigate_up.png",   "setSearchCombineOnField", -1, courseplay.hud.infoBasePosX + 0.285, courseplay.hud.linesButtonPosY[3], w16px, h16px, 3, nil, false);
+	courseplay:register_button(self, 4, "navigate_down.png", "setSearchCombineOnField",  1, courseplay.hud.infoBasePosX + 0.300, courseplay.hud.linesButtonPosY[3], w16px, h16px, 3, nil, false);
+	courseplay:register_button(self, 4, nil, 'setSearchCombineOnField', -1, mouseWheelArea.x, courseplay.hud.linesButtonPosY[3], mouseWheelArea.w, mouseWheelArea.h, 3, -5, true, true);
+
+	courseplay:register_button(self, 4, "blank.png", "removeActiveCombineFromTractor", nil, courseplay.hud.infoBasePosX, courseplay.hud.linesPosY[5], courseplay.hud.visibleArea.width, 0.015, 5, nil, true);
 
 
 	-- ##################################################
@@ -1177,7 +1184,8 @@ function courseplay:readStream(streamId, connection)
 	self.recordnumber = streamDebugReadInt32(streamId)
 	self.record = streamDebugReadBool(streamId)
 	self.record_pause = streamDebugReadBool(streamId)
-	self.search_combine = streamDebugReadBool(streamId)
+	self.cp.searchCombineAutomatically = streamDebugReadBool(streamId)
+	self.cp.searchCombineOnField = streamDebugReadInt32(streamId)
 	self.cp.speeds.turn = streamDebugReadFloat32(streamId)
 	self.cp.speeds.field = streamDebugReadFloat32(streamId)
 	self.cp.speeds.unload = streamDebugReadFloat32(streamId)
@@ -1299,7 +1307,8 @@ function courseplay:writeStream(streamId, connection)
 	streamDebugWriteInt32(streamId,self.recordnumber)
 	streamDebugWriteBool(streamId,self.record)
 	streamDebugWriteBool(streamId,self.record_pause)
-	streamDebugWriteBool(streamId,self.search_combine)
+	streamDebugWriteBool(streamId,self.cp.searchCombineAutomatically)
+	streamDebugWriteInt32(streamId,self.cp.searchCombineOnField)
 	streamDebugWriteFloat32(streamId,self.cp.speeds.turn)
 	streamDebugWriteFloat32(streamId,self.cp.speeds.field)
 	streamDebugWriteFloat32(streamId,self.cp.speeds.unload)
