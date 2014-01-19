@@ -55,7 +55,7 @@ removeXMLProperty
 getFileMD5
 getFiles
 loadfile
-setOverlayRotation
+setOverlayRotation(overlayId, rotation, centerX, centerY) [used in Overlay:setRotation(rotation, centerX, centerY)]
 ]]
 
 g_cp = {};
@@ -80,29 +80,13 @@ function g_cp:addFolderToHierarchy(folderTable, id)
 
 		local parentAddress = self.folderHierarchy;
 
-		-- would be possible with a for loop, but too much conflict potential
-		if numLevels == 1 then
-			parentAddress = self.folderHierarchy[ a[1] ];
-		elseif numLevels == 2 then
-			parentAddress = self.folderHierarchy[ a[1] ].children[ a[2] ];
-		elseif numLevels == 3 then
-			parentAddress = self.folderHierarchy[ a[1] ].children[ a[2] ].children[ a[3] ];
-		elseif numLevels == 4 then
-			parentAddress = self.folderHierarchy[ a[1] ].children[ a[2] ].children[ a[3] ].children[ a[4] ];
-		elseif numLevels == 5 then
-			parentAddress = self.folderHierarchy[ a[1] ].children[ a[2] ].children[ a[3] ].children[ a[4] ].children[ a[5] ];
-		elseif numLevels == 6 then
-			parentAddress = self.folderHierarchy[ a[1] ].children[ a[2] ].children[ a[3] ].children[ a[4] ].children[ a[5] ].children[ a[6] ];
-		elseif numLevels == 7 then
-			parentAddress = self.folderHierarchy[ a[1] ].children[ a[2] ].children[ a[3] ].children[ a[4] ].children[ a[5] ].children[ a[6] ].children[ a[7] ];
-		elseif numLevels == 8 then
-			parentAddress = self.folderHierarchy[ a[1] ].children[ a[2] ].children[ a[3] ].children[ a[4] ].children[ a[5] ].children[ a[6] ].children[ a[7] ].children[ a[8] ];
-		elseif numLevels == 9 then
-			parentAddress = self.folderHierarchy[ a[1] ].children[ a[2] ].children[ a[3] ].children[ a[4] ].children[ a[5] ].children[ a[6] ].children[ a[7] ].children[ a[8] ];
-		elseif numLevels == 10 then
-			parentAddress = self.folderHierarchy[ a[1] ].children[ a[2] ].children[ a[3] ].children[ a[4] ].children[ a[5] ].children[ a[6] ].children[ a[7] ].children[ a[8] ].children[ a[9] ];
-		else
-			--TOO DEEP, PULL OUT!
+		for i=1,#a do
+			-- print(string.format('\ta[%d]=%s', i, tostring(a[i])))
+			if i == 1 then
+				parentAddress = parentAddress[ a[i] ];
+			else
+				parentAddress = parentAddress.children[ a[i] ];
+			end;
 		end;
 
 		local address = parentAddress.children;
