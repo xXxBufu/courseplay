@@ -42,6 +42,8 @@ function courseplay_manager:loadMap(name)
 	if g_server ~= nil then
 		courseplay.fields:loadAllCustomFields();
 	end;
+
+	g_cp:initialSetup(); --DEV
 end;
 
 function courseplay_manager:registerButton(section, fn, prm, img, x, y, w, h)
@@ -281,15 +283,11 @@ function courseplay_manager:load_courses()
 			g_currentMission.cp_courses = {}
 			local courses_by_id = g_currentMission.cp_courses
 			local courses_without_id = {}
-
 			local i = 0
+			
 			local tempCourse
-
-			--CONVERT (OLD) COURSES IN COURSEPLAY.XML TO FOLDER/FILE SYSTEM
-			self:convertCoursesToFileSystem(cpFile);
-
-			i = 0;
 			repeat
+
 				--current course
 				local currentCourse = string.format("XML.courses.course(%d)", i)
 				if not hasXMLProperty(cpFile, currentCourse) then
@@ -484,134 +482,7 @@ function courseplay_manager:load_courses()
 	end; --END if savegame ~= nil
 
 	return nil;
-end;
-
-
-function courseplay_manager:convertCoursesToFileSystem(xmlFile)
-	local coursesToConvert, foldersToConvert = {}, {};
-	local hierarchy = {};
-
-	--FOLDERS
-	if hasXMLProperty(xmlFile, 'XML.folders.folder(0)') then --folders exist
-		local i = 0;
-		local currentFolder, folderName, folderNameClean, id, parent, folder;
-		while true do
-			currentFolder = string.format('XML.folders.folder(%d)', i);
-			if not hasXMLProperty(xmlFile, currentFolder) then break; end;
-
-			folderName      = Utils.getNoNil(getXMLString(xmlFile, currentFolder .. '#name'), string.format('folder_%d', i));
-			folderNameClean = courseplay:normalizeUTF8(folderName);
-			id              = Utils.getNoNil(getXMLInt(xmlFile, currentFolder .. '#id'), 0);
-			parent          = Utils.getNoNil(getXMLInt(xmlFile, currentFolder .. '#parent'), 0);
-
-			folder = { 
-				id = id,
-				uid = 'f' .. id,
-				type = 'folder',
-				name = folderName,
-				nameClean = folderNameClean,
-				parent = parent
-			};
-
-			if foldersToConvert[parent] == nil then
-				foldersToConvert[parent] = {};
-			end;
-			table.insert(foldersToConvert[parent], folder);
-
-			i = i + 1;
-		end;
-	end;
-
-	--COURSES
-	if hasXMLProperty(xmlFile, 'XML.courses.course(0)') then --courses exist
-		local i = 0;
-		while true do
-			local courseKey = string.format("XML.courses.course(%d)", i);
-			if not hasXMLProperty(xmlFile, courseKey) then break; end;
-
-			--course name
-			local courseName = Utils.getNoNil(getXMLString(xmlFile, courseKey .. "#name"), string.format('NO_NAME_%d', i));
-			local courseNameClean = courseplay:normalizeUTF8(courseName);
-
-			--course ID
-			local id = Utils.getNoNil(getXMLInt(xmlFile, courseKey .. '#id'), 0);
-
-			--course parent
-			local parent = Utils.getNoNil(getXMLInt(xmlFile, courseKey .. '#parent'), 0);
-
-			local waypoints = {};
-			local wp = 1;
-			while true do
-				local wpKey = string.format('%s.waypoint%d', courseKey, wp);
-				if not hasXMLProperty(xmlFile, wpKey) then break; end;
-
-				local x,z = Utils.getVectorFromString(getXMLString(xmlFile, wpKey .. '#pos'));
-				if x == nil or z == nil then break; end;
-
-				local angle    = getXMLFloat(xmlFile, wpKey .. '#angle');
-
-				local wait     = getXMLInt(xmlFile, wpKey .. '#wait');
-				wait = wait == 1;
-
-				local speed    = getXMLFloat(xmlFile, wpKey .. '#speed');
-				if speed == 0 then speed = nil; end;
-
-				local rev      = getXMLInt(xmlFile, wpKey .. '#rev');
-				rev = rev == 1;
-
-				local crossing = getXMLInt(xmlFile, wpKey .. '#crossing');
-				crossing = crossing == 1 or wp == 1;
-
-				local generated   = Utils.getNoNil(getXMLBool(xmlFile, wpKey .. '#generated'), false);
-
-				local dir         = getXMLString(xmlFile, wpKey .. '#dir');
-
-				local turn        = Utils.getNoNil(getXMLString(xmlFile, wpKey .. '#turn'), 'false');
-				if turn == "false" then turn = nil; end;
-
-				local turnStart   = Utils.getNoNil(getXMLInt(xmlFile, wpKey .. '#turnstart'), 0);
-				turnStart = turnStart == 1;
-
-				local turnEnd     = Utils.getNoNil(getXMLInt(xmlFile, wpKey .. '#turnend'), 0);
-				turnEnd = turnEnd == 1;
-
-				local ridgeMarker = Utils.getNoNil(getXMLInt(xmlFile, wpKey .. '#ridgemarker'), 0);
-
-				waypoints[wp] = { 
-					cx = x, 
-					cz = z, 
-					angle = angle, 
-					rev = rev, 
-					wait = wait, 
-					crossing = crossing, 
-					speed = speed,
-					generated = generated,
-					laneDir = dir,
-					turn = turn,
-					turnStart = turnStart,
-					turnEnd = turnEnd,
-					ridgeMarker = ridgeMarker
-				};
-
-				wp = wp + 1;
-			end;
-
-			local course = { 
-				id = id,
-				uid = 'c' .. id,
-				type = 'course',
-				name = courseName,
-				nameClean = courseNameClean,
-				waypoints = waypoints,
-				parent = parent 
-			};
-
-			table.insert(coursesToConvert, course);
-
-			i = i + 1;
-		end;
-	end;
-end;
+end
 
 
 --remove courseplayers from combine before it is reset and/or sold
