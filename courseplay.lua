@@ -78,6 +78,7 @@ function courseplay:initialize()
 		"courseplay_event", 
 		"courseplay_manager", 
 		"course_management",
+		'creatingAndDeletingFolders',
 		"debug", 
 		"distance", 
 		"drive", 
