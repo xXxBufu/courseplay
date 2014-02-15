@@ -27,7 +27,7 @@ courseplay = {
 			hoses = {};
 		};
 	};
-	algo = {};
+	algo = {}; --PathFinder
 };
 
 if courseplay.path ~= nil then

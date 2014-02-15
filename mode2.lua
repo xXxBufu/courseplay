@@ -367,15 +367,18 @@ function courseplay:unload_combine(self, dt)
 		end
 
 		--[[
-		--PATHFINDING
+		-- PATHFINDING / REALISTIC DRIVING
 		if self.cp.realisticDriving and not self.cp.calculatedCourseToCombine then
-			if courseplay:calculate_course_to(self, currentX, currentZ) then
+			-- if courseplay:calculate_course_to(self, currentX, currentZ) then
+			if courseplay:calculateJpsPathTo(self, currentX, currentZ) then
 				self.cp.modeState = 5;
 				self.cp.shortestDistToWp = nil;
 				self.cp.mode2nextState = 2; -- modeState when waypoint is reached
 			end;
 		end;
 		--]]
+
+
 
 		local lx, ly, lz = worldToLocal(self.cp.DirectionNode, currentX, currentY, currentZ)
 		dod = Utils.vector2Length(lx, lz)
@@ -1041,18 +1044,33 @@ function courseplay:unload_combine(self, dt)
 		end
 
 		-- new
+		if courseplay.debugChannels[4] and self.next_targets and self.target_x and self.target_z then
+			drawDebugPoint(self.target_x, self.target_y, self.target_z, 1, 0.65, 0, 1);
+			
+			for i,tp in pairs(self.next_targets) do
+				drawDebugPoint(tp.x, tp.y, tp.z, 1, 0.65, 0, 1);
+				if i == 1 then
+					drawDebugLine(self.target_x, self.target_y, self.target_z, 1, 0, 1, tp.x, tp.y, tp.z, 1, 0, 1); 
+				else
+					local pp = self.next_targets[i-1];
+					drawDebugLine(pp.x, pp.y, pp.z, 1, 0, 1, tp.x, tp.y, tp.z, 1, 0, 1); 
+				end;
+			end;
+		end;
 	end
 end
 
-function courseplay:calculate_course_to(self, target_x, target_z)
-	if not self.realistic_driving then
+--NEW JPS VERSION
+function courseplay:calculateJpsPathTo(self, target_x, target_z)
+	if courseplay.fields.numAvailableFields == 0 or self.cp.searchCombineOnField == nil or self.cp.searchCombineOnField == 0 then
 		return false;
-	end
+	end;
+	courseplay:debug(('%s: calculateJpsPathTo(..., [x] %.1f, [z] %.1f)'):format(nameNum(self), target_x, target_z), 4);
 
 	local tileSize = 5; -- meters
-	self.cp.calculatedCourseToCombine = true
+	self.cp.calculatedCourseToCombine = true;
 	
-	-- check if there is fruit between me and the target, return false if not to avoid the calculating
+	-- check if there is fruit between me and the target, if not then return false in order to avoid the calculating
 	local node = self.cp.DirectionNode;
 	local x, y, z = getWorldTranslation(node);
 	local hx, hy, hz = localToWorld(node, -2, 0, 0);
@@ -1071,10 +1089,11 @@ function courseplay:calculate_course_to(self, target_x, target_z)
 		end
 	end
 	if density == 0 then
+		courseplay:debug('\tno fruit on the way to the combine -> go directly', 4);
 		return false;
 	end
 
-	local course = self.cp.field_course; -- todo: set self.cp.field_course or similar	
+	local course = courseplay.fields.fieldData[self.cp.searchCombineOnField]; --fieldEdgePath
 	if course then
 		-- use new function to search a path
 		local function myEvalFunc(grid, x, y)
@@ -1089,22 +1108,25 @@ function courseplay:calculate_course_to(self, target_x, target_z)
 		end
 		
 		-- create grid
-		local grid = courseplay.algo.helpers.Grid:new(tileSize, course.waypoints, 'cx', 'cz');
+		local grid = courseplay.algo.helpers.Grid:new(tileSize, course.points, 'cx', 'cz'); --fieldEdgePath
+		-- print(tableShow(grid.limits, 'grid.limits'));
 		grid:setEvaluationFunction(myEvalFunc);
 		grid:evaluate();
 		
 		-- create Finder and search a path
-		local finder = cppf.Pathfinder:new(grid, 'HJS');
-		local path = finder:getPath(z, x, target_z, target_x);
+		local finder = courseplay.algo.Pathfinder:new(grid, 'HJS');
+		local path = finder:getPath(z, x, target_z, target_x); --TODO: why are x and z switched?
 		
 		if path then
 			self.next_targets = {};
 			for node, count in path:nodes() do
+				courseplay:debug(('node %s: node.x=%s, node.y=%s'):format(tostring(count), tostring(node.x), tostring(node.y)), 4);
 				local p = {};
-				p.x = finder.grid:getX(node.y);
-				p.y = 0;
-				p.z = finder.grid:getY(node.x);
+				p.x = finder.grid:getX(node.x);
+				p.z = finder.grid:getY(node.y);
+				p.y = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, p.x, 1, p.z) + 3;
 				table.insert(self.next_targets, p);
+				courseplay:debug(('\tp.x=%s, p.z=%s'):format(tostring(p.x), tostring(p.z)), 4);
 			end
 			self.target_x = self.next_targets[1].x;
 			self.target_y = self.next_targets[1].y;
@@ -1149,7 +1171,121 @@ function courseplay:calculate_course_to(self, target_x, target_z)
 	end
 
 	return true;
-end
+end;
+
+--OLD ASTAR VERSION
+function courseplay:calculate_course_to(self, targetX, targetZ)
+	if not self.cp.realisticDriving then
+		return false;
+	end;
+	courseplay:debug(string.format('%s: call calculate_course_to(..., %.2f, %.2f)', nameNum(self), targetX, targetZ), 4);
+
+	self.cp.calculatedCourseToCombine = true;
+
+	-- check if there is fruit between me and the target, return false if not to avoid the calculating
+	local x, y, z = getWorldTranslation(self.cp.DirectionNode);
+
+
+	local hx, hy, hz = localToWorld(self.cp.DirectionNode, -2, 0, 0);
+	local dlx, _, dlz = worldToLocal(self.cp.DirectionNode, targetX, y, targetZ);
+	local dnx = dlz * -1;
+	local dnz = dlx;
+	local angle = math.atan(dnz / dnx);
+	dnx = math.cos(angle) * -2;
+	dnz = math.sin(angle) * -2;
+	hx, _, hz = localToWorld(self.cp.DirectionNode, dnx, 0, dnz);
+	courseplay:debug(string.format('%s: dnx=%.3f, dnz=%.3f, hx=%.3f, hz=%.3f', nameNum(self), dnx, dnz, hx, hz), 4);
+
+	local fruitType, fieldFruitType;
+	local density = 0
+	for i = 1, FruitUtil.NUM_FRUITTYPES do
+		if i ~= FruitUtil.FRUITTYPE_GRASS then
+			local fruitTypeDensity = Utils.getFruitArea(i, x, z, targetX, targetZ, hx, hz);
+			local fruitName = FruitUtil.fruitIndexToDesc[i].name;
+			density = density + fruitTypeDensity;
+			if density > 0 then
+				courseplay:debug(string.format('%s: fruitType %d (%s): density=%s, new total density=%s', nameNum(self), i, tostring(fruitName), tostring(fruitTypeDensity), tostring(density)), 4);
+				fieldFruitType = i;
+				break;
+			end;
+		end
+	end
+	courseplay:debug(nameNum(self) .. ': total fruit density=' .. tostring(density), 4);
+	if density == 0 then
+		courseplay:debug('\tno fruit between tractor and combine -> return false', 4);
+		return false;
+	end;
+
+	if self.cp.activeCombine ~= nil and not self.cp.activeCombine.cp.isChopper then
+		--fruitType = self.cp.activeCombine.lastValidInputFruitType;
+		--print(string.format('%s: activeCombine.lastValidInputFruitType=%s', nameNum(self), tostring(self.cp.activeCombine.lastValidInputFruitType)));
+	end;
+
+	if self.cp.tipperAttached then
+		for i,tipper in pairs(self.tippers) do
+			if tipper.getCurrentFruitType and tipper.fillLevel > 0 then
+				local tipperFruitType = tipper:getCurrentFruitType();
+				courseplay:debug(string.format('%s: tippers[%d]: fillType=%d (%s), getCurrentFruitType()=%s (%s)', nameNum(self), i, tipper.currentFillType, tostring(Fillable.fillTypeIntToName[tipper.currentFillType]), tostring(tipperFruitType), tostring(FruitUtil.fruitIndexToDesc[tipperFruitType].name)), 4);
+				if tipperFruitType and tipperFruitType ~= FruitUtil.FRUITTYPE_UNKNOWN then
+					fruitType = tipperFruitType;
+					courseplay:debug(string.format('\tset astar fruitType as tippers[%d]\'s fruitType', i), 4);
+					break;
+				end;
+			end;
+		end;
+	end;
+	if fruitType == nil and fieldFruitType ~= nil then
+		fruitType = fieldFruitType;
+		courseplay:debug(string.format('%s: tipper fruitType = nil, fieldFruitType = %d (%s) -> set astar fruitType as fieldFruitType', nameNum(self), fieldFruitType, FruitUtil.fruitIndexToDesc[fieldFruitType].name), 4);
+	elseif fruitType == nil and fieldFruitType == nil then
+		courseplay:debug(string.format('%s: tipper fruitType = nil, fieldFruitType = nil -> return false', nameNum(self)), 4);
+		return false;
+	end;
+
+	local targetPoints = courseplay:calcMoves(z, x, targetZ, targetX, fruitType);
+	--courseplay:debug(tableShow(targetPoints, nameNum(self) .. " calcMoves targetPoints", 4), 4)
+
+	if targetPoints ~= nil then
+		self.next_targets = {};
+		local numPoints = #targetPoints;
+		local firstPoint = math.ceil(self.cp.turnRadius / 5);
+		courseplay:debug(string.format('numPoints=%d, first point = ceil(turnRadius [%.1f] / 5) = %d', numPoints, self.cp.turnRadius, firstPoint), 4);
+		if numPoints < firstPoint then
+			return false;
+		end;
+		-- for i, wp in pairs(targetPoints) do
+		for i=firstPoint, numPoints do
+			local wp = targetPoints[i];
+			local insert = true;
+
+			--clean path (only keep corner points)
+			if i > firstPoint and i < numPoints then
+				local prevPoint = targetPoints[i-1];
+				local nextPoint = targetPoints[i+1];
+				if wp.y == prevPoint.y and wp.y == nextPoint.y then
+					courseplay:debug(string.format('\t%d: [x] wp.y==prevPoint.y==nextPoint.y = %d, [z] wp.x = %d -> insert=false', i, wp.y, wp.x), 4);
+					insert = false;
+				elseif wp.x == prevPoint.x and wp.x == nextPoint.x then
+					courseplay:debug(string.format('\t%d: [x] wp.y = %d, [z] wp.x==prevPoint.x==nextPoint.x = %d -> insert=false', i, wp.y, wp.x), 4);
+					insert = false;
+				end;
+			end;
+
+			if insert then
+				courseplay:debug(string.format('%d: [x] wp.y = %d, [z] wp.x = %d, insert=true', i, wp.y, wp.x), 4);
+				table.insert(self.next_targets, { x = wp.y, y = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, wp.y, 1, wp.x) + 3, z = wp.x });
+			end;
+		end;
+		self.target_x = self.next_targets[1].x;
+		self.target_y = self.next_targets[1].y;
+		self.target_z = self.next_targets[1].z;
+		table.remove(self.next_targets, 1);
+		self.cp.modeState = 5;
+		return true;
+	end;
+
+	return false;
+end;
 
 function courseplay:calculateCombineOffset(self, combine)
 	local curFile = "mode2.lua";

@@ -1,7 +1,7 @@
 -- Path finder algorithms that are optimized for grids
 
 local algo = courseplay.algo;
-algo.helpers = {};
+-- algo.helpers = {}; --already done in algo_helpers - don't overwrite!
 local helpers = algo.helpers;
 local Finders = {};
 
@@ -39,6 +39,11 @@ The categories are prioritized and the algorithm does not care about the costs o
 The algorithm is thought to be used on grid maps with areas of nodes of the same category and costs.
 It is built on the so called Jump Point Search which itself has it seeds in the label correcting algorithm, in particular on the A*-algorithm.
 --]]
+
+local abs = math.abs
+local sqrt = math.sqrt
+local sqrt2 = sqrt(2)
+local max, min = math.max, math.min
 
 local function getG(finder, node, parent)
 	local x, y = node.x, node.y;
@@ -261,13 +266,13 @@ local function identifySuccessors(finder,node,endNode,toClear, tunnel)
 	for i = #neighbours,1,-1 do
 		local skip = false;
 		local neighbour = neighbours[i];
-		print(string.format('   neighbour: x,y: %d,%d / cat: %d', neighbour.x, neighbour.y, neighbour.category));
+		-- print(string.format('\tneighbour: x,y: %d,%d / cat: %d', neighbour.x, neighbour.y, neighbour.category));
 		
 		local jumpNode = jump(finder,neighbour,node,endNode);
 		if jumpNode then
-			print(string.format('      jump: x,y: %d,%d / cat: %d', jumpNode.x, jumpNode.y, jumpNode.category));
+			-- print(string.format('\t\tjump: x,y: %d,%d / cat: %d', jumpNode.x, jumpNode.y, jumpNode.category));
 		else
-			print('      jump: none');
+			-- print('\t\tjump: none');
 		end
 		
 		-- : in case a diagonal jump point was found in straight mode, skip it.
@@ -312,7 +317,7 @@ function Finders.HJS(finder, startNode, endNode, toClear, tunnel)
 		-- Pops the lowest F-cost node, moves it in the closed list
 		node = finder.openList:pop();
 		node.inBin = false;
-		print(string.format('work on node: x,y: %d,%d / cat: %d / Bin: %d', node.x, node.y, node.category, finder.openList.size));
+		-- print(string.format('work on node: x,y: %d,%d / cat: %d / Bin: %d', node.x, node.y, node.category, finder.openList.size));
 		
 		-- If the popped node is the endNode, return it
 		if node == endNode then
@@ -465,10 +470,16 @@ end
 
 function algo.Pathfinder:getPath(startX, startY, endX, endY, tunnel)
 	reset();
-	local startIndexX, startIndexY = self.grid:getIndexAt(startX, startY);
-	local endIndexX, endIndexY = self.grid:getIndexAt(endX, endY);	
+	-- print(string.format('getPath([start] %.1f,%.1f, [end] %.1f,%.1f, [tunnel] %s)', startX, startY, endX, endY, tostring(tunnel)));
+	-- local startIndexX, startIndexY = self.grid:getIndexAt(startX, startY);
+	local startIndexX, startIndexY = self.grid:getIndexAt(startY, startX); --since x and y are switched, we also need to pass them switched to getIndexAt()
+	-- local endIndexX, endIndexY = self.grid:getIndexAt(endX, endY);
+	local endIndexX, endIndexY = self.grid:getIndexAt(endY, endX);
 	local startNode = self.grid:getNodeAt(startIndexX, startIndexY);
 	local endNode = self.grid:getNodeAt(endIndexX, endIndexY);
+	-- print(string.format('\tstartIndexX=%s, startIndexY=%s', tostring(startIndexX), tostring(startIndexY)));
+	-- print(string.format('\tendIndexX=%s, endIndexY=%s', tostring(endIndexX), tostring(endIndexY)));
+	-- print(string.format('\tstartNode=%s, endNode=%s', tostring(startNode), tostring(endNode)));
 	assert(startNode, ('Invalid location [%d (%d), %d (%d)]'):format(startX, startIndexX, startY, startIndexY));
 	assert(endNode and self.grid:isWalkableAt(endIndexX, endIndexY), ('Invalid or unreachable location [%d (%d), %d (%d)]'):format(endX, endIndexX, endY, endIndexY));
 	local _endNode = Finders[self.finder](self, startNode, endNode, toClear, tunnel);
