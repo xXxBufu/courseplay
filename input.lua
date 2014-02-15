@@ -83,10 +83,10 @@ function courseplay:mouseEvent(posX, posY, isDown, isUp, button)
 
 						if Input.isMouseButtonPressed(Input.MOUSE_BUTTON_WHEEL_UP) and button.canScrollUp then
 							courseplay:debug(string.format("%s: MOUSE_BUTTON_WHEEL_UP: %s(%s)", nameNum(self), tostring(button.function_to_call), tostring(upParameter)), 12);
-							self:setCourseplayFunc(button.function_to_call, upParameter);
+							self:setCourseplayFunc(button.function_to_call, upParameter, false, button.page);
 						elseif Input.isMouseButtonPressed(Input.MOUSE_BUTTON_WHEEL_DOWN) and button.canScrollDown then
 							courseplay:debug(string.format("%s: MOUSE_BUTTON_WHEEL_DOWN: %s(%s)", nameNum(self), tostring(button.function_to_call), tostring(downParameter)), 12);
-							self:setCourseplayFunc(button.function_to_call, downParameter);
+							self:setCourseplayFunc(button.function_to_call, downParameter, false, button.page);
 						end;
 					end;
 				end;
@@ -136,23 +136,35 @@ function courseplay:handleMouseClickForButton(self, button)
 		if button.function_to_call == "showSaveCourseForm" then
 			self.cp.imWriting = true
 		end
-		self:setCourseplayFunc(button.function_to_call, parameter);
+		if button.function_to_call == "goToVehicle" then
+			courseplay:executeFunction(self, "goToVehicle", parameter)
+		else
+			self:setCourseplayFunc(button.function_to_call, parameter, false, button.page);
+		end	
 		button.isClicked = false;
 	end;
 end;
 
-function courseplay:setCourseplayFunc(func, value, noEventSend, overwrittenPage)
+function courseplay:setCourseplayFunc(func, value, noEventSend, page)
+	--print(string.format("courseplay:setCourseplayFunc( %s, %s, %s, %s)",tostring(func), tostring(value), tostring(noEventSend), tostring(page)))
 	if noEventSend ~= true then
-		CourseplayEvent.sendEvent(self, func, value); -- Die Funktion ruft sendEvent auf und übergibt 3 Werte   (self "also mein ID", action, "Ist eine Zahl an der ich festmache welches Fenster ich aufmachen will", state "Ist der eigentliche Wert also true oder false"
+		CourseplayEvent.sendEvent(self, func, value,noEventSend,page); -- Die Funktion ruft sendEvent auf und übergibt 3 Werte   (self "also mein ID", action, "Ist eine Zahl an der ich festmache welches Fenster ich aufmachen will", state "Ist der eigentliche Wert also true oder false"
 	end;
 	if value == "nil" then
 		value = nil
 	end
-	courseplay:executeFunction(self, func, value, overwrittenPage)
+	courseplay:executeFunction(self, func, value, page);
+	if page and self.cp.hud.reloadPage[page] ~= nil then
+		courseplay.hud:setReloadPageOrder(self, page, true);
+	end;
 end
 
-function courseplay:executeFunction(self, func, value, overwrittenPage)
-	if Utils.startsWith(func,"self") or Utils.startsWith(func,"courseplay") then
+function courseplay:executeFunction(self, func, value, page)
+	if func == "setMPGlobalInfoText" then
+		courseplay:setGlobalInfoText(self, value, page)
+		courseplay:debug("					setting infoText: "..value..", force remove: "..tostring(page),5)
+		return
+	elseif Utils.startsWith(func,"self") or Utils.startsWith(func,"courseplay") then
 		courseplay:debug("					setting value",5)
 		courseplay:setVarValueFromString(self, func, value)
 		--courseplay:debug("					"..tostring(func)..": "..tostring(value),5)
@@ -166,7 +178,7 @@ function courseplay:executeFunction(self, func, value, overwrittenPage)
 		assert(loadstring('courseplay:' .. func .. '(...)'))(self, value);
 
 	else
-		local page = Utils.getNoNil(overwrittenPage, self.cp.hud.currentPage);
+		local page = Utils.getNoNil(page, self.cp.hud.currentPage);
 		local line = value;
 		if page == 0 then
 			local combine = self;
@@ -174,11 +186,14 @@ function courseplay:executeFunction(self, func, value, overwrittenPage)
 				combine = self.tippers[self.cp.attachedCombineIdx];
 			end;
 
-			if combine.cp.isCombine then
+			if not combine.cp.isChopper then
 				if line == 4 then
 					courseplay:toggleDriverPriority(combine);
+				elseif line == 5 then
+					courseplay:toggleStopWhenUnloading(combine);
 				end;
 			end;
+
 			if combine.courseplayers == nil or #(combine.courseplayers) == 0 then
 				if line == 1 then
 					courseplay:call_player(combine);
@@ -229,41 +244,22 @@ function courseplay:executeFunction(self, func, value, overwrittenPage)
 						elseif self.cp.mode == 6 and self.cp.hasBaleLoader and not self.hasUnloadingRefillingCourse then
 							self.cp.automaticUnloadingOnField = not self.cp.automaticUnloadingOnField;
 						end;
+					elseif line == 6 then
+						if self.cp.tipperHasCover and (self.cp.mode == 1 or self.cp.mode == 2 or self.cp.mode == 5 or self.cp.mode == 6) then
+							self.cp.automaticCoverHandling = not self.cp.automaticCoverHandling;
+						end;
 					end;
 				end; -- end driving
 
 
 			elseif not self.drive then
-				if not self.record and not self.record_pause and not self.cp.canDrive and #(self.Waypoints) == 0 and not self.createCourse then
+				if not self.cp.isRecording and not self.cp.recordingIsPaused and not self.cp.canDrive and #(self.Waypoints) == 0 then
 					if line == 1 then
 						courseplay:start_record(self);
 					elseif line == 3 then
 						courseplay:setCustomSingleFieldEdge(self);
 					elseif line == 5 and self.cp.fieldEdge.customField.fieldNum > 0 then
 						courseplay:addCustomSingleFieldEdgeToList(self);
-					end;
-
-				elseif self.record or self.record_pause then
-					if line == 1 then
-						courseplay:stop_record(self);
-
-					elseif not self.record_pause then
-						if line == 2 then --and self.recordnumber > 3
-							courseplay:set_waitpoint(self);
-						elseif line == 3 and self.recordnumber > 3 then
-							courseplay:interrupt_record(self);
-						elseif line == 4 then --and self.recordnumber > 3
-							courseplay:set_crossing(self);
-						elseif line == 5 then
-							courseplay:change_DriveDirection(self);
-						end;
-
-					else
-						if line == 2 then
-							courseplay:delete_waypoint(self);
-						elseif line == 3 then
-							courseplay:continue_record(self);
-						end;
 					end;
 				end;
 			end; --END if not self.drive
@@ -345,5 +341,12 @@ function courseplay:createNewCombinedInputBinding(name)
 			actionIndex = actionIndex;
 			displayName = courseplay.inputBindings.modifier.displayName .. " + " .. KeyboardHelper.getKeyNames(originalAction.keys1);
 		};
+
+		if g_i18n:hasText(name) then
+			local text = g_i18n:getText(name) .. " (COMBINED)";
+			g_i18n:setText(action.name, text);
+			g_i18n.globalI18N.texts[action.name] = text;
+			-- print(string.format("CP: set newly created inputbinding text for \"%s\" to \"%s\"", tostring(action.name), tostring(text)));
+		end;
 	end;
 end;

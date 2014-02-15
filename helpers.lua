@@ -23,67 +23,41 @@ function tableConcat(...)
     return t
 end
 
---stringToMath [Jakob Tischler, 22 Mar 2013]
-function courseplay:stringToMath(str)
-	local result = str;
-	
-	if string.find(str, "+") then
-		local strAr = Utils.splitString("+", str);
-		if table.getn(strAr) == 2 then
-			result = tonumber(strAr[1]) + tonumber(strAr[2]);
-			return result;
+function courseplay:isFolding(workTool) --returns isFolding, isFolded, isUnfolded
+	if not courseplay:isFoldable(workTool) then
+		return false, false, true;
+	end;
+
+	local isFolding, isFolded, isUnfolded = false, true, true;
+	courseplay:debug(string.format('%s: isFolding(): realUnfoldDirection=%s, turnOnFoldDirection=%s, startAnimTime=%s, foldMoveDirection=%s', nameNum(workTool), tostring(workTool.cp.realUnfoldDirection), tostring(workTool.turnOnFoldDirection), tostring(workTool.startAnimTime), tostring(workTool.foldMoveDirection)), 17);
+
+	for k,foldingPart in pairs(workTool.foldingParts) do
+		--local charSet = foldingPart.animCharSet;
+		--local animTime = charSet ~= 0 and getAnimTrackTime(charSet, 0) or workTool:getRealAnimationTime(foldingPart.animationName);
+
+		--isFolded/isUnfolded
+		--print(string.format('\tfoldingPart %d: animTime=%s, foldAnimTime=%s, isFoldedAnimTime=%s, isUnfoldedAnimTime=%s', k, tostring(animTime), tostring(workTool.foldAnimTime), tostring(foldingPart.isFoldedAnimTime),  tostring(foldingPart.isUnfoldedAnimTime)));
+		if workTool.foldAnimTime ~= foldingPart.isFoldedAnimTimeNormal then
+			isFolded = false;
+			courseplay:debug(string.format('\tfoldingPart %d: foldAnimTime=%s, isFoldedAnimTimeNormal=%s, isUnfoldedAnimTimeNormal=%s -> isFolded = false', k, tostring(workTool.foldAnimTime), tostring(foldingPart.isFoldedAnimTimeNormal),  tostring(foldingPart.isUnfoldedAnimTimeNormal)), 17);
 		end;
-	elseif string.find(str, "-") and string.find(str, "-") > 1 then --Note: >1 so that it doesn't match simple negative numbers (e.g. "-2");
-		local strAr = Utils.splitString("-", str);
-		if table.getn(strAr) == 2 then
-			result = tonumber(strAr[1]) - tonumber(strAr[2]);
-			return result;
+		if workTool.foldAnimTime ~= foldingPart.isUnfoldedAnimTimeNormal then
+			isUnfolded = false;
+			courseplay:debug(string.format('\tfoldingPart %d: foldAnimTime=%s, isFoldedAnimTimeNormal=%s, isUnfoldedAnimTimeNormal=%s -> isUnfolded = false', k, tostring(workTool.foldAnimTime), tostring(foldingPart.isFoldedAnimTimeNormal),  tostring(foldingPart.isUnfoldedAnimTimeNormal)), 17);
 		end;
-	elseif string.find(str, "*") then
-		local strAr = Utils.splitString("*", str);
-		if table.getn(strAr) == 2 then
-			result = tonumber(strAr[1]) * tonumber(strAr[2]);
-			return result;
-		end;
-	elseif string.find(str, "/") then
-		local strAr = Utils.splitString("/", str);
-		if table.getn(strAr) == 2 then
-			result = tonumber(strAr[1]) / tonumber(strAr[2]);
-			return result;
+
+		--isFolding
+		--if workTool.foldMoveDirection > 0 and animTime < foldingPart.animDuration then
+		if workTool.foldMoveDirection > 0 and workTool.foldAnimTime < 1 then
+			isFolding = true;
+		--elseif workTool.foldMoveDirection < 0 and animTime > 0 then
+		elseif workTool.foldMoveDirection < 0 and workTool.foldAnimTime > 0 then
+			isFolding = true;
 		end;
 	end;
-	
-	return tonumber(result);
-end;
 
-
-function courseplay:isFolding(workTool) --TODO: use getIsAnimationPlaying(animationName)
-	if courseplay:isFoldable(workTool) then
-		for k, foldingPart in pairs(workTool.foldingParts) do
-			local charSet = foldingPart.animCharSet;
-			local animTime = nil
-			if charSet ~= 0 then
-				animTime = getAnimTrackTime(charSet, 0);
-			else
-				animTime = workTool:getRealAnimationTime(foldingPart.animationName);
-			end;
-
-			if animTime ~= nil then
-				if workTool.foldMoveDirection > 0 then
-					if animTime < foldingPart.animDuration then
-						return true;
-					end
-				elseif workTool.foldMoveDirection < 0 then
-					if animTime > 0 then
-						return true;
-					end
-				end
-			end
-		end;
-		return false;
-	else
-		return false;
-	end;
+	courseplay:debug(string.format('\treturn isFolding=%s, isFolded=%s, isUnfolded=%s', tostring(isFolding), tostring(isFolded), tostring(isUnfolded)), 17);
+	return isFolding, isFolded, isUnfolded;
 end;
 
 function courseplay:isAnimationPartPlaying(workTool, index)
@@ -128,46 +102,31 @@ function courseplay:nilOrBool(variable, bool)
 	return variable == nil or (variable ~= nil and variable == bool);
 end;
 
-function table.contains(table, element) --TODO: always use Utils.hasListElement
-	for _, value in pairs(table) do
+function table.contains(t, element) --TODO: always use Utils.hasListElement
+	for _, value in pairs(t) do
 		if value == element then
-			return true
-		end
-	end
-	return false
+			return true;
+		end;
+	end;
+	return false;
 end;
 
-function table.map(table, func)
+function table.map(t, func)
 	local newArray = {};
-	for i,v in ipairs(table) do
+	for i,v in ipairs(t) do
 		newArray[i] = func(v);
 	end;
 	return newArray;
 end;
 
-function startswith(sbig, slittle) --TODO: always use Utils.startsWith
-	if type(slittle) == "table" then
-		for k, v in ipairs(slittle) do
-			if string.sub(sbig, 1, string.len(v)) == v then
-				return true
-			end
-		end
-		return false
-	end
-	return string.sub(sbig, 1, string.len(slittle)) == slittle
-end
-
-function endswith(sbig, slittle) --TODO: always use Utils.endsWith
-	if type(slittle) == "table" then
-		for k, v in ipairs(slittle) do
-			if string.sub(sbig, string.len(sbig) - string.len(v) + 1) == v then
-				return true
-			end
-		end
-		return false
-	end
-	return string.sub(sbig, string.len(sbig) - string.len(slittle) + 1) == slittle
-end
+function table.reverse(t)
+	local reversedTable = {};
+	local itemCount = #t;
+	for k,v in ipairs(t) do
+		reversedTable[itemCount + 1 - k] = v;
+	end;
+	return reversedTable;
+end;
 
 function nameNum(vehicle, hideNum)
 	if vehicle.cp ~= nil and vehicle.cp.coursePlayerNum ~= nil then
@@ -274,8 +233,8 @@ function courseplay:intToBool(int)
 	return int == 1;
 end;
 
-function courseplay:loopedTable(tab, idx)
-	local maxIdx = #tab;
+function courseplay:loopedTable(tab, idx, maxIdx)
+	maxIdx = maxIdx or #tab;
 	while idx > maxIdx do
 		--idx = maxIdx - idx;
 		idx = idx - maxIdx;
@@ -357,7 +316,8 @@ function courseplay.utils.table.compare(t1,t2,field)
 end
 
 function courseplay.utils.table.compare_name(t1,t2)
-	return courseplay.utils.table.compare(t1,t2,'name')
+	-- return courseplay.utils.table.compare(t1,t2,'name')
+	return courseplay.utils.table.compare(t1, t2, 'nameClean');
 end
 
 function courseplay.utils.table.search_in_field(tab, field, term)
@@ -370,14 +330,18 @@ function courseplay.utils.table.search_in_field(tab, field, term)
 	return result
 end
 
-function courseplay.utils.table.copy(tab)
--- note that only tab is copied. if tab contains tables itself again, these tables are not copied but referenced again (the reference is copied).
-	local result = {}
+function courseplay.utils.table.copy(tab, recursive)
+-- note that if 'recursive' is not 'true', only tab is copied. if tab contains tables itself again, these tables are not copied but referenced again (the reference is copied).
+	local result = {};
 	for k,v in pairs(tab) do
-		result[k]=v
-	end
-	return result
-end
+		if recursive and type(v) == 'table' then
+			result[k] = courseplay.utils.table.copy(v, recursive);
+		else
+			result[k] = v;
+		end;
+	end;
+	return result;
+end;
 
 function courseplay.utils.table.append(t1,t2)
 	for k,v in pairs(t2) do
@@ -436,7 +400,35 @@ function courseplay.utils.table.getMax(tab, field)
 		end
 	end
 	return max
-end
+end;
+
+function table.rotate(tbl, inc) --@gist: https://gist.github.com/JakobTischler/b4bb7a4d1c8cf8d2d85f
+	if inc == nil or inc == 0 then
+		return tbl;
+	end;
+
+	local t = tbl;
+	local rot = math.abs(inc);
+
+	if inc < 0 then
+		for i=1,rot do
+			local p = t[1];
+			table.remove(t, 1);
+			table.insert(t, p);
+		end;
+	else
+		for i=1,rot do
+			local n = table.getn(t);
+			local p = t[n];
+			table.remove(t, n);
+			table.insert(t, 1, p);
+		end;
+	end;
+
+	return t;
+end;
+
+
 
 function courseplay.utils.findXMLNodeByAttr(File, node, attr, value, val_type)
 	-- returns the node number in case of success
@@ -679,6 +671,19 @@ function courseplay:getDriveDirection(node, x, y, z)
 	return lx,ly,lz
 end
 
+function courseplay:get3dDirection(cx1,cy1,cz1,cx2,cy2,cz2)
+	local nx,nz,ny = 0
+	local vx = cx2 - cx1
+	local vz = cz2 - cz1
+	local vy = cy2 - cy1
+	local dist = Utils.vector3Length(vx,vy, vz)
+	if dist and dist > 0.01 then
+		nx = vx / dist
+		nz = vz / dist
+		ny = vy / dist					
+	end
+	return nx,ny,nz,dist
+end
 
 --UTF-8: ALLOWED CHARACTERS and NORMALIZATION
 --src: ASCII Table - Decimal (Base 10) Values @ http://www.parse-o-matic.com/parse/pskb/ASCII-Chart.htm
@@ -695,7 +700,7 @@ function courseplay:getAllowedCharacters()
 		prohibitedUnicodes[unicode] = prohibitedUnicodes[unicode] or false;
 		result[unicode] = not prohibitedUnicodes[unicode] and getCanRenderUnicode(unicode);
 		if courseplay.debugChannels[8] and getCanRenderUnicode(unicode) then
-			print(string.format('allowedCharacters[%d]=%s (%q) (prohibited=%s, getCanRenderUnicode()=%s)', unicode, tostring(result[unicode]), unicodeToUtf8(unicode), tostring(prohibitedUnicodes[unicode]), tostring(getCanRenderUnicode(unicode))));
+			print(string.format('allowedCharacters[%d]=%s (%q) (prohibited=%s, getCanRenderUnicode()=true)', unicode, tostring(result[unicode]), unicodeToUtf8(unicode), tostring(prohibitedUnicodes[unicode])));
 		end;
 	end;
 
@@ -706,29 +711,29 @@ function courseplay:getUtf8normalization()
 	local result = {};
 
 	local normalizationSpans = {
-		a =  { {192,195}, 197, {224,227}, 229, {256,261} },
+		a  = { {192,195}, 197, {224,227}, 229, {256,261} },
 		ae = { 196, 198, 228, 230 },
-		c =  { 199, 231, {262,269} },
-		d =  { {270,273} },
-		e =  { {200,203}, {232,235}, {274,283} },
-		g =  { {284,291} },
-		h =  { {292,295} },
-		i =  { {204,207}, {236,239}, {296,307} },
-		j =  { {308,309} },
-		k =  { {310,312} },
-		l =  { {313,322} },
-		n =  { 209, 241, {323,331} },
-		o =  { {210,213}, {242,245}, {332,337} },
+		c  = { 199, 231, {262,269} },
+		d  = { {270,273} },
+		e  = { {200,203}, {232,235}, {274,283} },
+		g  = { {284,291} },
+		h  = { {292,295} },
+		i  = { {204,207}, {236,239}, {296,307} },
+		j  = { {308,309} },
+		k  = { {310,312} },
+		l  = { {313,322} },
+		n  = { 209, 241, {323,331} },
+		o  = { {210,213}, {242,245}, {332,337} },
 		oe = { 214, 216, 246, 248, 338, 339 },
-		r =  { {340,345} },
-		s =  { {346,353}, 383 },
+		r  = { {340,345} },
+		s  = { {346,353}, 383 },
 		ss = { 223 },
-		t =  { {354,359} },
-		u =  { {217,219}, {249,251}, {360,371} },
+		t  = { {354,359} },
+		u  = { {217,219}, {249,251}, {360,371} },
 		ue = { 220, 252 },
-		w =  { 372, 373 },
-		y =  { 221, 253, 255, {374,376} },
-		z =  { {377,382} }
+		w  = { 372, 373 },
+		y  = { 221, 253, 255, {374,376} },
+		z  = { {377,382} }
 	};
 
 	--[[
@@ -806,4 +811,51 @@ function courseplay:checkAndPrintChange(vehicle, variable, VariableNameString)
 		print(string.format("%s: changed Variable: %s: %s",nameNum(vehicle),VariableNameString,tostring(variable)))
 		vehicle.cp.checkTable[VariableNameString] = variable
 	end
-end
+end;
+
+function courseplay.utils:hasVarChanged(vehicle, variableName, direct)
+	direct = direct or false;
+	if vehicle.cp.varMemory == nil then
+		vehicle.cp.varMemory = {};
+	end;
+
+	local variable;
+	if direct then
+		variable = vehicle[variableName];
+	else
+		variable = vehicle.cp[variableName];
+	end;
+	local memory = vehicle.cp.varMemory[variableName];
+
+	if (memory == nil and variable ~= nil) or (memory ~= nil and (variable == nil or variable ~= vehicle.cp.varMemory[variableName])) then
+		courseplay:debug(string.format('%s: hasVarChanged(): changed variable %q - old=%q, new=%q', nameNum(vehicle), variableName, tostring(memory), tostring(variable)), 12);
+		vehicle.cp.varMemory[variableName] = variable;
+		return true;
+	end;
+	return false;
+end;
+
+function courseplay.utils:getFnCallSource(level)
+	level = (level or 1) + 1;
+	return tostring(debug.getinfo(level, "n").name);
+end;
+
+function courseplay.utils:getFnCallPath(numPathSteps)
+	numPathSteps = numPathSteps or 1;
+	if numPathSteps > 1 then
+		local ret = {};
+		for level=numPathSteps + 1, 2, -1 do
+			local fnAtLevel = debug.getinfo(level, "n").name;
+			if fnAtLevel then
+				table.insert(ret, string.format('[%d] %q', level - 1, fnAtLevel));
+			end;
+		end;
+		return table.concat(ret, ' -> ');
+	end;
+	return tostring('"' .. debug.getinfo(2, "n").name .. '"');
+end;
+
+function courseplay:loc(key)
+	return Utils.getNoNil(courseplay.locales[key], key);
+end;
+

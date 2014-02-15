@@ -1,14 +1,17 @@
-function courseplay:register_button(self, hudPage, img, function_to_call, parameter, x, y, width, height, hudRow, modifiedParameter, hoverText, isMouseWheelArea)
+function courseplay:register_button(self, hudPage, img, function_to_call, parameter, x, y, width, height, hudRow, modifiedParameter, hoverText, isMouseWheelArea, isToggleButton)
 	local overlay = nil;
 	if img and img ~= "blank.dds" then
 		overlay = Overlay:new(img, Utils.getFilename("img/" .. img, courseplay.path), x, y, width, height);
 	end;
 
+	if hoverText == nil then
+		hoverText = false;
+	end;
 	if isMouseWheelArea == nil then
 		isMouseWheelArea = false;
 	end;
-	if hoverText == nil then
-		hoverText = false;
+	if isToggleButton == nil then
+		isToggleButton = false;
 	end;
 
 	local button = { 
@@ -27,6 +30,7 @@ function courseplay:register_button(self, hudPage, img, function_to_call, parame
 		hoverText = hoverText,
 		color = courseplay.hud.colors.white,
 		isMouseWheelArea = isMouseWheelArea and function_to_call ~= nil,
+		isToggleButton = isToggleButton,
 		canBeClicked = not isMouseWheelArea and function_to_call ~= nil,
 		show = true,
 		isClicked = false,
@@ -102,6 +106,12 @@ function courseplay:renderButton(self, button)
 				button.canScrollDown = self.cp.driveOnAtFillLevel > 0;
 			end;
 
+		elseif pg == 4 then
+			if fn == 'setSearchCombineOnField' then
+				button.canScrollUp = courseplay.fields.numAvailableFields > 0 and self.cp.searchCombineAutomatically and self.cp.searchCombineOnField > 0;
+				button.canScrollDown = courseplay.fields.numAvailableFields > 0 and self.cp.searchCombineAutomatically and self.cp.searchCombineOnField < courseplay.fields.numAvailableFields;
+			end;
+
 		elseif pg == 5 then
 			if fn == "change_turn_speed" then
 				button.canScrollUp =   self.cp.speeds.turn < 60/3600;
@@ -128,7 +138,7 @@ function courseplay:renderButton(self, button)
 				button.canScrollUp = self.cp.mode == 4 or self.cp.mode == 6;
 				button.canScrollDown = button.canScrollUp;
 			elseif fn == "changeToolOffsetX" or fn == "changeToolOffsetZ" then
-				button.canScrollUp = self.cp.mode == 3 or self.cp.mode == 4 or self.cp.mode == 6 or self.cp.mode == 7;
+				button.canScrollUp = self.cp.mode == 3 or self.cp.mode == 4 or self.cp.mode == 6 or self.cp.mode == 7 or self.cp.mode == 8;
 				button.canScrollDown = button.canScrollUp;
 			end;
 
@@ -149,7 +159,7 @@ function courseplay:renderButton(self, button)
 		--Global
 		if pg == "global" then
 			if fn == "showSaveCourseForm" and prm == "course" then
-				button.show = self.cp.canDrive and not self.record and not self.record_pause and self.Waypoints ~= nil and #(self.Waypoints) ~= 0;
+				button.show = self.cp.canDrive and not self.cp.isRecording and not self.cp.recordingIsPaused and self.Waypoints ~= nil and #(self.Waypoints) ~= 0;
 			end;
 
 		--Page 1
@@ -164,6 +174,8 @@ function courseplay:renderButton(self, button)
 				elseif prm > 0 then
 					button.show = not self.cp.canDrive and self.cp.fieldEdge.customField.isCreated and self.cp.fieldEdge.customField.fieldNum < courseplay.fields.customFieldMaxNum;
 				end;
+			elseif fn == 'stop_record' or fn == 'setRecordingPause' or fn == 'delete_waypoint' or fn == 'set_waitpoint' or fn == 'set_crossing' or fn == 'setRecordingTurnManeuver' or fn == 'change_DriveDirection' then
+				button.show = self.cp.isRecording or self.cp.recordingIsPaused;
 			end;
 
 		--Page 2
@@ -202,8 +214,22 @@ function courseplay:renderButton(self, button)
 
 		--Page 4
 		elseif pg == 4 then
-			if fn == "switch_combine" and prm < 0 then
-				button.show = self.selected_combine_number > 0;
+			if fn == 'selectAssignedCombine' then
+				button.show = not self.cp.searchCombineAutomatically;
+				if button.show and prm < 0 then
+					button.show = self.cp.selectedCombineNumber > 0;
+				end;
+			elseif fn == 'setSearchCombineOnField' then
+				button.show = courseplay.fields.numAvailableFields > 0 and self.cp.searchCombineAutomatically;
+				if button.show then
+					if prm < 0 then
+						button.show = self.cp.searchCombineOnField > 0;
+					else
+						button.show = self.cp.searchCombineOnField < courseplay.fields.numAvailableFields;
+					end;
+				end;
+			elseif fn == 'removeActiveCombineFromTractor' then
+				button.show = self.cp.activeCombine ~= nil;
 			end;
 
 		--Page 5
@@ -282,11 +308,13 @@ function courseplay:renderButton(self, button)
 				button.show = self.cp.workWidth > 0.1;
 			elseif fn == "switchStartingDirection" then
 				button.show = self.cp.hasStartingCorner;
-			elseif fn == "setHeadlandLanes" then
+			elseif fn == 'setHeadlandDir' or fn == 'setHeadlandOrder' then
+				button.show = self.cp.headland.numLanes > 0;
+			elseif fn == 'setHeadlandNumLanes' then
 				if prm < 0 then
-					button.show = self.cp.headland.numLanes > -1;
+					button.show = self.cp.headland.numLanes > 0;
 				elseif prm > 0 then
-					button.show = self.cp.headland.numLanes <  1;
+					button.show = self.cp.headland.numLanes < self.cp.headland.maxNumLanes;
 				end;
 			elseif fn == "generateCourse" then
 				button.show = self.cp.hasValidCourseGenerationData;
@@ -309,10 +337,16 @@ function courseplay:renderButton(self, button)
 				targetColor = colors.whiteDisabled;
 			elseif not button.isDisabled and button.canBeClicked and button.isClicked and not fn == "openCloseHud" then
 				targetColor = colors.activeRed;
-			elseif button.isHovered and ((button.page == 9 and button.isActive and button.canBeClicked and not button.isClicked) or (not button.isDisabled and not button.isActive and button.canBeClicked and not button.isClicked)) and not courseplay:colorsMatch(currentColor, hoverColor) then
+			elseif button.isHovered and ((not button.isDisabled and button.isToggleButton and button.isActive and button.canBeClicked and not button.isClicked) or (not button.isDisabled and not button.isActive and button.canBeClicked and not button.isClicked)) and not courseplay:colorsMatch(currentColor, hoverColor) then
 				targetColor = hoverColor;
-			elseif button.isActive and (button.page ~= 9 or (button.page == 9 and not button.isHovered)) and not courseplay:colorsMatch(currentColor, colors.activeGreen) then
+				if button.isToggleButton then
+					--print(string.format('button %q (loop %d): isHovered=%s, isActive=%s, isDisabled=%s, canBeClicked=%s -> hoverColor', fn, g_updateLoopIndex, tostring(button.isHovered), tostring(button.isActive), tostring(button.isDisabled), tostring(button.canBeClicked)));
+				end;
+			elseif button.isActive and (not button.isToggleButton or (button.isToggleButton and not button.isHovered)) and not courseplay:colorsMatch(currentColor, colors.activeGreen) then
 				targetColor = colors.activeGreen;
+				if button.isToggleButton then
+					--print(string.format('button %q (loop %d): isHovered=%s, isActive=%s, isDisabled=%s, canBeClicked=%s -> activeGreen', fn, g_updateLoopIndex, tostring(button.isHovered), tostring(button.isActive), tostring(button.isDisabled), tostring(button.canBeClicked)));
+				end;
 			end;
 
 			-- set colors

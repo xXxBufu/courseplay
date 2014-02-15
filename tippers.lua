@@ -1,6 +1,9 @@
-﻿function courseplay:detachImplement(implementIndex)
+function courseplay:attachImplement(implement)
+	--local impl = implement.object;
+end;
+function courseplay:detachImplement(implementIndex)
 	self.cp.toolsDirty = true;
-end
+end;
 
 function courseplay:reset_tools(self)
 	self.tippers = {}
@@ -134,6 +137,10 @@ function courseplay:update_tools(self, tractor_or_implement)
 		end
 	end
 
+	--FOLDING PARTS: isFolded/isUnfolded states
+	courseplay:setFoldedStates(tractor_or_implement);
+
+
 	if not self.cp.hasUBT then
 		self.cp.hasUBT = false;
 	end;
@@ -231,8 +238,12 @@ function courseplay:update_tools(self, tractor_or_implement)
 			self.cp.aiTurnNoBackward = true
 			courseplay:debug(string.format("%s: object.aiLeftMarker == nil and table.getn(object.wheels) > 0 and object.cp.positionAtTractor <= 0 --> self.cp.aiTurnNoBackward = true", nameNum(object)), 6);
 		end
+
 		courseplay:askForSpecialSettings(self,object)
-		
+
+		--FOLDING PARTS: isFolded/isUnfolded states
+		courseplay:setFoldedStates(object);
+
 		-- are there more tippers attached to the current implement?
 		local other_tipper_attached
 		if table.getn(object.attachedImplements) ~= 0 then
@@ -251,6 +262,7 @@ function courseplay:update_tools(self, tractor_or_implement)
 	for k,v in pairs(self.components) do
 		self.cpTrafficCollisionIgnoreList[v.node] = true;
 	end;
+
 
 	--MINHUDPAGE for attached combines
 	self.cp.attachedCombineIdx = nil;
@@ -281,6 +293,9 @@ function courseplay:update_tools(self, tractor_or_implement)
 					table.insert(self.tippers, object);
 					courseplay:setMarkers(self, object)
 					self.cpTrafficCollisionIgnoreList[object.rootNode] = true;
+					for k,v in pairs(object.components) do
+						self.cpTrafficCollisionIgnoreList[v.node] = true;
+					end;
 				end;
 			end;
 		end;
@@ -328,7 +343,7 @@ function courseplay:update_tools(self, tractor_or_implement)
 	self.cp.tippersWithCovers = nil;
 	self.cp.tippersWithCovers = {};
 	if tipper_attached then
-		for i=1, table.getn(self.tippers) do
+		for i=1, #(self.tippers) do
 			local t = self.tippers[i];
 			local coverItems = {};
 			local isHKD302, isMUK, isSRB35 = false, false, false;
@@ -338,7 +353,7 @@ function courseplay:update_tools(self, tractor_or_implement)
 				isMUK = t.configFileName == "data/vehicles/trailers/kroeger/MUK303.xml" or t.configFileName == "data/vehicles/trailers/kroeger/MUK402.xml";
 				isSRB35 = t.configFileName == "data/vehicles/trailers/kroeger/SRB35.xml";
 			end;
-			
+
 			if isHKD302 or isMUK or isSRB35 then
 				if isHKD302 then
 					local c = getChild(t.rootNode, "bodyLeft");
@@ -379,8 +394,8 @@ function courseplay:update_tools(self, tractor_or_implement)
 					end;
 				end;
 				
-				if self.cp.tipperHasCover and table.getn(coverItems) > 0 then
-					courseplay:debug(string.format("Implement \"%s\" has a cover (coverItems ~= nil)", tostring(t.name)), 6);
+				if self.cp.tipperHasCover and #(coverItems) > 0 then
+					courseplay:debug(string.format("Implement %q has a cover (coverItems ~= nil)", tostring(t.name)), 6);
 					local data = {
 						coverType = "defaultGiants",
 						tipperIndex = i,
@@ -392,7 +407,7 @@ function courseplay:update_tools(self, tractor_or_implement)
 			elseif t.setPlane ~= nil and type(t.setPlane) == "function" and t.currentPlaneId == nil and t.currentPlaneSetId == nil then
 				--NOTE: setPlane is both in SMK and in chaffCover.lua -> check for currentPlaneId, currentPlaneSetId (chaffCover) nil
 				
-				courseplay:debug(string.format("Implement \"%s\" has a cover (setPlane ~= nil)", tostring(t.name)), 6);
+				courseplay:debug(string.format("Implement %q has a cover (setPlane ~= nil)", tostring(t.name)), 6);
 				self.cp.tipperHasCover = true;
 				local data = {
 					coverType = "setPlane",
@@ -402,7 +417,7 @@ function courseplay:update_tools(self, tractor_or_implement)
 				table.insert(self.cp.tippersWithCovers, data);
 			
 			elseif t.planeOpen ~= nil and t.animationParts[3] ~= nil and t.animationParts[3].offSet ~= nil and t.animationParts[3].animDuration ~= nil then
-				courseplay:debug(string.format("Implement \"%s\" has a cover (planeOpen ~= nil)", tostring(t.name)), 6);
+				courseplay:debug(string.format("Implement %q has a cover (planeOpen ~= nil)", tostring(t.name)), 6);
 				self.cp.tipperHasCover = true;
 				local data = {
 					coverType = "planeOpen",
@@ -411,13 +426,23 @@ function courseplay:update_tools(self, tractor_or_implement)
 				table.insert(self.cp.tippersWithCovers, data);
 			
 			elseif t.setCoverState ~= nil and type(t.setCoverState) == "function" and t.cover ~= nil and t.cover.opened ~= nil and t.cover.closed ~= nil and t.cover.state ~= nil then
-				courseplay:debug(string.format("Implement \"%s\" has a cover (setCoverState ~= nil)", tostring(t.name)), 6);
+				courseplay:debug(string.format("Implement %q has a cover (setCoverState ~= nil)", tostring(t.name)), 6);
 				self.cp.tipperHasCover = true;
 				local data = {
 					coverType = "setCoverState",
 					tipperIndex = i
 				};
 				table.insert(self.cp.tippersWithCovers, data);
+
+			elseif t.setSheet ~= nil and t.sheet ~= nil and t.sheet.isActive ~= nil then
+				courseplay:debug(string.format("Implement %q has a cover (setSheet ~= nil)", tostring(t.name)), 6);
+				self.cp.tipperHasCover = true;
+				local data = {
+					coverType = "setSheet",
+					tipperIndex = i
+				};
+				table.insert(self.cp.tippersWithCovers, data);
+
 			end;
 		end;
 	end;
@@ -492,7 +517,39 @@ function courseplay:setMarkers(self, object)
 	end
 	courseplay:debug(nameNum(self) .. " self.turnEndBackDistance: "..tostring(self.turnEndBackDistance).."  self.aiToolExtraTargetMoveBack: "..tostring(self.aiToolExtraTargetMoveBack),6); 
 	courseplay:debug(nameNum(self) .. " setMarkers(): self.cp.backMarkerOffset: "..tostring(self.cp.backMarkerOffset).."  self.cp.aiFrontMarker: "..tostring(self.cp.aiFrontMarker), 6);
-end
+end;
+
+function courseplay:setFoldedStates(object)
+	if courseplay:isFoldable(object) and object.turnOnFoldDirection then
+		if courseplay.debugChannels[17] then print(string.rep('-', 50)); end;
+		courseplay:debug(nameNum(object) .. ': setFoldedStates()', 17);
+
+		object.cp.realUnfoldDirection = object.turnOnFoldDirection;
+		if object.cp.foldingPartsStartMoveDirection and object.cp.foldingPartsStartMoveDirection ~= 0 then
+			object.cp.realUnfoldDirection = object.turnOnFoldDirection * object.cp.foldingPartsStartMoveDirection;
+		end;
+		if object.cp.isMRpoettingerEurocat315H then --TODO: somehow move to specialTools
+			object.cp.realUnfoldDirection = -1;
+		end;
+		courseplay:debug(string.format('startAnimTime=%s, turnOnFoldDirection=%s, foldingPartsStartMoveDirection=%s --> realUnfoldDirection=%s', tostring(object.startAnimTime), tostring(object.turnOnFoldDirection), tostring(object.cp.foldingPartsStartMoveDirection), tostring(object.cp.realUnfoldDirection)), 17);
+
+		for i,foldingPart in pairs(object.foldingParts) do
+			foldingPart.isFoldedAnimTime = 0;
+			foldingPart.isFoldedAnimTimeNormal = 0;
+			foldingPart.isUnfoldedAnimTime = foldingPart.animDuration;
+			foldingPart.isUnfoldedAnimTimeNormal = 1;
+
+			if object.cp.realUnfoldDirection < 0 then
+				foldingPart.isFoldedAnimTime = foldingPart.animDuration;
+				foldingPart.isFoldedAnimTimeNormal = 1;
+				foldingPart.isUnfoldedAnimTime = 0;
+				foldingPart.isUnfoldedAnimTimeNormal = 0;
+			end;
+			courseplay:debug(string.format('\tfoldingPart %d: isFoldedAnimTime=%s (normal: %d), isUnfoldedAnimTime=%s (normal: %d)', i, tostring(foldingPart.isFoldedAnimTime), foldingPart.isFoldedAnimTimeNormal, tostring(foldingPart.isUnfoldedAnimTime), foldingPart.isUnfoldedAnimTimeNormal), 17);
+		end;
+		if courseplay.debugChannels[17] then print(string.rep('-', 50)); end;
+	end;
+end;
 
 -- loads all tippers
 function courseplay:load_tippers(self)
@@ -532,7 +589,7 @@ function courseplay:load_tippers(self)
 
 		local current_tipper = self.tippers[self.cp.currentTrailerToFill]
 
-		-- drive on if actual tipper is full
+		-- drive on if current tipper is full
 		if current_tipper.fillLevel == current_tipper.capacity then
 			if table.getn(self.tippers) > self.cp.currentTrailerToFill then
 				local tipper_x, tipper_y, tipper_z = getWorldTranslation(self.tippers[self.cp.currentTrailerToFill].rootNode)

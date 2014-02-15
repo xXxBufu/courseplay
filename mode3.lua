@@ -11,7 +11,7 @@ function courseplay:handleMode3(vehicle, fill_level, allowedToDrive, dt)
 		end;
 
 		if vehicle.wait and vehicle.cp.last_recordnumber == vehicle.cp.waitPoints[1] then
-			courseplay:setGlobalInfoText(vehicle, courseplay:get_locale(vehicle, "CPReachedOverloadPoint"));
+			courseplay:setGlobalInfoText(vehicle, 'OVERLOADING_POINT');
 
 			local driveOn = false
 			if fill_level > 0 then
@@ -109,6 +109,38 @@ function courseplay:handleAugerWagon(vehicle, workTool, unfold, unload, orderNam
 			end;
 		end;
 
+	--Ropa Big Bear / 'bigBear' spec
+	elseif workTool.cp.hasSpecializationBigBear then
+		if pipeOrderExists then
+			if unfold and not workTool.activeWorkMode then
+				if not workTool.workMode then
+					courseplay:debug('\t\tunfold=true, activeWorkMode=false, workMode=false -> set workMode to true', 15);
+					workTool.workMode = true;
+					workTool.bigBearNeedEvent = true;
+				else
+					courseplay:debug('\t\tunfold=true, activeWorkMode=false, workMode=true -> set activeWorkMode to true', 15);
+					workTool.activeWorkMode = true;
+					workTool.bigBearNeedEvent = true;
+				end;
+			elseif not unfold then
+				if workTool.activeWorkMode then
+					courseplay:debug('\t\tunfold=false, activeWorkMode=true -> set activeWorkMode to false', 15);
+					workTool.activeWorkMode = false;
+					workTool.bigBearNeedEvent = true;
+				end;
+			end;
+		end;
+
+		if unload and workTool.allowOverload and not workTool.isUnloading and workTool.trailerRaycastFound then
+			courseplay:debug('\t\tunload=true, allowOverload=true, isUnloading=false, trailerRaycastFound=true -> set isUnloading to true', 15);
+			workTool.isUnloading = true;
+			workTool.bigBearNeedEvent = true;
+		elseif workTool.isUnloading and (not unload or not workTool.trailerRaycastFound or not workTool.allowOverload) then
+			courseplay:debug(string.format('\t\tunload=%s, isUnloading=true, allowOverload=%s, trailerRaycastFound=%s -> set isUnloading to false', tostring(unload), tostring(workTool.allowOverload), tostring(workTool.trailerRaycastFound)), 15);
+			workTool.isUnloading = false;
+			workTool.bigBearNeedEvent = true;
+		end;
+
 	--Brent Avalanche
 	elseif workTool.cp.isBrentAvalanche then
 		-- n/a in FS13
@@ -122,7 +154,11 @@ function courseplay:handleAugerWagon(vehicle, workTool, unfold, unload, orderNam
 				workTool.cpAI = newPipeState;
 
 				if workTool.pipeLight ~= nil and getVisibility(workTool.pipeLight) ~= (unfold and courseplay.lightsNeeded) then
-					setVisibility(workTool.pipeLight, unfold and courseplay.lightsNeeded);
+					if workTool.togglePipeLight then
+						workTool:togglePipeLight(unfold and courseplay.lightsNeeded);
+					else
+						setVisibility(workTool.pipeLight, unfold and courseplay.lightsNeeded);
+					end;
 				end;
 			end;
 		end;

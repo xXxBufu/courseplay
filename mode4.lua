@@ -46,13 +46,13 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fill_level)
 			--courseplay:debug(string.format("Abort: %d StopWork: %d",self.cp.abortWork,self.cp.stopWork), 12)
 		elseif not self.cp.hasUnloadingRefillingCourse then
 			allowedToDrive = false;
-			courseplay:setGlobalInfoText(self, ": " .. courseplay:get_locale(self, "CPworkToolNeedsToBeRefilled"), -1);
+			courseplay:setGlobalInfoText(self, 'NEEDS_REFILLING');
 		end;
 	end
 	--
 	if (self.recordnumber == self.cp.stopWork or self.cp.last_recordnumber == self.cp.stopWork) and self.cp.abortWork == nil and not isFinishingWork then
 		allowedToDrive = courseplay:brakeToStop(self)
-		courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPWorkEnd"), 1);
+		courseplay:setGlobalInfoText(self, 'WORK_END');
 		hasFinishedWork = true
 	end
 	
@@ -64,12 +64,14 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fill_level)
 	local turnStart = prevPoint.turnStart;
 	local turnEnd = prevPoint.turnEnd;
 
-	for i=1, table.getn(self.tippers) do
+	for i=1, #(self.tippers) do
 		workTool = self.tippers[i];
+
+		local isFolding, isFolded, isUnfolded = courseplay:isFolding(workTool);
 
 		-- stop while folding
 		if courseplay:isFoldable(workTool) then
-			if courseplay:isFolding(workTool) and self.cp.turnStage == 0 then
+			if isFolding and self.cp.turnStage == 0 then
 				allowedToDrive = false;
 				--courseplay:debug(tostring(workTool.name) .. ": isFolding -> allowedToDrive == false", 12);
 			end;
@@ -84,20 +86,12 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fill_level)
 			if allowedToDrive then
 				if not specialTool then
 					--unfold
-					if courseplay:isFoldable(workTool) and workTool:getIsFoldAllowed() then -- and ((self.cp.abortWork ~= nil and self.recordnumber == self.cp.abortWork - 2) or (self.cp.abortWork == nil and self.recordnumber == 2)) then
-						if courseplay:is_sowingMachine(workTool) then
-							workTool:setFoldDirection(-1);
-						
-						elseif workTool.turnOnFoldDirection ~= nil and workTool.turnOnFoldDirection ~= 0 then
-							workTool:setFoldDirection(workTool.turnOnFoldDirection);
-						
-						--Backup
-						else
-							workTool:setFoldDirection(1); --> doesn't work for Kotte VTL (liquidManure)
-						end;
+					if courseplay:isFoldable(workTool) and workTool:getIsFoldAllowed() and not isFolding and not isUnfolded then -- and ((self.cp.abortWork ~= nil and self.recordnumber == self.cp.abortWork - 2) or (self.cp.abortWork == nil and self.recordnumber == 2)) then
+						courseplay:debug(string.format('%s: unfold order (foldDir %d)', nameNum(workTool), workTool.cp.realUnfoldDirection), 17);
+						workTool:setFoldDirection(workTool.cp.realUnfoldDirection);
 					end;
 					
-					if not courseplay:isFolding(workTool) then
+					if not isFolding and isUnfolded then
 						--set or stow ridge markers
 						if courseplay:is_sowingMachine(workTool) and self.cp.ridgeMarkersAutomatic then
 							if ridgeMarker ~= nil then
@@ -113,6 +107,7 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fill_level)
 						if workTool.needsLowering and workTool.aiNeedsLowering then
 							--courseplay:debug(string.format("WP%d: isLowered() = %s, hasGroundContact = %s", self.recordnumber, tostring(workTool:isLowered()), tostring(workTool.hasGroundContact)),12);
 							if not workTool:isLowered() then
+								courseplay:debug(string.format('%s: lower order', nameNum(workTool)), 17);
 								self:setAIImplementsMoveDown(true);
 							end;
 						end;
@@ -129,10 +124,36 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fill_level)
 							else
 								workTool:setIsTurnedOn(true, false);
 							end;
+							courseplay:debug(string.format('%s: turn on order', nameNum(workTool)), 17);
 						end;
 					end; --END if not isFolding
 				end
+
+				--DRIVINGLINE SPEC
+				if workTool.cp.hasSpecializationDrivingLine and not workTool.manualDrivingLine then
+					local curLaneReal = self.Waypoints[self.recordnumber].laneNum;
+					if curLaneReal then
+						local intendedDrivingLane = ((curLaneReal-1) % workTool.nSMdrives) + 1;
+						if workTool.currentDrive ~= intendedDrivingLane then
+							courseplay:debug(string.format('%s: currentDrive=%d, curLaneReal=%d -> intendedDrivingLane=%d -> set', nameNum(workTool), workTool.currentDrive, curLaneReal, intendedDrivingLane), 17);
+							workTool.currentDrive = intendedDrivingLane;
+						end;
+					end;
+				end;
 			end;
+
+		--TRAFFIC: TURN OFF
+		elseif workArea and self.cp.abortWork == nil and self.cp.inTraffic then
+			workSpeed = 0;
+			specialTool, allowedToDrive = courseplay:handleSpecialTools(self, workTool, true, true, false, allowedToDrive, nil, nil, ridgeMarker);
+			if not specialTool then
+				if workTool.setIsTurnedOn ~= nil and workTool.isTurnedOn then
+					workTool:setIsTurnedOn(false, false);
+				end;
+				courseplay:debug(string.format('%s: [TRAFFIC] turn off order', nameNum(workTool)), 17);
+			end;
+
+		--TURN OFF AND FOLD
 		elseif self.cp.turnStage == 0 then
 			workSpeed = 0;
 			--turn off
@@ -140,12 +161,14 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fill_level)
 			if not specialTool then
 				if workTool.setIsTurnedOn ~= nil and workTool.isTurnedOn then
 					workTool:setIsTurnedOn(false, false);
+					courseplay:debug(string.format('%s: turn off order', nameNum(workTool)), 17);
 				end;
 
 				--raise
-				if not courseplay:isFolding(workTool) then
+				if not isFolding and isUnfolded then
 					if workTool.needsLowering and workTool.aiNeedsLowering and workTool:isLowered() then
 						self:setAIImplementsMoveDown(false);
+						courseplay:debug(string.format('%s: raise order', nameNum(workTool)), 17);
 					end;
 				end;
 
@@ -155,17 +178,9 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fill_level)
 				end;
 				
 				--fold
-				if courseplay:isFoldable(workTool) then
-					if courseplay:is_sowingMachine(workTool) then
-						workTool:setFoldDirection(1);
-
-					elseif workTool.turnOnFoldDirection ~= nil and workTool.turnOnFoldDirection ~= 0 then
-						workTool:setFoldDirection(-workTool.turnOnFoldDirection);
-						
-					--Backup
-					else
-						workTool:setFoldDirection(-1); --> doesn't work for Kotte VTL (liquidManure)
-					end;
+				if courseplay:isFoldable(workTool) and not isFolding and not isFolded then
+					courseplay:debug(string.format('%s: fold order (foldDir=%d)', nameNum(workTool), -workTool.cp.realUnfoldDirection), 17);
+					workTool:setFoldDirection(-workTool.cp.realUnfoldDirection);
 				end;
 			end
 		end

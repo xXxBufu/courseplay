@@ -11,7 +11,7 @@ function courseplay:find_combines(self)
 		end;
 		
 		if vehicle.cp.isCombine or vehicle.cp.isChopper or vehicle.cp.isHarvesterSteerable or vehicle.cp.isSugarBeetLoader or courseplay:isAttachedCombine(vehicle) then
-			if (courseplay:isAttachedCombine(vehicle) and vehicle.attacherVehicle ~= nil and not Utils.endsWith(vehicle.configFileName, "poettingerMex6.xml")) or not courseplay:isAttachedCombine(vehicle) then
+			if (courseplay:isAttachedCombine(vehicle) and vehicle.attacherVehicle ~= nil and not vehicle.cp.isPoettingerMex6) or not courseplay:isAttachedCombine(vehicle) then
 				table.insert(found_combines, vehicle);
 			end;
 		end;
@@ -42,14 +42,15 @@ function courseplay:combine_allows_tractor(self, combine)
 				return true
 			end
 			-- is the pipe on the correct side?
-			if combine.turnStage == 1 or combine.turnStage == 2 or combine.cp.turnStage ~= 0 then
+			if combine.turnStage == 1 or combine.turnStage == 2 or (combine.cp.turnStage ~= nil and combine.cp.turnStage ~= 0) or (combine.acTurnStage~= nil and combine.acTurnStage ~=0) then
 				courseplay:debug(nameNum(self)..": combine is turning -> refuse tractor",4)
+				courseplay:debug(string.format("%s:		combine.turnStage = %d, combine.cp.turnStage = %d, combine.acTurnStage = %s ",nameNum(self),combine.turnStage,combine.cp.turnStage,tostring(combine.acTurnStage)),4)
 				return false
 			end
-			local fruitSide = courseplay:side_to_drive(self, combine, -10)
+			local fruitSide = courseplay:sideToDrive(self, combine, -10)
 			if fruitSide == "none" then
 				courseplay:debug(nameNum(self)..": fruitSide is none -> try again with offset 0",4)
-				fruitSide = courseplay:side_to_drive(self, combine, 0)
+				fruitSide = courseplay:sideToDrive(self, combine, 0)
 			end
 			if fruitSide == "left" then
 				courseplay:debug(nameNum(self)..": path finding active and pipe in fruit -> refuse tractor",4)
@@ -71,10 +72,11 @@ end
 
 -- find combines on the same field (texture)
 function courseplay:update_combines(self)
+	courseplay:debug(string.format("%s: update_combines()", nameNum(self)), 4);
 
 	self.cp.reachableCombines = {}
 
-	if not self.search_combine and self.cp.savedCombine then
+	if not self.cp.searchCombineAutomatically and self.cp.savedCombine then
 		courseplay:debug(nameNum(self)..": combine is manual set",4)
 		table.insert(self.cp.reachableCombines, self.cp.savedCombine)
 		return
@@ -90,7 +92,32 @@ function courseplay:update_combines(self)
 	local found_combines = courseplay:find_combines(self)
 
 	courseplay:debug(string.format("%s: combines found: %d", nameNum(self), table.getn(found_combines)), 4)
-	-- go throuh found
+
+	--[[
+	--DEV: check field pairing using fieldDefs
+	local combineFound;
+	if courseplay.fields.numAvailableFields > 0 and self.cp.searchCombineOnField > 0 then
+		local fieldData = courseplay.fields.fieldData[self.cp.searchCombineOnField];
+		for k,combine in pairs(found_combines) do
+			local combineX,_,combineZ = getWorldTranslation(combine.rootNode);
+			if combineX >= fieldData.dimensions.minX and combineX <= fieldData.dimensions.maxX and combineZ >= fieldData.dimensions.minZ and combineZ <= fieldData.dimensions.maxZ then
+				courseplay:debug(string.format('%s: combine %q is in field %d\'s dimensions', nameNum(self), nameNum(combine), self.cp.searchCombineOnField), 4);
+				if courseplay:pointInPolygonV2b(fieldData.points, combineX, combineZ, true) then
+					courseplay:debug(string.format('\tcombine is in field %d\'s poly', self.cp.searchCombineOnField), 4);
+					courseplay:debug(string.format('%s: adding %q to reachableCombines table', nameNum(self), nameNum(combine)), 4);
+					table.insert(self.cp.reachableCombines, combine);
+					combineFound = true;
+				end;
+			end;
+		end;
+		courseplay:debug(string.format("%s: combines reachable: %d ", nameNum(self), #(self.cp.reachableCombines)), 4);
+		if combineFound then
+			return;
+		end;
+	end;
+	]]
+
+	-- go through found combines
 	for k, combine in pairs(found_combines) do
 		lx, ly, lz = getWorldTranslation(combine.rootNode)
 		local dlx, dly, dlz = worldToLocal(self.cp.DirectionNode, lx, y, lz)
@@ -105,11 +132,10 @@ function courseplay:update_combines(self)
 		local area2 = Utils.getDensity(terrain, 2, x, z, lx, lz, hx, hz)
 		local area3 = Utils.getDensity(terrain, 3, x, z, lx, lz, hx, hz)
 		local areaAll = area0 + area1 + area2 + area3
-		courseplay:debug(nameNum(self)..": channel0: "..tostring(area0).." / channel1: "..tostring(area1).." / channel2: "..tostring(area2).." / channel3: "..tostring(area3),4)
-		courseplay:debug(nameNum(self)..": area: "..tostring(area).." / field in area: "..tostring(areaAll),4)
+		courseplay:debug(string.format('%s: to combine %q: area=%d, channels 0=%d, 1=%d, 2=%d, 3=%d, field in area = %d', nameNum(self), nameNum(combine), area, area0, area1, area2, area3, areaAll), 4);
 
-		if courseplay:isBetween(areaAll, area * 0.999, area * 1.1, true) and courseplay:combine_allows_tractor(self, combine) then
-			courseplay:debug(nameNum(self)..": adding "..tostring(combine.name).." to reachable combines list",4)
+		if areaAll >= area * 0.999 and areaAll <= area * 1.1 and courseplay:combine_allows_tractor(self, combine) then
+			courseplay:debug(string.format('%s: adding %q to reachableCombines table', nameNum(self), nameNum(combine)), 4);
 			table.insert(self.cp.reachableCombines, combine)
 		end
 	end
@@ -145,12 +171,12 @@ function courseplay:register_at_combine(self, combine)
 					courseplay:debug(nameNum(self)..": combine is turning -> don't register tractor",4)
 					return false
 				end
-				local fruitSide = courseplay:side_to_drive(self, combine, -10)
+				local fruitSide = courseplay:sideToDrive(self, combine, -10)
 				if fruitSide == "none" then
 					courseplay:debug(nameNum(self)..": fruitSide is none -> try again with offset 0",4)
-					fruitSide = courseplay:side_to_drive(self, combine, 0)
+					fruitSide = courseplay:sideToDrive(self, combine, 0)
 				end
-				courseplay:debug(nameNum(self)..": courseplay:side_to_drive = "..tostring(fruitSide),4)
+				courseplay:debug(nameNum(self)..": courseplay:sideToDrive = "..tostring(fruitSide),4)
 				if fruitSide == "left" then
 					courseplay:debug(nameNum(self)..": path finding active and pipe in fruit -> don't register tractor",4)
 					return false
@@ -229,7 +255,9 @@ function courseplay:register_at_combine(self, combine)
 	table.insert(combine.courseplayers, self)
 	self.cp.positionWithCombine = table.getn(combine.courseplayers)
 	self.cp.activeCombine = combine
-	courseplay:askForSpecialSettings(combine, combine)
+	self.cp.reachableCombines = {}
+	
+	courseplay:askForSpecialSettings(combine:getRootAttacherVehicle(), combine)
 
 	--OFFSET
 	if combine.cp == nil then
@@ -281,7 +309,13 @@ function courseplay:unregister_at_combine(self, combine)
 	if self.trafficCollisionIgnoreList[combine.rootNode] == true then
 	   self.trafficCollisionIgnoreList[combine.rootNode] = nil
 	end
-
+	
+	if combine.acParameters ~= nil then
+		if combine.cp.turnStage ~= 0 then
+			combine.cp.turnStage = 0
+		end
+	end
+	
 	return true
 end
 
@@ -343,20 +377,24 @@ function courseplay:calculateInitialCombineOffset(self, combine)
 	end;
 
 	--special tools, special cases
-	if combine.cp.isCaseIH7130 then
-		self.cp.combineOffset = 8.0;
+	if combine.cp.isJohnDeereS650 then
+		self.cp.combineOffset =  7.7;
+	elseif combine.cp.isCaseIH7130 then
+		self.cp.combineOffset =  8.0;
 	elseif combine.cp.isCaseIH9230 or combine.cp.isCaseIH9230Crawler then
 		self.cp.combineOffset = 11.5;
-	elseif combine.cp.isGrimmeRootster604 or Utils.endsWith(combine.configFileName, "grimmeRootster604.xml") then
+	elseif combine.cp.isDeutz5465H then
+		self.cp.combineOffset =  5.1;
+	elseif combine.cp.isGrimmeRootster604 then
 		self.cp.combineOffset = -4.3;
-	elseif combine.cp.isGrimmeSE7555 or Utils.endsWith(combine.configFileName, "grimmeSE75-55.xml") then
+	elseif combine.cp.isGrimmeSE7555 then
 		self.cp.combineOffset =  4.3;
 	elseif combine.cp.isFahrM66 then
 		self.cp.combineOffset =  4.4;
-	elseif self.cp.combineOffsetAutoMode and (combine.cp.isJF1060 or Utils.endsWith(combine.configFileName, "JF_1060.xml")) then
-		self.cp.combineOffset =  -7;
+	elseif combine.cp.isJF1060 then
+		self.cp.combineOffset = -7;
 		combine.cp.offset = 7;
-	elseif self.cp.combineOffsetAutoMode and (combine.cp.isRopaEuroTiger or Utils.endsWith(combine.configFileName, "RopaEuroTiger_V8_3_XL.xml")) then
+	elseif combine.cp.isRopaEuroTiger then
 		self.cp.combineOffset =  5.2;
 	elseif combine.cp.isSugarBeetLoader then
 		local utwX,utwY,utwZ = getWorldTranslation(combine.unloadingTrigger.node);
@@ -411,7 +449,7 @@ function courseplay:calculateInitialCombineOffset(self, combine)
 			end
 		else
 			courseplay:debug(string.format("%s(%i): %s @ %s: combine.cp.forcedSide=%s, going by fruit", curFile, debug.getinfo(1).currentline, nameNum(self), tostring(combine.name), tostring(combine.cp.forcedSide)), 4);
-			local fruitSide = courseplay:side_to_drive(self, combine, 5);
+			local fruitSide = courseplay:sideToDrive(self, combine, 5);
 			if fruitSide == "right" then
 				if combine.cp.lmX ~= nil then
 					self.cp.combineOffset = math.max(combine.cp.lmX + 2.5, 7);

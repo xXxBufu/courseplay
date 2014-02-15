@@ -31,19 +31,21 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 	end
 	if (self.recordnumber == self.cp.stopWork or self.cp.last_recordnumber == self.cp.stopWork) and self.cp.abortWork == nil and not self.cp.isLoaded and not isFinishingWork then
 		allowedToDrive = false
-		courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPWorkEnd"), 1);
+		courseplay:setGlobalInfoText(self, 'WORK_END');
 		hasFinishedWork = true
 	end
 
-	for i=1, table.getn(self.tippers) do
+	for i=1, #(self.tippers) do
 		workTool = self.tippers[i];
 		local tool = self
 		if courseplay:isAttachedCombine(workTool) then
 			tool = workTool
 		end
 
+		local isFolding, isFolded, isUnfolded = courseplay:isFolding(workTool);
+
 		-- stop while folding
-		if courseplay:isFolding(workTool) and self.cp.turnStage == 0 then
+		if isFolding and self.cp.turnStage == 0 then
 			allowedToDrive = courseplay:brakeToStop(self);
 			--courseplay:debug(tostring(workTool.name) .. ": isFolding -> allowedToDrive == false", 12);
 		end;
@@ -58,12 +60,15 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 					if not specialTool then
 						-- automatic opening for balers
 						if workTool.balerUnloadingState ~= nil then
-							if courseplay:isRoundbaler(workTool) and fill_level > 90 and fill_level < 100 and workTool.balerUnloadingState == Baler.UNLOADING_CLOSED then
+							fill_level = courseplay:round(fill_level, 3);
+							local capacity = courseplay:round(100 * (workTool.realBalerOverFillingRatio or 1), 3);
+
+							if courseplay:isRoundbaler(workTool) and fill_level > capacity * 0.9 and fill_level < capacity and workTool.balerUnloadingState == Baler.UNLOADING_CLOSED then
 								if not workTool.isTurnedOn then
 									workTool:setIsTurnedOn(true, false);
 								end;
 								workSpeed = 0.5;
-							elseif fill_level >= 100 and workTool.balerUnloadingState == Baler.UNLOADING_CLOSED then
+							elseif fill_level >= capacity and workTool.balerUnloadingState == Baler.UNLOADING_CLOSED then
 								allowedToDrive = false;
 								if #(workTool.bales) > 0 then
 									workTool:setIsUnloadingBale(true, false)
@@ -118,7 +123,7 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 				if fill_level == 100 and not self.cp.hasUnloadingRefillingCourse then
 					if self.cp.automaticUnloadingOnField then
 						self.cp.unloadOrder = true
-						courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPUnloadBale"));
+						courseplay:setGlobalInfoText(self, 'UNLOADING_BALE');
 					else
 						specialTool, allowedToDrive = courseplay:handleSpecialTools(self,workTool,false,false,false,allowedToDrive,nil,nil); --TODO: unclear
 					end
@@ -163,43 +168,45 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 							local forecast = Utils.getNoNil(self.Waypoints[recordnumber].ridgeMarker,0)
 							local marker = Utils.getNoNil(self.Waypoints[self.recordnumber].ridgeMarker,0)
 							local waypoint = math.max(marker,forecast)
-							if courseplay:isFoldable(workTool) and not courseplay:isFolding(workTool) then
+							if courseplay:isFoldable(workTool) and not isFolding and not isUnfolded then
 								if not workTool.cp.hasSpecializationPlough then
-									if workTool.cp.inversedFoldDirection then
-										workTool:setFoldDirection(1);
-									else
-										workTool:setFoldDirection(-1);
-									end
+									courseplay:debug(string.format('%s: unfold order (foldDir=%d)', nameNum(workTool), workTool.cp.realUnfoldDirection), 17);
+									workTool:setFoldDirection(workTool.cp.realUnfoldDirection);
 									self.cp.runOnceStartCourse = false;
 								elseif waypoint == 2 and self.cp.runOnceStartCourse then --wegpunkte finden und richtung setzen...
-									workTool:setFoldDirection(-1);
+									courseplay:debug(string.format('%s: unfold order (foldDir=%d)', nameNum(workTool), workTool.cp.realUnfoldDirection), 17);
+									workTool:setFoldDirection(workTool.cp.realUnfoldDirection);
 									if workTool:getIsPloughRotationAllowed() then
 										AITractor.aiRotateLeft(self);
 										self.cp.runOnceStartCourse = false;
 									end
 								elseif self.cp.runOnceStartCourse then
-									workTool:setFoldDirection(-1);
+									courseplay:debug(string.format('%s: unfold order (foldDir=%d)', nameNum(workTool), workTool.cp.realUnfoldDirection), 17);
+									workTool:setFoldDirection(workTool.cp.realUnfoldDirection);
 									self.cp.runOnceStartCourse = false;
 								end
 							end;
 
 
-							if not courseplay:isFolding(workTool) and not waitForSpecialTool then --TODO: where does "waitForSpecialTool" come from? what does it do?
+							if not isFolding and isUnfolded and not waitForSpecialTool then --TODO: where does "waitForSpecialTool" come from? what does it do?
 								--lower
 								if workTool.needsLowering and workTool.aiNeedsLowering then
 									self:setAIImplementsMoveDown(true);
+									courseplay:debug(string.format('%s: lower order', nameNum(workTool)), 17);
 								end;
 
 								--turn on
 								if workTool.setIsTurnedOn ~= nil and not workTool.isTurnedOn then
 									workTool:setIsTurnedOn(true, false);
+									courseplay:debug(string.format('%s: turn on order', nameNum(workTool)), 17);
 									self.cp.runOnceStartCourse = false
 									courseplay:setMarkers(self, workTool);
 								end;
 
-								if workTool.setIsPickupDown ~= nil then
-									if self.pickup.isDown == nil or (self.pickup.isDown ~= nil and not self.pickup.isDown) then
+								if workTool.setIsPickupDown ~= nil and workTool.pickup then
+									if workTool.pickup.isDown == nil or (workTool.pickup.isDown ~= nil and not workTool.pickup.isDown) then
 										workTool:setIsPickupDown(true, false);
+										courseplay:debug(string.format('%s: lower pickup order', nameNum(workTool)), 17);
 									end;
 								end;
 							end;
@@ -209,30 +216,30 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 					workSpeed = 0;
 					specialTool, allowedToDrive = courseplay:handleSpecialTools(self,workTool,false,false,false,allowedToDrive,nil,nil)
 					if not specialTool then
-						if not courseplay:isFolding(workTool) then
+						if not isFolding then
 							--turn off
 							if workTool.setIsTurnedOn ~= nil and workTool.isTurnedOn then
 								workTool:setIsTurnedOn(false, false);
+								courseplay:debug(string.format('%s: turn off order', nameNum(workTool)), 17);
 							end;
-							if workTool.setIsPickupDown ~= nil then
-								if self.pickup.isDown == nil or (self.pickup.isDown ~= nil and self.pickup.isDown) then
+							if workTool.setIsPickupDown ~= nil and workTool.pickup then
+								if workTool.pickup.isDown == nil or (workTool.pickup.isDown ~= nil and workTool.pickup.isDown) then
 									workTool:setIsPickupDown(false, false);
+									courseplay:debug(string.format('%s: raise pickup order', nameNum(workTool)), 17);
 								end;
 							end;
 
 							--raise
 							if workTool.needsLowering and workTool.aiNeedsLowering and self.cp.turnStage == 0 then
 								self:setAIImplementsMoveDown(false);
+								courseplay:debug(string.format('%s: raise order', nameNum(workTool)), 17);
 							end;
 						end;
 
 						--fold
-						if courseplay:isFoldable(workTool) then
-							if workTool.cp.inversedFoldDirection then
-								workTool:setFoldDirection(-1);
-							else
-								workTool:setFoldDirection(1);
-							end
+						if courseplay:isFoldable(workTool) and not isFolding and not isFolded then
+							courseplay:debug(string.format('%s: fold order (foldDir=%d)', nameNum(workTool), -workTool.cp.realUnfoldDirection), 17);
+							workTool:setFoldDirection(-workTool.cp.realUnfoldDirection);
 							--workTool:setFoldDirection(-workTool.turnOnFoldDirection);
 						end;
 					end;
@@ -272,7 +279,7 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 					-- tipper is not empty and tractor reaches TipTrigger
 					if tipper_fill_level > 0 and self.cp.currentTipTrigger ~= nil and self.recordnumber > 3 then
 						allowedToDrive, activeTipper = courseplay:unload_tippers(self)
-						self.cp.infoText = courseplay:get_locale(self, "CPTriggerReached") -- "Abladestelle erreicht"
+						self.cp.infoText = courseplay:loc("CPTriggerReached") -- "Abladestelle erreicht"
 					end
 				end;
 			end; --END other tools
@@ -310,7 +317,7 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 					--courseplay:debug(string.format("Abort: %d StopWork: %d",self.cp.abortWork,self.cp.stopWork), 12)
 				elseif not self.cp.hasUnloadingRefillingCourse and not self.cp.automaticUnloadingOnField then
 					allowedToDrive = false;
-					courseplay:setGlobalInfoText(self, string.format(": %s %s", tostring(workTool.name), courseplay:get_locale(self, "CPneedsToBeUnloaded")), -1);
+					courseplay:setGlobalInfoText(self, 'NEEDS_UNLOADING');
 				elseif not self.cp.hasUnloadingRefillingCourse and self.cp.automaticUnloadingOnField then
 					allowedToDrive = false;
 				end;
@@ -328,14 +335,11 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 				if not specialTool then
 					local weatherStop = not tool:getIsThreshingAllowed(true)
 					if tool.grainTankCapacity == 0 then
-						if courseplay:isFoldable(workTool) and not tool.isThreshing then
-							if workTool.cp.inversedFoldDirection then
-								workTool:setFoldDirection(1);
-							else
-								workTool:setFoldDirection(-1);
-							end;
+						if courseplay:isFoldable(workTool) and not tool.isThreshing and not isFolding and not isUnfolded then
+							courseplay:debug(string.format('%s: unfold order (foldDir=%d)', nameNum(workTool), workTool.cp.realUnfoldDirection), 17);
+							workTool:setFoldDirection(workTool.cp.realUnfoldDirection);
 						end;
-						if not courseplay:isFolding(workTool) and not tool.isThreshing then
+						if not isFolding and not tool.isThreshing then
 							tool:setIsThreshing(true);
 							if pipeState > 0 then
 								tool:setPipeState(pipeState);
@@ -347,30 +351,30 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 							tool.cp.waitingForTrailerToUnload = true
 						end
 					else
-						if courseplay:isFoldable(workTool) and not tool.isThreshing then
-							if workTool.cp.inversedFoldDirection then
-								workTool:setFoldDirection(1);
-							else
-								workTool:setFoldDirection(-1);
-							end;
+						local fillLevelPct = tool.grainTankFillLevel * 100 / tool.grainTankCapacity;
+
+						if courseplay:isFoldable(workTool) and not tool.isThreshing and not isFolding and not isUnfolded then
+							courseplay:debug(string.format('%s: unfold order (foldDir=%d)', nameNum(workTool), workTool.cp.realUnfoldDirection), 17);
+							workTool:setFoldDirection(workTool.cp.realUnfoldDirection);
 						end;
-						if not courseplay:isFolding(workTool) and tool.grainTankFillLevel < tool.grainTankCapacity and not tool.waitingForDischarge and not tool.isThreshing and not weatherStop then
+						if not isFolding and fillLevelPct < 100 and not tool.waitingForDischarge and not tool.isThreshing and not weatherStop then
 							tool:setIsThreshing(true);
 						end
 
-						if tool.grainTankFillLevel >= tool.grainTankCapacity or tool.waitingForDischarge then
+						if fillLevelPct >= 100 or tool.waitingForDischarge or (tool.cp.stopWhenUnloading and tool.pipeIsUnloading and tool.courseplayers[1] ~= nil) then
 							tool.waitingForDischarge = true
 							allowedToDrive = false;
 							tool:setIsThreshing(false);
-							if tool.grainTankFillLevel < tool.grainTankCapacity*0.8 then
+							if fillLevelPct < 80 and (not tool.cp.stopWhenUnloading or (tool.cp.stopWhenUnloading and tool.courseplayers[1] == nil)) then
 								tool.waitingForDischarge = false
+								-- print(string.format('fillLevelPct=%.1f, stopWhenUnloading=%s, pipeIsUnloading=%s, tool.courseplayers[1]=%s -> set waitingForDischarge to false', fillLevelPct, tostring(tool.cp.stopWhenUnloading), tostring(tool.pipeIsUnloading), tostring(tool.courseplayers[1])));
 							end
 						end
 
 						if weatherStop then
 							allowedToDrive = false;
 							tool:setIsThreshing(false);
-							courseplay:setGlobalInfoText(self, courseplay:get_locale(self, "CPwaitingForWeather"));
+							courseplay:setGlobalInfoText(self, 'WEATHER');
 						end
 
 					end
@@ -388,12 +392,9 @@ function courseplay:handle_mode6(self, allowedToDrive, workSpeed, fill_level, lx
 				end
 				if not specialTool then
 					tool:setIsThreshing(false);
-					if courseplay:isFoldable(workTool) and isEmpty then
-						if workTool.cp.inversedFoldDirection then
-							workTool:setFoldDirection(-1);
-						else
-							workTool:setFoldDirection(1);
-						end;
+					if courseplay:isFoldable(workTool) and isEmpty and not isFolding and not isFolded then
+						courseplay:debug(string.format('%s: fold order (foldDir=%d)', nameNum(workTool), -workTool.cp.realUnfoldDirection), 17);
+						workTool:setFoldDirection(-workTool.cp.realUnfoldDirection);
 					end;
 					tool:setPipeState(1)
 				end

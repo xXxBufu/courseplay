@@ -9,6 +9,7 @@ Icons et al.
 * Trash can icon by Ruben Steeman - under "CC BY 3.0" license
 * Floppy disk icon by Cor Tiemens - under "CC BY 3.0" license
 * Copy icon part of "Font Awesome" by Dave Gandy - under "CC BY 3.0" license
+* Refresh icon by Edward Boatman - under "CC BY 3.0" license
 
 
 * "Diamond", start, stop, wait and cross sign i3Ds by Claus Pedersen (Satissis)
@@ -22,7 +23,8 @@ Translations
 * Czech: Albi
 * Spanish: JFMtb
 * French: Guillaume Dupuy
-* Italian: JD7530
+* Italian: JD7530, Cristiano Magro
+* Russian: Bernelli
 
 ====================================
 

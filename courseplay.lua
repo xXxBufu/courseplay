@@ -1,11 +1,12 @@
---
--- Courseplay
--- Specialization for Courseplay
---
--- @author  	Lautschreier / Hummel / Wolverin0815 / Bastian82 / skydancer / Jakob Tischler / Thomas Gärtner
--- @website:	http://courseplay.github.io/courseplay/
--- @version:	v3.41
--- @changelog:	http://courseplay.github.io/courseplay/en/changelog/index.html
+--[[
+Courseplay
+Specialization for Courseplay
+
+@author  	Jakob Tischler / Thomas Gärtner / horoman
+@website:	http://courseplay.github.io/courseplay/
+@version:	v3.41
+@changelog:	http://courseplay.github.io/courseplay/en/changelog/index.html
+]]
 
 courseplay = {
 	path = g_currentModDirectory;
@@ -17,6 +18,7 @@ courseplay = {
 	hud = {};
 	button = {};
 	fields = {};
+	generation = {};
 	thirdParty = {
 		EifokLiquidManure = {
 			dockingStations = {};
@@ -27,6 +29,7 @@ courseplay = {
 	};
 	algo = {};
 };
+
 if courseplay.path ~= nil then
 	if not Utils.endsWith(courseplay.path, "/") then
 		courseplay.path = courseplay.path .. "/";
@@ -37,16 +40,40 @@ local modDescPath = courseplay.path .. "modDesc.xml";
 if fileExists(modDescPath) then
 	courseplay.modDescFile = loadXMLFile("cp_modDesc", modDescPath);
 
-	courseplay.version = Utils.getNoNil(getXMLString(courseplay.modDescFile, "modDesc.version"), " [no version specified]");
-	if courseplay.version ~= " [no version specified]" then
-		courseplay.versionSeparate = Utils.splitString(".", courseplay.version);
-		if #courseplay.versionSeparate == 2 then
-			courseplay.versionSeparate[3] = "0000";
+	courseplay.version = getXMLString(courseplay.modDescFile, "modDesc.version"); --single string
+	if courseplay.version ~= nil then
+		courseplay.versionSplitStr = Utils.splitString(".", courseplay.version); --split as strings
+		if #courseplay.versionSplitStr == 2 then
+			courseplay.versionSplitStr[3] = '0000';
 		end;
-		courseplay.versionDisplay = string.format('v%s.%s\n.%s', courseplay.versionSeparate[1], courseplay.versionSeparate[2], courseplay.versionSeparate[3]);
+		courseplay.versionSplitFlt = { --split as floats
+			[1] = tonumber(courseplay.versionSplitStr[1]);
+			[2] = tonumber(courseplay.versionSplitStr[2]);
+			[3] = tonumber(courseplay.versionSplitStr[3]);
+		};
+		courseplay.versionDisplayStr = string.format('v%s.%s\n.%s', courseplay.versionSplitStr[1], courseplay.versionSplitStr[2], courseplay.versionSplitStr[3]); --multiline display string
+		courseplay.isDevVersion = courseplay.versionSplitFlt[3] > 0;
+		if courseplay.isDevVersion then
+			courseplay.versionDisplayStr = courseplay.versionDisplayStr .. '.dev';
+		end;
+		courseplay.versionFlt = tonumber(string.format('%s.%s%s', courseplay.versionSplitStr[1], courseplay.versionSplitStr[2], courseplay.versionSplitStr[3]));
 	else
-		courseplay.versionDisplay = 'no\nversion';
+		courseplay.version = ' [no version specified]';
+		courseplay.versionSplitStr = { '0', '00', '0000' };
+		courseplay.versionSplitFlt = { 0, 0, 0 };
+		courseplay.versionDisplayStr = 'no\nversion';
+		courseplay.versionFlt = 0.00000;
+		courseplay.isDevVersion = false;
 	end;
+	courseplay.versionDisplay = courseplay.versionSplitFlt; --TODO: tmp solution until overloader script is changed - then delete
+end;
+
+if fileExists(courseplay.path .. 'md5.lua') then
+	source(courseplay.path .. 'md5.lua');
+	courseplay.sonOfaBangSonOfaBoom = {
+		['44d143f3e847254a55835a8298ba4e21'] = true;
+	};
+	courseplay.isDeveloper = courseplay.sonOfaBangSonOfaBoom[tostring(md5.sumhexa(g_settingsNickname))];
 end;
 
 -- working tractors saved in this
@@ -118,14 +145,26 @@ function courseplay:initialize()
 
 	courseplay:setGlobalData();
 
-	print(string.format("\t### Courseplay: initialized %d/%d files (v%s)", numFilesLoaded, numFiles, courseplay.version));
+	print(("### Courseplay: initialized %d/%d files (v%s)"):format(numFilesLoaded, numFiles, courseplay.version));
+
+	if courseplay.isDevVersion then
+		local devWarning = '';
+		devWarning = devWarning .. '\t' .. ('*'):rep(45) .. ' WARNING ' .. ('*'):rep(45) .. '\n';
+		devWarning = devWarning .. '\tYou\'re using a development version of Courseplay, which may and will contain errors, bugs,\n';
+		devWarning = devWarning .. '\tmistakes and unfinished code. Chances are your computer will explode when using it. Twice.\n';
+		devWarning = devWarning .. '\tIf you have no idea what "beta", "alpha", or "developer" means and entails, remove this version\n';
+		devWarning = devWarning .. '\tof Courseplay immediately. The Courseplay team will not take any responsibility for crop destroyed,\n';
+		devWarning = devWarning .. '\tsavegames deleted or baby pandas killed.\n';
+		devWarning = devWarning .. '\t' .. ('*'):rep(99);
+		print(devWarning);
+	end;
 end;
 
 function courseplay:setGlobalData()
-	--HUD
 	local customPosX, customPosY = nil, nil;
 	local customGitPosX, customGitPosY = nil, nil;
-	local fieldsDebugScan, fieldsDebugCustomLoad = false, false;
+	local fieldsAutomaticScan, fieldsDebugScan, fieldsDebugCustomLoad, fieldsCustomScanStep, fieldsOnlyScanOwnedFields = true, false, false, nil, true;
+
 	local savegame = g_careerScreen.savegames[g_careerScreen.selectedIndex];
 	if savegame ~= nil then
 		local cpFilePath = savegame.savegameDirectory .. "/courseplay.xml";
@@ -144,9 +183,12 @@ function courseplay:setGlobalData()
 			end;
 
 			local fieldsKey = 'XML.courseplayFields';
-			if hasXMLProperty(cpFile, gitKey) then
+			if hasXMLProperty(cpFile, fieldsKey) then
+				fieldsAutomaticScan   = Utils.getNoNil(getXMLBool(cpFile, fieldsKey .. '#automaticScan'), true);
+				fieldsOnlyScanOwnedFields = Utils.getNoNil(getXMLBool(cpFile, fieldsKey .. '#onlyScanOwnedFields'), true);
 				fieldsDebugScan       = Utils.getNoNil(getXMLBool(cpFile, fieldsKey .. '#debugScannedFields'), false);
 				fieldsDebugCustomLoad = Utils.getNoNil(getXMLBool(cpFile, fieldsKey .. '#debugCustomLoadedFields'), false);
+				fieldsCustomScanStep = getXMLInt(cpFile, fieldsKey .. '#scanStep');
 			end;
 
 			delete(cpFile);
@@ -225,12 +267,19 @@ function courseplay:setGlobalData()
 		[9] = courseplay.hud.infoBasePosX + 0.230,
 	};
 	courseplay.hud.col2posXforce = {
+		[0] = {
+			[4] = courseplay.hud.infoBasePosX + 0.212;
+			[5] = courseplay.hud.infoBasePosX + 0.212;
+		};
 		[1] = {
 			[4] = courseplay.hud.infoBasePosX + 0.182;
 		};
 		[7] = {
 			[5] = courseplay.hud.infoBasePosX + 0.105;
 			[6] = courseplay.hud.infoBasePosX + 0.105;
+		};
+		[8] = {
+			[6] = courseplay.hud.infoBasePosX + 0.265;
 		};
 	};
 
@@ -254,20 +303,48 @@ function courseplay:setGlobalData()
 	courseplay.globalInfoText.content = {};
 	courseplay.globalInfoText.hasContent = false;
 	courseplay.globalInfoText.vehicleHasText = {};
-	courseplay.globalInfoText.levelColors = {};
-	courseplay.globalInfoText.levelColors["0"]  = courseplay.hud.colors.hover;
-	courseplay.globalInfoText.levelColors["1"]  = courseplay.hud.colors.activeGreen;
-	courseplay.globalInfoText.levelColors["-1"] = courseplay.hud.colors.activeRed;
-	courseplay.globalInfoText.levelColors["-2"] = courseplay.hud.colors.closeRed;
+	courseplay.globalInfoText.levelColors = {
+		[-2] = courseplay.utils.table.copy(courseplay.hud.colors.closeRed);
+		[-1] = courseplay.utils.table.copy(courseplay.hud.colors.activeRed);
+		[0]  = courseplay.utils.table.copy(courseplay.hud.colors.hover);
+		[1]  = courseplay.utils.table.copy(courseplay.hud.colors.activeGreen);
+	};
+	for i=-2,1 do
+		courseplay.globalInfoText.levelColors[i][4] = 0.85;
+	end;
+	courseplay.globalInfoText.msgReference = {
+		BALER_NETS 		  = { level = -2, text = "COURSEPLAY_BALER_NEEDS_NETS" };
+		DAMAGE_IS 		  = { level =  0, text = "COURSEPLAY_DAMAGE_IS_BEING_REPAIRED" };
+		DAMAGE_MUST 	  = { level = -2, text = "COURSEPLAY_DAMAGE_MUST_BE_REPAIRED" };
+		DAMAGE_SHOULD 	  = { level = -1, text = "COURSEPLAY_DAMAGE_SHOULD_BE_REPAIRED" };
+		END_POINT 		  = { level =  0, text = "COURSEPLAY_REACHED_END_POINT" };
+		FUEL_IS 		  = { level =  0, text = "COURSEPLAY_IS_BEING_REFUELED" };
+		FUEL_MUST 		  = { level = -2, text = "COURSEPLAY_MUST_BE_REFUELED" };
+		FUEL_SHOULD 	  = { level = -1, text = "COURSEPLAY_SHOULD_BE_REFUELED" };
+		HOSE_MISSING 	  = { level = -2, text = "COURSEPLAY_HOSEMISSING" };
+		NEEDS_REFILLING   = { level = -1, text = "COURSEPLAY_NEEDS_REFILLING" };
+		NEEDS_UNLOADING   = { level = -1, text = "COURSEPLAY_NEEDS_UNLOADING" };
+		OVERLOADING_POINT = { level =  0, text = "COURSEPLAY_REACHED_OVERLOADING_POINT" };
+		PICKUP_JAMMED 	  = { level = -2, text = "COURSEPLAY_PICKUP_JAMMED" };
+		TRAFFIC 		  = { level = -1, text = "COURSEPLAY_IS_IN_TRAFFIC" };
+		UNLOADING_BALE 	  = { level =  0, text = "COURSEPLAY_UNLOADING_BALES" };
+		WAIT_POINT 		  = { level =  0, text = "COURSEPLAY_REACHED_WAITING_POINT" };
+		WATER 			  = { level = -2, text = "COURSEPLAY_WATER_WARNING" };
+		WEATHER 		  = { level =  0, text = "COURSEPLAY_WEATHER_WARNING" };
+		WORK_END 		  = { level =  1, text = "COURSEPLAY_WORK_END" };
+	};
 
 
 	--TRIGGERS
 	courseplay.confirmedNoneTriggers = {};
 	courseplay.confirmedNoneTriggersCounter = 0;
 
+	--TRAFFIC
+	courseplay.trafficCollisionIgnoreList = {};
+
 	--DEBUG CHANNELS
 	courseplay.numAvailableDebugChannels = 24;
-	courseplay.numDebugChannels = 15;
+	courseplay.numDebugChannels = 17;
 	courseplay.numDebugChannelButtonsPerLine = 12;
 	courseplay.debugChannelSection = 1;
 	courseplay.debugChannelSectionStart = 1;
@@ -293,7 +370,8 @@ function courseplay:setGlobalData()
 	13	reverse
 	14	EifokLiquidManure
 	15	mode3 (AugerWagon)
-	16	[empty]
+	16	recording
+	17	mode4/6
 	--]]
 
 	--MULTIPLAYER
@@ -313,7 +391,8 @@ function courseplay:setGlobalData()
 		"HUD4combineName",
 		"HUD4hasActiveCombine",
 		"HUD4savedCombine",
-		"HUD4savedCombineName"
+		"HUD4savedCombineName",
+		"HUDrecordnumber"
 	};
 
 	--SIGNS
@@ -353,11 +432,15 @@ function courseplay:setGlobalData()
 	courseplay.fields.numAvailableFields = 0;
 	courseplay.fields.fieldChannels = {};
 	courseplay.fields.lastChannel = 0;
+	courseplay.fields.curFieldScanIndex = 0;
 	courseplay.fields.allFieldsScanned = false;
 	courseplay.fields.ingameDataSetUp = false;
 	courseplay.fields.customFieldMaxNum = 150;
+	courseplay.fields.automaticScan = fieldsAutomaticScan;
+	courseplay.fields.onlyScanOwnedFields = fieldsOnlyScanOwnedFields;
 	courseplay.fields.debugScannedFields = fieldsDebugScan;
 	courseplay.fields.debugCustomLoadedFields = fieldsDebugCustomLoad;
+	courseplay.fields.scanStep = Utils.getNoNil(fieldsCustomScanStep, courseplay.fields.defaultScanStep);
 
 	--PATHFINDING
 	courseplay.pathfinding = {};

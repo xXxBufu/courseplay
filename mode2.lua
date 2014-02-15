@@ -14,7 +14,6 @@
 
 function courseplay:handle_mode2(self, dt)
 	local curFile = "mode2.lua"
-	local allowedToDrive = false
 
 	local tipper_fill_level, tipper_capacity = self:getAttachedTrailersFillLevelAndCapacity()
 
@@ -127,9 +126,11 @@ function courseplay:handle_mode2(self, dt)
 		end
 	else -- NO active combine
 		-- STOP!!
-		if g_server ~= nil then
+		if self.isRealistic then
+			courseplay:driveInMRDirection(self, 0, 1, true, dt, false);
+		else
 			AIVehicleUtil.driveInDirection(self, dt, self.cp.steeringAngle, 0, 0, 28, false, moveForwards, 0, 1)
-		end
+		end;
 
 		if self.cp.isLoaded then
 			self.recordnumber = 2
@@ -162,7 +163,7 @@ function courseplay:handle_mode2(self, dt)
 						self.cp.modeState = 2
 					end
 				else
-					self.cp.infoText = courseplay:get_locale(self, "CPwaitFillLevel") --TODO: g_i18n
+					self.cp.infoText = courseplay:loc("CPwaitFillLevel");
 				end
 
 
@@ -209,12 +210,10 @@ function courseplay:handle_mode2(self, dt)
 				end
 
 			else
-				--self.cp.infoText = "Kein Drescher in Reichweite"
-				self.cp.infoText = courseplay:get_locale(self, "CPnoCombineInReach")
+				self.cp.infoText = courseplay:loc("CPnoCombineInReach")
 			end
 		end
 	end
-	return allowedToDrive
 end
 
 function courseplay:unload_combine(self, dt)
@@ -278,29 +277,20 @@ function courseplay:unload_combine(self, dt)
 	if self.cp.turnCounter == nil then
 			self.cp.turnCounter = 0
 	end
-	--print("combine.turnDirection: "..tostring(combine.turnDirection))
+	
 	local AutoCombineIsTurning = false
 	local combineIsAutoCombine = false
 	local autoCombineExtraMoveBack = 0
-	if combine.turnDirection ~= nil and not combine.drive then
+	if combine.acParameters ~= nil and combine.acParameters.enabled and combine.isAIThreshing then
 		combineIsAutoCombine = true
 		if combine.cp.turnStage == nil then
 			combine.cp.turnStage = 0
 		end
-		if math.abs(combine.turnDirection) > 19 then
-			--if self.cp.activeCombine.cp.isChopper and   then
-			self.cp.turnCounter = self.cp.turnCounter +1	
-			if self.cp.turnCounter >= 40 then
-				combine.cp.turnStage = 2
-				autoCombineExtraMoveBack = self.cp.turnRadius*1.5
-				AutoCombineIsTurning = true
-			end						
+		if combine.acTurnStage ~= 0 then 
+			combine.cp.turnStage = 2
+			autoCombineExtraMoveBack = self.cp.turnRadius*1.5
+			AutoCombineIsTurning = true
 		else
-			if self.cp.turnCounter > 0 then
-				--print("self.cp.turnCounter: "..tostring(self.cp.turnCounter))
-				self.cp.turnCounter = 0
-			end
-			combine.acNumCollidingVehicles = math.min(combine.acNumCollidingVehicles -1,0)
 			combine.cp.turnStage = 0
 		end
 	end
@@ -309,7 +299,7 @@ function courseplay:unload_combine(self, dt)
 	
 	local aiTurn = combine.isAIThreshing and (combine.turnStage == 1 or combine.turnStage == 2 or combine.turnStage == 4 or combine.turnStage == 5)
 	if tractor ~= nil and (aiTurn or (tractor.cp.turnStage > 0)) then
-		self.cp.infoText = courseplay:get_locale(self, "CPCombineTurning") -- "Drescher wendet. "
+		self.cp.infoText = courseplay:loc("CPCombineTurning") -- "Drescher wendet. "
 		combine_turning = true
 	end
 	if self.cp.modeState == 2 or self.cp.modeState == 3 or self.cp.modeState == 4 then
@@ -345,7 +335,7 @@ function courseplay:unload_combine(self, dt)
 		self.cp.speeds.sl = 2
 		refSpeed = self.cp.speeds.field
 		--courseplay:remove_from_combines_ignore_list(self, combine)
-		self.cp.infoText = courseplay:get_locale(self, "CPDriveBehinCombine") -- ""
+		self.cp.infoText = courseplay:loc("CPDriveBehinCombine");
 
 		local x1, y1, z1 = worldToLocal(tractor.rootNode, x, y, z)
 
@@ -376,22 +366,23 @@ function courseplay:unload_combine(self, dt)
 			end
 		end
 
-		--if not self.cp.calculatedCourseToCombine then
-		--		if courseplay:calculate_course_to(self, currentX, currentZ) then
-		--			self.cp.modeState = 5
-		--			self.cp.shortestDistToWp = nil
-		--			-- modeState when waypoint is reached
-		--			self.cp.mode2nextState = 2
-		--		end
-
-		--	end
+		--[[
+		--PATHFINDING
+		if self.cp.realisticDriving and not self.cp.calculatedCourseToCombine then
+			if courseplay:calculate_course_to(self, currentX, currentZ) then
+				self.cp.modeState = 5;
+				self.cp.shortestDistToWp = nil;
+				self.cp.mode2nextState = 2; -- modeState when waypoint is reached
+			end;
+		end;
+		--]]
 
 		local lx, ly, lz = worldToLocal(self.cp.DirectionNode, currentX, currentY, currentZ)
 		dod = Utils.vector2Length(lx, lz)
 		-- near point
 		if dod < 3 then -- change to self.cp.modeState 4 == drive behind combine or cornChopper
 			if combine.cp.isChopper and (not self.isChopperTurning or combineIsAutoCombine) then -- decide on which side to drive based on ai-combine
-				courseplay:side_to_drive(self, combine, 10);
+				courseplay:sideToDrive(self, combine, 10);
 				if self.sideToDrive == "right" then
 						self.cp.combineOffset = math.abs(self.cp.combineOffset) * -1;
 				else 
@@ -410,7 +401,7 @@ function courseplay:unload_combine(self, dt)
 			--print("set saved offset")
 			self.cp.combineOffset = combine.cp.offset			
 		end
-		self.cp.infoText = courseplay:get_locale(self, "CPDriveToCombine") -- "Fahre zum Drescher"
+		self.cp.infoText = courseplay:loc("CPDriveToCombine") -- "Fahre zum Drescher"
 		--courseplay:add_to_combines_ignore_list(self, combine)
 		refSpeed = self.cp.speeds.field
 
@@ -459,7 +450,7 @@ function courseplay:unload_combine(self, dt)
 
 	elseif self.cp.modeState == 3 then --drive to unload pipe
 
-		self.cp.infoText = courseplay:get_locale(self, "CPDriveNextCombine") -- "Fahre neben Drescher"
+		self.cp.infoText = courseplay:loc("CPDriveNextCombine") -- "Fahre neben Drescher"
 		--courseplay:add_to_combines_ignore_list(self, combine)
 		refSpeed = self.cp.speeds.field
 
@@ -472,9 +463,9 @@ function courseplay:unload_combine(self, dt)
 				--print("saving offset")
 				combine.cp.offset = self.cp.combineOffset;
 			end			
-			local fruitSide = courseplay:side_to_drive(self, combine, -10)
+			local fruitSide = courseplay:sideToDrive(self, combine, -10)
 			if fruitSide == "none" then
-				fruitSide = courseplay:side_to_drive(self, combine, -50)
+				fruitSide = courseplay:sideToDrive(self, combine, -50)
 			end
 			local offset = math.abs(self.cp.combineOffset)
 			local DirTx,_,DirTz = worldToLocal(self.rootNode,self.Waypoints[self.maxnumber].cx,0, self.Waypoints[self.maxnumber].cz)
@@ -483,7 +474,7 @@ function courseplay:unload_combine(self, dt)
 					courseplay:debug(nameNum(self) .. ": I'm left, fruit is right", 4)
 					local fx,fy,fz = localToWorld(self.rootNode, 0, 0, 8)
 					local sx,sy,sz = localToWorld(self.rootNode, 0 , 0, -self.cp.turnRadius-trailer_offset-autoCombineExtraMoveBack)
-					if courseplay:is_field(fx, fz) and not AutoCombineIsTurning then
+					if courseplay:is_field(fx, fz) and not combineIsAutoCombine then
 						courseplay:debug(nameNum(self) .. ": 1st target is on field", 4)
 						self.target_x, self.target_y, self.target_z = localToWorld(self.rootNode, 0 , 0, 5);	
 						self.cp.modeState = 5
@@ -622,21 +613,21 @@ function courseplay:unload_combine(self, dt)
 		end
 		-- combine is not moving and trailer is under pipe
 		if not combine.cp.isChopper and tractor.movingDirection == 0 and (lz <= 1 or lz < -0.1 * trailer_offset) then
-			self.cp.infoText = courseplay:get_locale(self, "CPCombineWantsMeToStop") -- "Drescher sagt ich soll anhalten."
+			self.cp.infoText = courseplay:loc("CPCombineWantsMeToStop") -- "Drescher sagt ich soll anhalten."
 			allowedToDrive = false
 		elseif combine.cp.isChopper then
 			if combine.movingDirection == 0 and dod == -1 and self.isChopperTurning == false then
 				allowedToDrive = false
-				self.cp.infoText = courseplay:get_locale(self, "CPCombineWantsMeToStop") -- "Drescher sagt ich soll anhalten."
+				self.cp.infoText = courseplay:loc("CPCombineWantsMeToStop") -- "Drescher sagt ich soll anhalten."
 			end
 			if lz < -2 then
 				allowedToDrive = false
-				self.cp.infoText = courseplay:get_locale(self, "CPCombineWantsMeToStop")
+				self.cp.infoText = courseplay:loc("CPCombineWantsMeToStop")
 				--self.cp.modeState = 2
 			end
 		elseif lz < -1.5 then
 				allowedToDrive = false
-				self.cp.infoText = courseplay:get_locale(self, "CPCombineWantsMeToStop")
+				self.cp.infoText = courseplay:loc("CPCombineWantsMeToStop")
 		end
 
 		-- refspeed depends on the distance to the combine
@@ -695,28 +686,29 @@ function courseplay:unload_combine(self, dt)
 	distance = courseplay:distance(sx, sz, cx, cz)
 	if combine_turning and not combine.cp.isChopper then
 		if combine.grainTankFillLevel > combine.grainTankCapacity*0.9 then
-			if combine.isAIThreshing then 
+			if combineIsAutoCombine and combine.acIsCPStopped ~= nil then
+				combine.acIsCPStopped = true
+			elseif combine.isAIThreshing then 
 				combine.waitForTurnTime = combine.time + 100
 			elseif tractor.drive == true then
 				combine.cp.waitingForTrailerToUnload = true
 			end			
 		elseif distance < 50 then
-			if combine.isAIThreshing and not (combine_fill_level == 0 and combine.currentPipeState ~= 2) then
+			if AutoCombineIsTurning and combine.acIsCPStopped ~= nil then
+				combine.acIsCPStopped = true
+			elseif combine.isAIThreshing and not (combine_fill_level == 0 and combine.currentPipeState ~= 2) then
 				combine.waitForTurnTime = combine.time + 100
 			elseif tractor.drive == true and not (combine_fill_level == 0 and combine:getCombineTrailerInRangePipeState()==0) then
 				combine.cp.waitingForTrailerToUnload = true
-			elseif combineIsAutoCombine and not (combine_fill_level == 0 and combine:getCombineTrailerInRangePipeState()==0) then
-				local delay = (combine.acDelayTimeToMoveBack - combine.acDelayTimeToStopMovement)/2 + combine.acDelayTimeToStopMovement
-				combine.acDelay = delay
 			end
-		elseif distance >= 50 and self.cp.modeState == 2 then
+		elseif distance < 100 and self.cp.modeState == 2 then
 			allowedToDrive = courseplay:brakeToStop(self)
-		end
+		end 
 	end
 	if combine_turning and distance < 20 then
 		if self.cp.modeState == 3 or self.cp.modeState == 4 then
 			if combine.cp.isChopper then
-				local fruitSide = courseplay:side_to_drive(self, combine, -10,true);
+				local fruitSide = courseplay:sideToDrive(self, combine, -10,true);
 				
 				--new chopper turn maneuver by Thomas Gärtner  
 				if fruitSide == "left" then -- chopper will turn left
@@ -766,7 +758,7 @@ function courseplay:unload_combine(self, dt)
 		elseif self.cp.modeState ~= 5 and self.cp.modeState ~= 9 and not self.cp.realisticDriving then
 			-- just wait until combine has turned
 			allowedToDrive = false
-			self.cp.infoText = courseplay:get_locale(self, "CPCombineWantsMeToStop")
+			self.cp.infoText = courseplay:loc("CPCombineWantsMeToStop")
 		end
 	end
 
@@ -775,15 +767,16 @@ function courseplay:unload_combine(self, dt)
 		if combine.movingDirection == 0 then
 			self.cp.modeState = 3
 		else
-			self.cp.infoText = courseplay:get_locale(self, "CPWaitUntilCombineTurned") --  ""
+			self.cp.infoText = courseplay:loc("CPWaitUntilCombineTurned");
 		end
 	end
 
 
+	--[[ TODO: MODESTATE 99 - WTF?
 	-- wende man?ver
 	if self.cp.modeState == 9 and self.target_x ~= nil and self.target_z ~= nil then
 		--courseplay:remove_from_combines_ignore_list(self, combine)
-		self.cp.infoText = string.format(courseplay:get_locale(self, "CPTurningTo"), self.target_x, self.target_z)
+		self.cp.infoText = string.format(courseplay:loc("CPTurningTo"), self.target_x, self.target_z)
 		allowedToDrive = false
 		local mx, mz = self.target_x, self.target_z
 		local lx, ly, lz = worldToLocal(self.cp.DirectionNode, mx, y, mz)
@@ -817,6 +810,7 @@ function courseplay:unload_combine(self, dt)
 			allowedToDrive = true
 		end
 	end
+	--]]
 
 
 
@@ -825,7 +819,7 @@ function courseplay:unload_combine(self, dt)
 		if combine ~= nil then
 			--courseplay:remove_from_combines_ignore_list(self, combine)
 		end
-		self.cp.infoText = string.format(courseplay:get_locale(self, "CPDriveToWP"), self.target_x, self.target_z)
+		self.cp.infoText = string.format(courseplay:loc("CPDriveToWP"), self.target_x, self.target_z)
 		currentX = self.target_x
 		currentY = self.target_y
 		currentZ = self.target_z
@@ -878,7 +872,7 @@ function courseplay:unload_combine(self, dt)
 					--self.target_x, self.target_y, self.target_z = localToWorld(combine.rootNode, self.chopper_offset*0.7, 0, -9) -- -2          --??? *0,5 -10
 
 				elseif self.cp.mode2nextState == 4 and combine_turning then
-					self.cp.infoText = courseplay:get_locale(self, "CPWaitUntilCombineTurned") --  ""
+					self.cp.infoText = courseplay:loc("CPWaitUntilCombineTurned");
 				elseif self.cp.mode2nextState == 81 then -- tipper turning from combine
 
 					self.recordnumber = 2
@@ -901,7 +895,7 @@ function courseplay:unload_combine(self, dt)
 	end
 
 	if self.cp.modeState == 6 and frontTractor ~= nil then --Follow Tractor
-		self.cp.infoText = courseplay:get_locale(self, "CPFollowTractor") -- "Fahre hinter Traktor"
+		self.cp.infoText = courseplay:loc("CPFollowTractor") -- "Fahre hinter Traktor"
 		--use the current tractor's sideToDrive as own
 		if frontTractor.sideToDrive ~= nil then
 			courseplay:debug(string.format("%s: setting current tractor's sideToDrive (%s) as my own", nameNum(self), tostring(frontTractor.sideToDrive)), 4);
@@ -958,23 +952,23 @@ function courseplay:unload_combine(self, dt)
 	end
 
 	if currentX == nil or currentZ == nil then
-		self.cp.infoText = courseplay:get_locale(self, "CPWaitForWaypoint") -- "Warte bis ich neuen Wegpunkt habe"
+		self.cp.infoText = courseplay:loc("CPWaitForWaypoint") -- "Warte bis ich neuen Wegpunkt habe"
 		allowedToDrive = courseplay:brakeToStop(self)
 	end
 
 	if self.cp.forcedToStop then
-		self.cp.infoText = courseplay:get_locale(self, "CPCombineWantsMeToStop") -- "Drescher sagt ich soll anhalten."
+		self.cp.infoText = courseplay:loc("CPCombineWantsMeToStop") -- "Drescher sagt ich soll anhalten."
 		allowedToDrive = courseplay:brakeToStop(self)
 	end
 
 	if self.showWaterWarning then
 		allowedToDrive = false
-		courseplay:setGlobalInfoText(self, courseplay.locales.CPWaterDrive, -2);
+		courseplay:setGlobalInfoText(self, 'WATER');
 	end
 
 	-- check traffic and calculate speed
 	
-	allowedToDrive = courseplay:check_traffic(self, true, allowedToDrive)
+	allowedToDrive = courseplay:checkTraffic(self, true, allowedToDrive)
 	refSpeed = courseplay:regulateTrafficSpeed(self,refSpeed,allowedToDrive)
 
 
@@ -1027,7 +1021,7 @@ function courseplay:unload_combine(self, dt)
 			if self.isRealistic then
 				AIVehicleUtil.mrDriveInDirection(self, dt, 1, false, true, 0, 1, self.cp.speeds.sl, true, true)
 			else
-				fwd = false
+				moveForwards = false
 				lx = 0
 				lz = 1
 			end
@@ -1036,9 +1030,9 @@ function courseplay:unload_combine(self, dt)
 		self.cp.TrafficBrake = false
 		if self.cp.modeState == 5 or self.cp.modeState == 2 then
 			target_x, target_z = courseplay:isTheWayToTargetFree(self,target_x, target_z)
-		else
-			courseplay:setTrafficCollision(self, target_x, target_z)
 		end
+		courseplay:setTrafficCollision(self, target_x, target_z,true)
+		
 		if self.isRealistic then
 		
 			courseplay:driveInMRDirection(self, target_x, target_z,moveForwards, dt, allowedToDrive);
@@ -1178,20 +1172,24 @@ function courseplay:calculateCombineOffset(self, combine)
 	end;
 
 	--special tools, special cases
-	if self.cp.combineOffsetAutoMode and combine.cp.isCaseIH7130 then
-		offs = 8.0;
+	if self.cp.combineOffsetAutoMode and combine.cp.isJohnDeereS650 then
+		offs =  7.7;
+	elseif self.cp.combineOffsetAutoMode and combine.cp.isCaseIH7130 then
+		offs =  8.0;
 	elseif self.cp.combineOffsetAutoMode and (combine.cp.isCaseIH9230 or combine.cp.isCaseIH9230Crawler) then
 		offs = 11.5;
-	elseif self.cp.combineOffsetAutoMode and (combine.cp.isGrimmeRootster604 or Utils.endsWith(combine.configFileName, "grimmeRootster604.xml")) then
+	elseif self.cp.combineOffsetAutoMode and combine.cp.isDeutz5465H then
+		offs =  5.1;
+	elseif self.cp.combineOffsetAutoMode and combine.cp.isGrimmeRootster604 then
 		offs = -4.3;
-	elseif self.cp.combineOffsetAutoMode and (combine.cp.isGrimmeSE7555 or Utils.endsWith(combine.configFileName, "grimmeSE75-55.xml")) then
+	elseif self.cp.combineOffsetAutoMode and combine.cp.isGrimmeSE7555 then
 		offs =  4.3;
 	elseif self.cp.combineOffsetAutoMode and combine.cp.isFahrM66 then
 		offs =  4.4;
-	elseif self.cp.combineOffsetAutoMode and (combine.cp.isJF1060 or Utils.endsWith(combine.configFileName, "JF_1060.xml")) then
-		offs =  7
-	elseif self.cp.combineOffsetAutoMode and (combine.cp.isRopaEuroTiger or Utils.endsWith(combine.configFileName, "RopaEuroTiger_V8_3_XL.xml")) then
-		offs =  5.2
+	elseif self.cp.combineOffsetAutoMode and combine.cp.isJF1060 then
+		offs =  7.0;
+	elseif self.cp.combineOffsetAutoMode and combine.cp.isRopaEuroTiger then
+		offs =  5.2;
 	
 	--Sugarbeet Loaders (e.g. Ropa Euro Maus, Holmer Terra Felis)
 	elseif self.cp.combineOffsetAutoMode and combine.cp.isSugarBeetLoader then
@@ -1246,7 +1244,7 @@ function courseplay:calculateCombineOffset(self, combine)
 		else
 			offs = 8;
 		end;
-		courseplay:side_to_drive(self, combine, 10);
+		courseplay:sideToDrive(self, combine, 10);
 			
 		if self.sideToDrive ~= nil then
 			if self.sideToDrive == "left" then

@@ -1,18 +1,5 @@
---[[COURSEPLAY FIELDS
-local cpfPath = g_currentModDirectory .. "CourseplayFields.lua";
-if fileExists(cpfPath) then
-	source(cpfPath);
-else
-	print("Error: " .. cpfPath .. " could not be loaded!");
-end;
-]]
-
-
 --COURSEPLAY
 SpecializationUtil.registerSpecialization("courseplay", "courseplay", g_currentModDirectory .. "courseplay.lua")
-
--- adding courseplay to default vehicles and vehicles that are loaded after courseplay in multiplayer
--- thanks to donner!
 
 function courseplay:register()
 	local numInstallationsVehicles = 0;
@@ -31,7 +18,7 @@ function courseplay:register()
 		end;
 	end;
 
-	print(string.format("\t### Courseplay: installed into %d vehicles", numInstallationsVehicles));
+	print(string.format("### Courseplay: installed into %d vehicles", numInstallationsVehicles));
 end
 
 function courseplay:setLocales()
@@ -60,6 +47,8 @@ function courseplay:setLocales()
 end;
 
 function courseplay:attachableLoad(xmlFile)
+	if self.cp == nil then self.cp = {}; end;
+
 	--SEARCH AND SET ATTACHABLE'S self.name IF NOT EXISTING
 	if self.name == nil then
 		local nameSearch = { "vehicle.name." .. g_languageShort, "vehicle.name.en", "vehicle.name", "vehicle#type" };
@@ -76,86 +65,36 @@ function courseplay:attachableLoad(xmlFile)
 		end;
 	end;
 
-	if self.cp == nil then
-		self.cp = {}
-	end
 	--SET SPECIALIZATION VARIABLE
-	--Default specializations
-	self.cp.hasSpecializationTrailer = SpecializationUtil.hasSpecialization(Trailer, self.specializations)
-	self.cp.hasSpecializationBaler = SpecializationUtil.hasSpecialization(Baler, self.specializations)
-	self.cp.hasSpecializationBaleLoader = SpecializationUtil.hasSpecialization(baleLoader, self.specializations) or SpecializationUtil.hasSpecialization(BaleLoader, self.specializations)
-	self.cp.hasSpecializationPlough = SpecializationUtil.hasSpecialization(Plough, self.specializations)
-	self.cp.hasSpecializationSowingMachine =(SpecializationUtil.hasSpecialization(sowingMachine, self.specializations) or SpecializationUtil.hasSpecialization(SowingMachine, self.specializations))
-	self.cp.hasSpecializationCombine = SpecializationUtil.hasSpecialization(Combine, self.specializations)
-	self.cp.hasSpecializationSprayer = SpecializationUtil.hasSpecialization(Sprayer, self.specializations) or SpecializationUtil.hasSpecialization(sprayer, self.specializations)
-	self.cp.hasSpecializationFoldable = SpecializationUtil.hasSpecialization(Foldable, self.specializations) or SpecializationUtil.hasSpecialization(foldable, self.specializations)
-	self.cp.hasSpecializationMower = SpecializationUtil.hasSpecialization(Mower, self.specializations)
-	self.cp.hasSpecializationMixerWagon = SpecializationUtil.hasSpecialization(MixerWagon, self.specializations)
-	self.cp.hasSpecializationCylindered = SpecializationUtil.hasSpecialization(Cylindered, self.specializations)
-	self.cp.hasSpecializationAnimatedVehicle =  SpecializationUtil.hasSpecialization(AnimatedVehicle, self.specializations)
-	self.cp.hasSpecializationShovel = SpecializationUtil.hasSpecialization(Shovel, self.specializations)
-	self.cp.hasSpecializationTedder = SpecializationUtil.hasSpecialization(Tedder, self.specializations) 
-	self.cp.hasSpecializationWindrower = SpecializationUtil.hasSpecialization(Windrower, self.specializations) 
-	self.cp.hasSpecializationCultivator = SpecializationUtil.hasSpecialization(Cultivator, self.specializations)
-	self.cp.hasSpecializationFruitPreparer = SpecializationUtil.hasSpecialization(FruitPreparer, self.specializations) or SpecializationUtil.hasSpecialization(fruitPreparer, self.specializations)
-
+	--Default specializations -- not needed as they're set in setNameVariable()
 	--Custom (mod) specializations
 	self.cp.hasSpecializationAugerWagon = courseplay:hasSpecialization(self, "AugerWagon");
 	self.cp.hasSpecializationOverloader = courseplay:hasSpecialization(self, "overloader");
 	self.cp.hasSpecializationHaweSUW = courseplay:hasSpecialization(self, "Hawe_SUW");
-	self.cp.hasSpecializationOverloader = courseplay:hasSpecialization(self, "overloader");
 	self.cp.hasSpecializationAgrolinerTUW20 = courseplay:hasSpecialization(self, "AgrolinerTUW20");
 	self.cp.hasSpecializationOvercharge = courseplay:hasSpecialization(self, "Overcharge");
+	self.cp.hasSpecializationBigBear = courseplay:hasSpecialization(self, "bigBear");
 	self.cp.hasSpecializationSowingMachineWithTank = courseplay:hasSpecialization(self, "SowingMachineWithTank");
+	self.cp.hasSpecializationDrivingLine = courseplay:hasSpecialization(self, "DrivingLine");
+	self.cp.hasSpecializationHoseRef = courseplay:hasSpecialization(self, "HoseRef");
 
-	--[[ Debugs:
-	if self.cp.hasSpecializationFruitPreparer then print("		FruitPreparer")end
-	if self.cp.hasSpecializationTedder then print("		Tedder")end
-	if self.cp.hasSpecializationWindrower then print("		Windrower")end
-	if self.cp.hasSpecializationCultivator then print("		Cultivator")end
-	if self.cp.hasSpecializationShovel then print("		Shovel")end
-	if self.cp.hasSpecializationAnimatedVehicle then print("		AnimatedVehicle")end
-	if self.cp.hasSpecializationCylindered then print("		Cylindered")end
-	if self.cp.hasSpecializationMixerWagon then print("		MixerWagon")end
-	if self.cp.hasSpecializationMower then print("		Mower")end
-	if self.cp.hasSpecializationFoldable then print("		Foldable")end
-	if self.cp.hasSpecializationSprayer then print("		Sprayer")end
-	if self.cp.hasSpecializationCombine then print("		Combine")end
-	if self.cp.hasSpecializationSowingMachine then print("		SowingMachine") end
-	if self.cp.hasSpecializationTrailer then print("		Trailer")end
-	if self.cp.hasSpecializationBaler then print("		Baler") end
-	if self.cp.hasSpecializationBaleLoader then print("		BaleLoader") end
-	if self.cp.hasSpecializationPlough then print("		Plough") end
-	if self.cp.hasSpecializationAugerWagon then print("\t\tload(): AugerWagon"); end;
-	if self.cp.hasSpecializationOverloader then print("\t\tload(): overloader"); end;
-	if self.cp.hasSpecializationAgrolinerTUW20 then print("\t\tload(): AgrolinerTUW20"); end;
-	if self.cp.hasSpecializationOvercharge then print("\t\tload(): Overcharge"); end;
-	--]]
+	courseplay:setNameVariable(self);
 
 
 	--ADD ATTACHABLES TO GLOBAL REFERENCE LIST
+	if courseplay.thirdParty.EifokLiquidManure == nil then courseplay.thirdParty.EifokLiquidManure = {}; end;
+	if courseplay.thirdParty.EifokLiquidManure.dockingStations == nil then courseplay.thirdParty.EifokLiquidManure.dockingStations = {}; end;
+	if courseplay.thirdParty.EifokLiquidManure.hoseRefVehicles == nil then courseplay.thirdParty.EifokLiquidManure.hoseRefVehicles = {}; end;
+
 	--Zunhammer Docking Station (zunhammerDocking.i3d / ManureDocking.lua) [Eifok Team]
 	if Utils.endsWith(self.typeName, "zhAndock") and Utils.endsWith(self.configFileName, "zunhammerDocking.xml") then
-		if courseplay.thirdParty.EifokLiquidManure == nil then courseplay.thirdParty.EifokLiquidManure = {}; end;
-		if courseplay.thirdParty.EifokLiquidManure.dockingStations == nil then courseplay.thirdParty.EifokLiquidManure.dockingStations = {}; end;
-
 		self.cp.isEifokZunhammerDockingStation = true;
 		courseplay.thirdParty.EifokLiquidManure.dockingStations[self.rootNode] = self;
 
-	--Kotte Containers (KotteContainer.i3d) [Eifok Team]
-	elseif Utils.endsWith(self.typeName, "kotte") and Utils.endsWith(self.configFileName, "kotte.xml") then
-		if courseplay.thirdParty.EifokLiquidManure == nil then courseplay.thirdParty.EifokLiquidManure = {}; end;
-		if courseplay.thirdParty.EifokLiquidManure.KotteContainers == nil then courseplay.thirdParty.EifokLiquidManure.KotteContainers = {}; end;
-
-		self.cp.isEifokKotteContainer = true;
-		courseplay.thirdParty.EifokLiquidManure.KotteContainers[self.rootNode] = self;
-
-	--Kotte Zubringer (KotteZubringer.i3d) [Eifok Team]
-	elseif Utils.endsWith(self.typeName, "zubringer") and Utils.endsWith(self.configFileName, "zubringer.xml") then
-		if courseplay.thirdParty.EifokLiquidManure == nil then courseplay.thirdParty.EifokLiquidManure = {}; end;
-		if courseplay.thirdParty.EifokLiquidManure.KotteZubringers == nil then courseplay.thirdParty.EifokLiquidManure.KotteZubringers = {}; end;
-
-		courseplay.thirdParty.EifokLiquidManure.KotteZubringers[self.rootNode] = self;
+	--HoseRef [Eifok Team]
+	elseif self.cp.hasSpecializationHoseRef then
+		self.cp.hasHoseRef = true;
+		courseplay.thirdParty.EifokLiquidManure.hoseRefVehicles[self.rootNode] = self;
 	end;
 end;
 Attachable.load = Utils.appendedFunction(Attachable.load, courseplay.attachableLoad);
@@ -164,19 +103,18 @@ function courseplay:attachableDelete()
 	if self.cp ~= nil then
 		if self.cp.isEifokZunhammerDockingStation then
 			courseplay.thirdParty.EifokLiquidManure.dockingStations[self.rootNode] = nil;
-		elseif self.cp.isEifokKotteZubringer then
-			courseplay.thirdParty.EifokLiquidManure.KotteContainers[self.rootNode] = nil;
-		elseif self.cp.isEifokKotteContainer then
-			courseplay.thirdParty.EifokLiquidManure.KotteZubringers[self.rootNode] = nil;
+		elseif self.cp.hasSpecializationHoseRef then
+			courseplay.thirdParty.EifokLiquidManure.hoseRefVehicles[self.rootNode] = nil;
 		end;
 	end;
 end;
 Attachable.delete = Utils.prependedFunction(Attachable.delete, courseplay.attachableDelete);
 
 function courseplay:vehicleLoad(xmlFile)
+	if self.cp == nil then self.cp = {}; end;
+
 	--Zunhammer Hose (zunhammerHose.i3d / Hose.lua) [Eifok Team]
 	if Utils.endsWith(self.typeName, "zhHose") or Utils.endsWith(self.configFileName, "zunhammerHose.xml") then
-		if self.cp == nil then self.cp = {}; end;
 		if courseplay.thirdParty.EifokLiquidManure == nil then courseplay.thirdParty.EifokLiquidManure = {}; end;
 		if courseplay.thirdParty.EifokLiquidManure.hoses == nil then courseplay.thirdParty.EifokLiquidManure.hoses = {}; end;
 
@@ -199,6 +137,45 @@ function courseplay:vehicleDelete()
 	end;
 end;
 Vehicle.delete = Utils.prependedFunction(Vehicle.delete, courseplay.vehicleDelete);
+
+function courseplay:foldableLoad(xmlFile)
+	if self.cp == nil then self.cp = {}; end;
+
+	--FOLDING PARTS STARTMOVEDIRECTION
+	local startMoveDir = getXMLInt(xmlFile, 'vehicle.foldingParts#startMoveDirection');
+	-- print(string.format('%s foldableLoad(): foldingParts#startMoveDirection=%s', nameNum(self), tostring(startMoveDir)));
+	if startMoveDir == nil then
+		local singleDir;
+		local i = 0;
+		while true do -- go through single foldingPart entries
+			local key = string.format('vehicle.foldingParts.foldingPart(%d)', i);
+			if not hasXMLProperty(xmlFile, key) then break; end;
+			local dir = getXMLInt(xmlFile, key .. '#startMoveDirection');
+			-- print(string.format('\tfoldingPart(%d)#startMoveDirection=%s', i, tostring(dir)));
+			if dir then
+				if singleDir == nil then --first foldingPart -> set singleDir
+					-- print(string.format('\t\tsingleDir==nil -> set as %s', tostring(dir)));
+					singleDir = dir;
+				elseif dir ~= singleDir then -- two or more foldingParts have non-matching startMoveDirections --> not valid
+					-- print(string.format('\t\tdir (%d) ~= singleDir (%d) -> invalid, set nil, break', dir, singleDir));
+					singleDir = nil;
+					break;
+				elseif dir == singleDir then -- two or more foldingParts have non-matching startMoveDirections --> not valid
+					-- print(string.format('\t\tdir (%d) == singleDir (%d) -> valid, continue', dir, singleDir));
+				end;
+			end;
+			i = i + 1;
+		end;
+		if singleDir then -- startMoveDirection found in single foldingPart
+			-- print(string.format('\tstartMoveDir=nil, singleDir=%s -> set startMoveDir as singleDir', tostring(singleDir)));
+			startMoveDir = singleDir;
+		end;
+	end;
+
+	self.cp.foldingPartsStartMoveDirection = Utils.getNoNil(startMoveDir, 0);
+	-- print(string.format('%s foldableLoad(): foldingPartsStartMoveDirection=%s', nameNum(self), tostring(self.cp.foldingPartsStartMoveDirection)));
+end;
+Foldable.load = Utils.appendedFunction(Foldable.load, courseplay.foldableLoad);
 
 courseplay:setLocales();
 courseplay:register();

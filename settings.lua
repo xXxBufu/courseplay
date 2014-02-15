@@ -172,42 +172,46 @@ function courseplay:switch_player_side(combine)
 	end;
 end;
 
-function courseplay:setHudPage(self, pageNum)
-	if self.cp.mode == nil then
-		self.cp.hud.currentPage = pageNum;
-	elseif courseplay.hud.pagesPerMode[self.cp.mode] ~= nil and courseplay.hud.pagesPerMode[self.cp.mode][pageNum+1] then
+function courseplay:setHudPage(vehicle, pageNum)
+	if vehicle.cp.mode == nil then
+		vehicle.cp.hud.currentPage = pageNum;
+	elseif courseplay.hud.pagesPerMode[vehicle.cp.mode] ~= nil and courseplay.hud.pagesPerMode[vehicle.cp.mode][pageNum+1] then
 		if pageNum == 0 then
-			if self.cp.minHudPage == 0 or self.cp.isCombine or self.cp.isChopper or self.cp.isHarvesterSteerable or self.cp.isSugarBeetLoader then
-				self.cp.hud.currentPage = pageNum;
+			if vehicle.cp.minHudPage == 0 or vehicle.cp.isCombine or vehicle.cp.isChopper or vehicle.cp.isHarvesterSteerable or vehicle.cp.isSugarBeetLoader then
+				vehicle.cp.hud.currentPage = pageNum;
 			end;
 		else
-			self.cp.hud.currentPage = pageNum;
+			vehicle.cp.hud.currentPage = pageNum;
 		end;
 	end;
 
-	courseplay:buttonsActiveEnabled(self, "all");
+	courseplay.hud:setReloadPageOrder(vehicle, vehicle.cp.hud.currentPage, true);
+
+	courseplay:buttonsActiveEnabled(vehicle, "all");
 end;
 
-function courseplay:switch_hud_page(self, change_by)
-	newPage = courseplay:minMaxPage(self, self.cp.hud.currentPage + change_by);
+function courseplay:switch_hud_page(vehicle, changeBy)
+	newPage = courseplay:minMaxPage(vehicle, vehicle.cp.hud.currentPage + changeBy);
 
-	if self.cp.mode == nil then
-		self.cp.hud.currentPage = newPage;
-	elseif courseplay.hud.pagesPerMode[self.cp.mode] ~= nil then
-		while courseplay.hud.pagesPerMode[self.cp.mode][newPage+1] == false do
-			newPage = courseplay:minMaxPage(self, newPage + change_by);
+	if vehicle.cp.mode == nil then
+		vehicle.cp.hud.currentPage = newPage;
+	elseif courseplay.hud.pagesPerMode[vehicle.cp.mode] ~= nil then
+		while courseplay.hud.pagesPerMode[vehicle.cp.mode][newPage+1] == false do
+			newPage = courseplay:minMaxPage(vehicle, newPage + changeBy);
 		end;
-		self.cp.hud.currentPage = newPage;
+		vehicle.cp.hud.currentPage = newPage;
 	end;
 
-	courseplay:buttonsActiveEnabled(self, "all");
+	courseplay.hud:setReloadPageOrder(vehicle, vehicle.cp.hud.currentPage, true);
+
+	courseplay:buttonsActiveEnabled(vehicle, "all");
 end;
 
-function courseplay:minMaxPage(self, pageNum)
-	if pageNum < self.cp.minHudPage then
+function courseplay:minMaxPage(vehicle, pageNum)
+	if pageNum < vehicle.cp.minHudPage then
 		pageNum = courseplay.hud.numPages;
 	elseif pageNum > courseplay.hud.numPages then
-		pageNum = self.cp.minHudPage;
+		pageNum = vehicle.cp.minHudPage;
 	end;
 	return pageNum;
 end;
@@ -237,17 +241,41 @@ function courseplay:buttonsActiveEnabled(self, section)
 	end;
 
 
-	if self.cp.hud.currentPage == 1 and (section == nil or section == "all" or section == "quickModes" or section == "customFieldShow") then
+	if self.cp.hud.currentPage == 1 and (section == nil or section == "all" or section == "quickModes" or section == "recording" or section == "customFieldShow") then
 		for _,button in pairs(self.cp.buttons["1"]) do
-			if button.function_to_call == "setAiMode" then
+			local fn = button.function_to_call;
+			if fn == "setAiMode" then
 				button.isActive = self.cp.mode == button.parameter;
 				button.isDisabled = button.parameter == 7 and not self.cp.isCombine and not self.cp.isChopper and not self.cp.isHarvesterSteerable;
 				button.canBeClicked = not button.isDisabled and not button.isActive;
-			elseif button.function_to_call == "toggleCustomFieldEdgePathShow" then
+			elseif fn == "toggleCustomFieldEdgePathShow" then
 				button.isActive = self.cp.fieldEdge.customField.show;
+
+			elseif fn == 'stop_record' then
+				button.isDisabled = self.cp.recordingIsPaused or self.cp.isRecordingTurnManeuver;
+				button.canBeClicked = not button.isDisabled;
+			elseif fn == 'setRecordingPause' then
+				button.isActive = self.cp.recordingIsPaused;
+				button.isDisabled = self.cp.HUDrecordnumber < 4 or self.cp.isRecordingTurnManeuver;
+				button.canBeClicked = not button.isDisabled;
+			elseif fn == 'delete_waypoint' then
+				-- NOTE: during recording pause, HUDrecordnumber = recordnumber + 1, that's why <= 5 is used
+				button.isDisabled = not self.cp.recordingIsPaused or self.cp.HUDrecordnumber <= 5;
+				button.canBeClicked = not button.isDisabled;
+			elseif fn == 'set_waitpoint' or fn == 'set_crossing' then
+				button.isDisabled = self.cp.recordingIsPaused or self.cp.isRecordingTurnManeuver;
+				button.canBeClicked = not button.isDisabled;
+			elseif fn == 'setRecordingTurnManeuver' then --isToggleButton
+				button.isActive = self.cp.isRecordingTurnManeuver;
+				button.isDisabled = self.cp.recordingIsPaused or self.cp.drivingDirReverse;
+				button.canBeClicked = not button.isDisabled;
+			elseif fn == 'change_DriveDirection' then --isToggleButton
+				button.isActive = self.cp.drivingDirReverse;
+				button.isDisabled = self.cp.recordingIsPaused or self.cp.isRecordingTurnManeuver;
+				button.canBeClicked = not button.isDisabled;
 			end;
 		end;
-		
+
 	elseif self.cp.hud.currentPage == 2 and section == 'page2' then
 		local enable, hide = true, false
 		local n_courses = #(self.cp.hud.courses)
@@ -329,7 +357,7 @@ function courseplay:buttonsActiveEnabled(self, section)
 
 	elseif self.cp.hud.currentPage == 9 and (section == nil or section == "all" or section == "shovel") then
 		for _,button in pairs(self.cp.buttons["9"]) do
-			if button.function_to_call == "saveShovelStatus" then
+			if button.function_to_call == "saveShovelStatus" then --isToggleButton
 				button.isActive = self.cp.shovelStateRot[tostring(button.parameter)] ~= nil;
 				button.canBeClicked = true;
 			end;
@@ -337,30 +365,30 @@ function courseplay:buttonsActiveEnabled(self, section)
 	end;
 end;
 
-function courseplay:change_combine_offset(self, change_by)
-	local previousOffset = self.cp.combineOffset
+function courseplay:change_combine_offset(vehicle, changeBy)
+	local previousOffset = vehicle.cp.combineOffset;
 
-	self.cp.combineOffsetAutoMode = false
-	self.cp.combineOffset = courseplay:round(self.cp.combineOffset, 1) + change_by
-	if self.cp.combineOffset < 0.1 and self.cp.combineOffset > -0.1 then
-		self.cp.combineOffset = 0.0
-		self.cp.combineOffsetAutoMode = true
-	end
+	vehicle.cp.combineOffsetAutoMode = false;
+	vehicle.cp.combineOffset = courseplay:round(vehicle.cp.combineOffset, 1) + changeBy;
+	if math.abs(vehicle.cp.combineOffset) < 0.1 then
+		vehicle.cp.combineOffset = 0.0;
+		vehicle.cp.combineOffsetAutoMode = true;
+	end;
 
-	courseplay:debug(nameNum(self) .. ": manual combine_offset change: prev " .. previousOffset .. " // new " .. self.cp.combineOffset .. " // auto = " .. tostring(self.cp.combineOffsetAutoMode), 4)
+	courseplay:debug(nameNum(vehicle) .. ": manual combine_offset change: prev " .. previousOffset .. " // new " .. vehicle.cp.combineOffset .. " // auto = " .. tostring(vehicle.cp.combineOffsetAutoMode), 4);
 end
 
-function courseplay:change_tipper_offset(self, change_by)
-	self.cp.tipperOffset = courseplay:round(self.cp.tipperOffset, 1) + change_by
-	if self.cp.tipperOffset > -0.1 and self.cp.tipperOffset < 0.1 then
-		self.cp.tipperOffset = 0.0
-	end
+function courseplay:change_tipper_offset(vehicle, changeBy)
+	vehicle.cp.tipperOffset = courseplay:round(vehicle.cp.tipperOffset, 1) + changeBy;
+	if math.abs(vehicle.cp.tipperOffset) < 0.1 then
+		vehicle.cp.tipperOffset = 0;
+	end;
 end
 
 function courseplay:changeLaneOffset(vehicle, changeBy, force)
 	vehicle.cp.laneOffset = force or (vehicle.cp.laneOffset + changeBy);
 	if math.abs(vehicle.cp.laneOffset) < 0.1 then
-		vehicle.cp.laneOffset = 0.0;
+		vehicle.cp.laneOffset = 0;
 	end;
 	vehicle.cp.totalOffsetX = vehicle.cp.laneOffset + vehicle.cp.toolOffsetX;
 end;
@@ -368,11 +396,11 @@ end;
 function courseplay:changeToolOffsetX(vehicle, changeBy, force, noDraw)
 	vehicle.cp.toolOffsetX = force or (vehicle.cp.toolOffsetX + changeBy);
 	if math.abs(vehicle.cp.toolOffsetX) < 0.1 then
-		vehicle.cp.toolOffsetX = 0.0;
+		vehicle.cp.toolOffsetX = 0;
 	end;
 	vehicle.cp.totalOffsetX = vehicle.cp.laneOffset + vehicle.cp.toolOffsetX;
 
-	noDraw = noDraw or false;
+	if noDraw == nil then noDraw = false; end;
 	if not noDraw and vehicle.cp.mode ~= 3 and vehicle.cp.mode ~= 7 then
 		courseplay:calculateWorkWidthDisplayPoints(vehicle);
 		vehicle.cp.workWidthChanged = vehicle.timer + 2000;
@@ -382,7 +410,7 @@ end;
 function courseplay:changeToolOffsetZ(vehicle, changeBy, force)
 	vehicle.cp.toolOffsetZ = force or (vehicle.cp.toolOffsetZ + changeBy);
 	if math.abs(vehicle.cp.toolOffsetZ) < 0.1 then
-		vehicle.cp.toolOffsetZ = 0.0;
+		vehicle.cp.toolOffsetZ = 0;
 	end;
 end;
 
@@ -488,31 +516,60 @@ function courseplay:toggleOpenHudWithMouse(vehicle)
 	vehicle.cp.hud.openWithMouse = not vehicle.cp.hud.openWithMouse;
 end;
 
-function courseplay:switch_search_combine(self)
-	self.search_combine = not self.search_combine
-end
-
 function courseplay:toggleRealisticDriving(vehicle)
 	vehicle.cp.realisticDriving = not vehicle.cp.realisticDriving;
 end;
 
-function courseplay:switch_combine(vehicle, change_by)
-	local combines = courseplay:find_combines(vehicle);
-	vehicle.selected_combine_number = Utils.clamp(vehicle.selected_combine_number + change_by, 0, #combines);
+function courseplay:switchSearchCombineMode(vehicle)
+	vehicle.cp.searchCombineAutomatically = not vehicle.cp.searchCombineAutomatically;
+end;
 
-	if vehicle.selected_combine_number == 0 then
+function courseplay:setSearchCombineOnField(vehicle, changeDir)
+	if courseplay.fields.numAvailableFields == 0 or not vehicle.cp.searchCombineAutomatically then return; end;
+
+	local newFieldNum = vehicle.cp.searchCombineOnField + changeDir;
+	if newFieldNum == 0 then
+		vehicle.cp.searchCombineOnField = newFieldNum;
+		return;
+	end;
+
+	while courseplay.fields.fieldData[newFieldNum] == nil do
+		if newFieldNum == 0 then
+			vehicle.cp.searchCombineOnField = newFieldNum;
+			return;
+		end;
+		newFieldNum = Utils.clamp(newFieldNum + changeDir, 0, courseplay.fields.numAvailableFields);
+	end;
+
+	vehicle.cp.searchCombineOnField = newFieldNum;
+end;
+
+function courseplay:selectAssignedCombine(vehicle, changeBy)
+	local combines = courseplay:find_combines(vehicle);
+	vehicle.cp.selectedCombineNumber = Utils.clamp(vehicle.cp.selectedCombineNumber + changeBy, 0, #combines);
+
+	if vehicle.cp.selectedCombineNumber == 0 then
 		vehicle.cp.savedCombine = nil;
 	else
-		vehicle.cp.savedCombine = combines[vehicle.selected_combine_number];
+		vehicle.cp.savedCombine = combines[vehicle.cp.selectedCombineNumber];
 	end;
-end
+
+	courseplay:removeActiveCombineFromTractor(vehicle);
+end;
+
+function courseplay:removeActiveCombineFromTractor(vehicle)
+	if vehicle.cp.activeCombine ~= nil then
+		courseplay:unregister_at_combine(vehicle, vehicle.cp.activeCombine);
+	end;
+	vehicle.cp.lastActiveCombine = nil;
+end;
 
 function courseplay:switchDriverCopy(self, change_by)
 	local drivers = courseplay:findDrivers(self);
 
 	if drivers ~= nil then
 		local selectedDriverNumber = self.cp.selectedDriverNumber + change_by;
-		self.cp.selectedDriverNumber = Utils.clamp(selectedDriverNumber, 0, table.getn(drivers));
+		self.cp.selectedDriverNumber = Utils.clamp(selectedDriverNumber, 0, #(drivers));
 
 		if self.cp.selectedDriverNumber == 0 then
 			self.cp.copyCourseFromDriver = nil;
@@ -530,10 +587,9 @@ end;
 
 function courseplay:findDrivers(self)
 	local foundDrivers = {}; -- resetting all drivers
-	local all_vehicles = g_currentMission.vehicles -- go through all vehicles that have a course -- TODO: only check courseplayers
-	for k, vehicle in pairs(all_vehicles) do
+	for k, vehicle in pairs(g_currentMission.steerables) do
 		if vehicle.Waypoints ~= nil then
-			if vehicle.rootNode ~= self.rootNode and table.getn(vehicle.Waypoints) > 0 then
+			if vehicle.rootNode ~= self.rootNode and #(vehicle.Waypoints) > 0 then
 				table.insert(foundDrivers, vehicle);
 			end;
 		end;
@@ -549,14 +605,14 @@ function courseplay:copyCourse(self)
 		self.Waypoints = src.Waypoints;
 		self.cp.currentCourseName = src.cp.currentCourseName;
 		self.cp.loadedCourses = src.cp.loadedCourses;
-		self.numCourses = src.numCourses;
+		self.cp.numCourses = src.cp.numCourses;
 		self.recordnumber = 1;
 		self.maxnumber = table.getn(self.Waypoints);
 
-		self.record = false;
-		self.record_pause = false;
+		self.cp.isRecording = false;
+		self.cp.recordingIsPaused = false;
 		self.drive = false;
-		self.dcheck = false;
+		self.cp.distanceCheck = false;
 		self.cp.canDrive = true;
 		self.cp.abortWork = nil;
 
@@ -650,12 +706,12 @@ end
 function courseplay.settings.setReloadCourseItems(vehicle)
 	if vehicle ~= nil then
 		vehicle.cp.reloadCourseItems = true
-		vehicle.cp.hud.reloadPage[2] = true
+		courseplay.hud:setReloadPageOrder(vehicle, 2, true);
 	else
 		for k,v in pairs(g_currentMission.steerables) do
 			if v.cp ~= nil then 		-- alternative way to check if SpecializationUtil.hasSpecialization(courseplay, v.specializations)
 				v.cp.reloadCourseItems = true
-				v.cp.hud.reloadPage[2] = true
+				courseplay.hud:setReloadPageOrder(v, 2, true);
 			end
 		end
 	end
@@ -716,8 +772,8 @@ function courseplay.hud.setCourses(self, start_index)
 			end
 		end --while
 	end -- i<3
-	
-	self.cp.hud.reloadPage[2] = true
+
+	courseplay.hud:setReloadPageOrder(self, 2, true);
 end
 
 function courseplay.hud.reloadCourses(vehicle)
@@ -804,7 +860,7 @@ function courseplay:shiftHudCourses(vehicle, change_by)
 		end		
 	end
 	
-	vehicle.cp.hud.reloadPage[2] = true
+	courseplay.hud:setReloadPageOrder(vehicle, 2, true);
 end
 
 --Update all vehicles' course list arrow displays
@@ -964,46 +1020,53 @@ function courseplay:switchReturnToFirstPoint(self)
 	self.cp.returnToFirstPoint = not self.cp.returnToFirstPoint;
 end;
 
-function courseplay:setHeadlandLanes(self, change_by)
-	self.cp.headland.numLanes = Utils.clamp(self.cp.headland.numLanes + change_by, -1, 1);
-	courseplay:validateCourseGenerationData(self);
+function courseplay:setHeadlandNumLanes(vehicle, changeBy)
+	vehicle.cp.headland.numLanes = Utils.clamp(vehicle.cp.headland.numLanes + changeBy, 0, vehicle.cp.headland.maxNumLanes);
+	courseplay:validateCourseGenerationData(vehicle);
+end;
+
+function courseplay:setHeadlandDir(vehicle)
+	vehicle.cp.headland.userDirClockwise = not vehicle.cp.headland.userDirClockwise;
+	courseplay.button.setOverlay(vehicle.cp.headland.directionButton, vehicle.cp.headland.userDirClockwise and 1 or 2);
+	courseplay:debug(string.format('setHeadlandDir(): userDirClockwise=%s -> set to %q, setOverlay(directionButton, %d)', tostring(not vehicle.cp.headland.userDirClockwise), tostring(vehicle.cp.headland.userDirClockwise), vehicle.cp.headland.userDirClockwise and 1 or 2), 7);
+end;
+
+function courseplay:setHeadlandOrder(vehicle)
+	vehicle.cp.headland.orderBefore = not vehicle.cp.headland.orderBefore;
+	courseplay.button.setOverlay(vehicle.cp.headland.orderButton, vehicle.cp.headland.orderBefore and 1 or 2);
+	courseplay:debug(string.format('setHeadlandOrder(): orderBefore=%s -> set to %q, setOverlay(orderButton, %d)', tostring(not vehicle.cp.headland.orderBefore), tostring(vehicle.cp.headland.orderBefore), vehicle.cp.headland.orderBefore and 1 or 2), 7);
 end;
 
 function courseplay:validateCourseGenerationData(vehicle)
 	local numWaypoints = 0;
-	local hasEnoughWaypoints = false;
-	
 	if vehicle.cp.fieldEdge.selectedField.fieldNum > 0 then
 		numWaypoints = #(courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].points);
-		hasEnoughWaypoints = numWaypoints > 4
-		if vehicle.cp.headland.numLanes ~= 0 then
-			hasEnoughWaypoints = numWaypoints >= 20;
-		end;
 	elseif vehicle.Waypoints ~= nil then
 		numWaypoints = #(vehicle.Waypoints);
-		hasEnoughWaypoints = numWaypoints > 4;
-		if vehicle.cp.headland.numLanes ~= 0 then
-			hasEnoughWaypoints = numWaypoints >= 20;
-		end;
+	end;
+
+	local hasEnoughWaypoints = numWaypoints > 4
+	if vehicle.cp.headland.numLanes ~= 0 then
+		hasEnoughWaypoints = numWaypoints >= 20;
 	end;
 
 	if (vehicle.cp.fieldEdge.selectedField.fieldNum > 0 or not vehicle.cp.hasGeneratedCourse)
 	and hasEnoughWaypoints
 	and vehicle.cp.hasStartingCorner == true 
 	and vehicle.cp.hasStartingDirection == true 
-	and (vehicle.numCourses == nil or (vehicle.numCourses ~= nil and vehicle.numCourses == 1) or vehicle.cp.fieldEdge.selectedField.fieldNum > 0) 
+	and (vehicle.cp.numCourses == nil or (vehicle.cp.numCourses ~= nil and vehicle.cp.numCourses == 1) or vehicle.cp.fieldEdge.selectedField.fieldNum > 0) 
 	then
 		vehicle.cp.hasValidCourseGenerationData = true;
 	else
 		vehicle.cp.hasValidCourseGenerationData = false;
 	end;
 
-	courseplay:debug(string.format("%s: hasGeneratedCourse=%s, hasEnoughWaypoints=%s, hasStartingCorner=%s, hasStartingDirection=%s, numCourses=%s, fieldEdge.selectedField.fieldNum=%s ==> hasValidCourseGenerationData=%s", nameNum(vehicle), tostring(vehicle.cp.hasGeneratedCourse), tostring(hasEnoughWaypoints), tostring(vehicle.cp.hasStartingCorner), tostring(vehicle.cp.hasStartingDirection), tostring(vehicle.numCourses), tostring(vehicle.cp.fieldEdge.selectedField.fieldNum), tostring(vehicle.cp.hasValidCourseGenerationData)), 7);
+	courseplay:debug(string.format("%s: hasGeneratedCourse=%s, hasEnoughWaypoints=%s, hasStartingCorner=%s, hasStartingDirection=%s, numCourses=%s, fieldEdge.selectedField.fieldNum=%s ==> hasValidCourseGenerationData=%s", nameNum(vehicle), tostring(vehicle.cp.hasGeneratedCourse), tostring(hasEnoughWaypoints), tostring(vehicle.cp.hasStartingCorner), tostring(vehicle.cp.hasStartingDirection), tostring(vehicle.cp.numCourses), tostring(vehicle.cp.fieldEdge.selectedField.fieldNum), tostring(vehicle.cp.hasValidCourseGenerationData)), 7);
 end;
 
 function courseplay:validateCanSwitchMode(vehicle)
-	vehicle.cp.canSwitchMode = not vehicle.drive and not vehicle.record and not vehicle.record_pause and not vehicle.cp.fieldEdge.customField.isCreated;
-	courseplay:debug(string.format("%s: validateCanSwitchMode(): play=%s, drive=%s, record=%s, record_pause=%s, customField.isCreated=%s ==> canSwitchMode=%s", nameNum(vehicle), tostring(vehicle.cp.canDrive), tostring(vehicle.drive), tostring(vehicle.record), tostring(vehicle.record_pause), tostring(vehicle.cp.fieldEdge.customField.isCreated), tostring(vehicle.cp.canSwitchMode)), 12);
+	vehicle.cp.canSwitchMode = not vehicle.drive and not vehicle.cp.isRecording and not vehicle.cp.recordingIsPaused and not vehicle.cp.fieldEdge.customField.isCreated;
+	courseplay:debug(string.format("%s: validateCanSwitchMode(): drive=%s, record=%s, record_pause=%s, customField.isCreated=%s ==> canSwitchMode=%s", nameNum(vehicle), tostring(vehicle.drive), tostring(vehicle.cp.isRecording), tostring(vehicle.cp.recordingIsPaused), tostring(vehicle.cp.fieldEdge.customField.isCreated), tostring(vehicle.cp.canSwitchMode)), 12);
 end;
 
 function courseplay:saveShovelStatus(self, stage)
@@ -1015,6 +1078,11 @@ function courseplay:saveShovelStatus(self, stage)
 
 	if stage >= 2 and stage <= 5 then
 		self.cp.shovelStateRot[tostring(stage)] = courseplay:getCurrentRotation(self, mt, secondary);
+		if self.cp.shovelStateRot[tostring(stage)] ~= nil then
+			self.cp.hasShovelStateRot[tostring(stage)] = true
+		else
+			self.cp.hasShovelStateRot[tostring(stage)] = false
+		end
 	end;
 	courseplay:buttonsActiveEnabled(self, "shovel");
 end;
@@ -1089,7 +1157,17 @@ function courseplay:toggleSymmetricLaneChange(vehicle, force)
 end;
 
 function courseplay:toggleDriverPriority(combine)
+	if combine.cp.driverPriorityUseFillLevel == nil then combine.cp.driverPriorityUseFillLevel = false; end;
 	combine.cp.driverPriorityUseFillLevel = not combine.cp.driverPriorityUseFillLevel;
+end;
+
+function courseplay:toggleStopWhenUnloading(combine)
+	if combine.cp.isChopper then
+		combine.cp.stopWhenUnloading = false;
+		return;
+	end;
+	if combine.cp.stopWhenUnloading == nil then combine.cp.stopWhenUnloading = false; end;
+	combine.cp.stopWhenUnloading = not combine.cp.stopWhenUnloading;
 end;
 
 function courseplay:goToVehicle(curVehicle, targetVehicle)
@@ -1154,20 +1232,13 @@ function courseplay:setCustomSingleFieldEdge(vehicle)
 	--print(string.format("%s: call setCustomSingleFieldEdge()", nameNum(vehicle)));
 
 	local x,y,z = getWorldTranslation(vehicle.rootNode);
+	local isField = x and z and courseplay:is_field(x, z, 0, 0); --TODO: use width/height of 0.1 ?
+	courseplay.fields:dbg(string.format("Custom field scan: x,z=%.1f,%.1f, isField=%s", x, z, tostring(isField)), 'customLoad');
 	vehicle.cp.fieldEdge.customField.points = nil;
-	local numDirectionTries = 10;
-	if x and z and courseplay:is_field(x, z) then
-		for try=1,numDirectionTries do
-			local edgePoints = courseplay.fields:getSingleFieldEdge(vehicle.rootNode, 5, 2000, try > 1);
-			if #edgePoints >= 30 then
-				vehicle.cp.fieldEdge.customField.points = edgePoints;
-				vehicle.cp.fieldEdge.customField.numPoints = #edgePoints;
-				--print(string.format("\t\t\tcustom field: >= 30 edge points found --> valid, no retry"));
-				break;
-			else
-				--print(string.format("\t\t\tcustom field: less than 30 edge points found --> not valid, retry=%s", tostring(try<numDirectionTries)));
-			end;
-		end;
+	if isField then
+		local edgePoints = courseplay.fields:setSingleFieldEdgePath(vehicle.rootNode, x, z, courseplay.fields.scanStep, 2000, 10, nil, true, 'customLoad');
+		vehicle.cp.fieldEdge.customField.points = edgePoints;
+		vehicle.cp.fieldEdge.customField.numPoints = edgePoints ~= nil and #edgePoints or 0;
 	end;
 
 	--print(tableShow(vehicle.cp.fieldEdge.customField.points, nameNum(vehicle) .. " fieldEdge.customField.points"));
@@ -1203,7 +1274,7 @@ function courseplay:addCustomSingleFieldEdgeToList(vehicle)
 		fieldNum = vehicle.cp.fieldEdge.customField.fieldNum;
 		points = vehicle.cp.fieldEdge.customField.points;
 		numPoints = vehicle.cp.fieldEdge.customField.numPoints;
-		name = string.format("%s %d (%s)", courseplay.locales.COURSEPLAY_FIELD, vehicle.cp.fieldEdge.customField.fieldNum, courseplay.locales.COURSEPLAY_USER);
+		name = string.format("%s %d (%s)", courseplay:loc('COURSEPLAY_FIELD'), vehicle.cp.fieldEdge.customField.fieldNum, courseplay:loc('COURSEPLAY_USER'));
 		isCustom = true;
 	};
 	courseplay.fields.numAvailableFields = table.maxn(courseplay.fields.fieldData);
@@ -1246,4 +1317,9 @@ function courseplay:showFieldEdgePath(vehicle, pathType)
 			end;
 		end;
 	end;
+end;
+
+function courseplay:setDrawWaypointsLines(vehicle)
+	if not courseplay.isDeveloper then return; end;
+	vehicle.cp.drawWaypointsLines = not vehicle.cp.drawWaypointsLines;
 end;
