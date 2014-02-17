@@ -155,9 +155,33 @@ function helpers.Grid:evaluate()
 			self.map[indexY][indexX] = {category=category, walkable=walkable, costs=costs};
 			self.categoryMax = not self.categoryMax and category or ((self.categoryMax < category and category) or self.categoryMax);
 		end
-	end
-end
+	end;
 
+	-- print(self:getVisualGrid());
+end;
+
+function helpers.Grid:getVisualGrid()
+	-- category: 1 = no fruit, 2 = fruit
+	-- walkable: true = walkable, false = not walkable
+	-- costs:	 1 = ?
+	local output = '';
+	for indexY = 1, self.limits.maxIndexY do
+		local line = '';
+		for indexX = 1, self.limits.maxIndexX do
+			local data = self.map[indexY][indexX];
+			local col = ' ';
+			if not data.walkable then
+				col = 'X';
+			elseif data.category == 2 then
+				col = 'F';
+			end;
+			line = line .. col;
+		end;
+		output = output .. line .. '\n';
+	end;
+
+	return output;
+end;
 function helpers.Grid:getCategoryAt(indexX, indexY)
 	return self.map[indexY][indexX].category;
 end

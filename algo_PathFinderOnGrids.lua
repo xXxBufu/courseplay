@@ -177,16 +177,22 @@ local function jump(finder, node, parent, endNode, disallowRecursion)
 	if node == endNode then return node end
 	
 	-- If the node to be examined has different costs than parent, return this node
-	if finder.grid:moreExpensive(x, y, x-dx, y-dy)~=0 then print('         1') return node end;
+	if finder.grid:moreExpensive(x, y, x-dx, y-dy)~=0 then 
+		courseplay:debug('\t\t\t1', 4);
+		return node 
+	end;
 	
 	-- If we are before a cost change, return node
 	if dx~=0 and dy~=0 and
 		( (finder.grid:isWalkableAt(x+dx,y) and finder.grid:moreExpensive(x, y, x+dx, y)~=0) or 
 		(finder.grid:isWalkableAt(x,y+dy) and finder.grid:moreExpensive(x, y, x, y+dy)~=0) ) then
-		print('         2')
+		courseplay:debug('\t\t\t2', 4);
 		return node;
 	end
-	if (finder.grid:isWalkableAt(x+dx,y+dy) and finder.grid:moreExpensive(x, y, x+dx, y+dy)~=0) then print('         3') return node end;
+	if (finder.grid:isWalkableAt(x+dx,y+dy) and finder.grid:moreExpensive(x, y, x+dx, y+dy)~=0) then
+		courseplay:debug('\t\t\t3', 4);
+		return node
+	end;
 
 	-- Diagonal search case
 	if dx~=0 and dy~=0 then
@@ -194,7 +200,7 @@ local function jump(finder, node, parent, endNode, disallowRecursion)
 		-- Current node is a jump point if it is less expensive than one of his leftside/rightside neighbours
 		if (finder.grid:isWalkableAt(x-dx,y+dy) and ((not finder.grid:isWalkableAt(x-dx,y)) or (finder.grid:moreExpensive(x,y,x-dx,y)==2))) or
 		(finder.grid:isWalkableAt(x+dx,y-dy) and ((not finder.grid:isWalkableAt(x,y-dy)) or (finder.grid:moreExpensive(x,y,x,y-dy)==2))) then
-			print('         4')
+			courseplay:debug('\t\t\t4', 4);
 			return node;
 		end	
 	
@@ -204,14 +210,14 @@ local function jump(finder, node, parent, endNode, disallowRecursion)
 			-- Current node is a jump point if one of his upside/downside neighbours is forced
 			if (finder.grid:isWalkableAt(x+dx,y+1) and ((not finder.grid:isWalkableAt(x,y+1)) or (finder.grid:moreExpensive(x,y,x,y+1)==2))) or
 			(finder.grid:isWalkableAt(x+dx,y-1) and ((not finder.grid:isWalkableAt(x,y-1)) or (finder.grid:moreExpensive(x,y,x,y-1)==2))) then
-				print('         5')
+				courseplay:debug('\t\t\t5', 4);
 				return node;
 			end
 		else
 			-- : in case diagonal moves are forbidden
 			if (finder.grid:isWalkableAt(x,y+1,finder.walkable) and ((not finder.grid:isWalkableAt(x-dx,y+1)) or (finder.grid:moreExpensive(x,y,x-dx,y+1)==2))) or 
 			(finder.grid:isWalkableAt(x,y-1,finder.walkable) and ((not finder.grid:isWalkableAt(x-dx,y-1)) or (finder.grid:moreExpensive(x,y,x-dx,y-1)==2))) then
-				print('         5b')
+				courseplay:debug('\t\t\t5b', 4);
 				return node;
 			end
 		end
@@ -222,14 +228,14 @@ local function jump(finder, node, parent, endNode, disallowRecursion)
 		if finder.allowDiagonal then
 			if (finder.grid:isWalkableAt(x+1,y+dy) and ((not finder.grid:isWalkableAt(x+1,y)) or (finder.grid:moreExpensive(x,y,x+1,y)==2))) or
 			(finder.grid:isWalkableAt(x-1,y+dy) and ((not finder.grid:isWalkableAt(x-1,y)) or (finder.grid:moreExpensive(x,y,x-1,y)==2))) then
-				print('         6')
+				courseplay:debug('\t\t\t6', 4);
 				return node;
 			end
 		else
 			-- : in case diagonal moves are forbidden
 			if (finder.grid:isWalkableAt(x+1,y,finder.walkable) and ((not finder.grid:isWalkableAt(x+1,y-dy)) or (finder.grid:moreExpensive(x,y,x+1,y-dy)==2))) or
 			(finder.grid:isWalkableAt(x-1,y,finder.walkable) and ((not finder.grid:isWalkableAt(x-1,y-dy)) or (finder.grid:moreExpensive(x,y,x-1,y-dy)==2))) then
-				print('         6b')
+				courseplay:debug('\t\t\t6b', 4);
 				return node;
 			end
 		end
@@ -237,21 +243,21 @@ local function jump(finder, node, parent, endNode, disallowRecursion)
 
 	-- Since we arrived here: No reason to stop so far, so let's search recursively for a jump node:
 	if dx~=0 and dy~=0 then
-		if jump(finder,finder.grid:getNodeAt(x+dx,y),node,endNode) then print('         7') return node end
-		if jump(finder,finder.grid:getNodeAt(x,y+dy),node,endNode) then print('         8') return node end
+		if jump(finder,finder.grid:getNodeAt(x+dx,y),node,endNode) then courseplay:debug('\t\t\t7', 4); return node end
+		if jump(finder,finder.grid:getNodeAt(x,y+dy),node,endNode) then courseplay:debug('\t\t\t8', 4); return node end
 		if finder.grid:isWalkableAt(x+dx,y) or finder.grid:isWalkableAt(x,y+dy) then
 			return jump(finder,finder.grid:getNodeAt(x+dx,y+dy),node,endNode);
 		end
 	elseif dx ~=0 then
 		if (not finder.allowDiagonal) and (not disallowRecursion) then
-			if jump(finder,finder.grid:getNodeAt(x,y+1), node, endNode, true) or jump(finder,finder.grid:getNodeAt(x,y-1), node, endNode, true) then print('         9') return node end
+			if jump(finder,finder.grid:getNodeAt(x,y+1), node, endNode, true) or jump(finder,finder.grid:getNodeAt(x,y-1), node, endNode, true) then courseplay:debug('\t\t\t9', 4); return node end
 		end
 		if finder.grid:isWalkableAt(x+dx,y) then
 			return jump(finder,finder.grid:getNodeAt(x+dx,y),node,endNode, disallowRecursion);
 		end		
 	else
 		if (not finder.allowDiagonal) and (not disallowRecursion) then
-			if jump(finder,finder.grid:getNodeAt(x+1,y), node, endNode, true) or jump(finder,finder.grid:getNodeAt(x-1,y), node, endNode, true) then print('         10') return node end
+			if jump(finder,finder.grid:getNodeAt(x+1,y), node, endNode, true) or jump(finder,finder.grid:getNodeAt(x-1,y), node, endNode, true) then courseplay:debug('\t\t\t10', 4); return node end
 		end
 		if finder.grid:isWalkableAt(x,y+dy) then
 			return jump(finder,finder.grid:getNodeAt(x,y+dy),node,endNode, disallowRecursion);
