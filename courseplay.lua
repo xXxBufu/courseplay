@@ -91,6 +91,7 @@ function courseplay:initialize()
 		'courseplay_event', 
 		'courseplay_manager', 
 		'course_management',
+		'courseManagement',
 		'debug', 
 		'distance', 
 		'drive', 
@@ -166,33 +167,25 @@ end;
 function courseplay:setGlobalData()
 	courseplay.cpFolderPath = getUserProfileAppPath() .. 'courseplay/';
 	courseplay.cpSavegameFolderPath = courseplay.cpFolderPath .. 'savegame' .. g_careerScreen.selectedIndex .. '/';
-	courseplay.cpXmlFilePath = courseplay.cpSavegameFolderPath .. 'courseplay.xml';
-	courseplay.cpFieldsXmlFilePath = courseplay.cpSavegameFolderPath .. 'courseplayFields.xml';
+	courseplay.cpXmlFilePath = courseplay.cpSavegameFolderPath .. '_courseplay.xml';
+	courseplay.cpFieldsXmlFilePath = courseplay.cpSavegameFolderPath .. '_courseplayFields.xml';
 	createFolder(courseplay.cpFolderPath);
 	createFolder(courseplay.cpSavegameFolderPath);
 
+-- TODO (Jakob): move to courseplay_manager:loadMap() when done
+courseplay.courses:loadCourseReferences();
 
 	local customPosX, customPosY;
-	local customGitPosX, customGitPosY;
 	local fieldsAutomaticScan, fieldsDebugScan, fieldsDebugCustomLoad, fieldsCustomScanStep, fieldsOnlyScanOwnedFields = true, false, false, nil, true;
 	local wagesActive, wagesAmount = false, 666;
 
-	local cpFilePath = courseplay.cpSavegameFolderPath .. '/courseplay.xml';
-	if fileExists(cpFilePath) then
-		local cpFile = loadXMLFile('cpFile', cpFilePath);
+	if courseplay.cpXmlFilePath and fileExists(courseplay.cpXmlFilePath) then
+		local cpFile = loadXMLFile('cpFile', courseplay.cpXmlFilePath);
 		local hudKey = 'XML.courseplayHud';
 		if hasXMLProperty(cpFile, hudKey) then
 			customPosX = getXMLFloat(cpFile, hudKey .. '#posX');
 			customPosY = getXMLFloat(cpFile, hudKey .. '#posY');
 		end;
-
-		--[[ NO MORE CUSTOM POSITIONS FOR GLOBALINFOTEXT
-		local gitKey = "XML.courseplayGlobalInfoText";
-		if hasXMLProperty(cpFile, gitKey) then
-			customGitPosX = getXMLFloat(cpFile, gitKey .. "#posX");
-			customGitPosY = getXMLFloat(cpFile, gitKey .. "#posY");
-		end;
-		]]
 
 		local fieldsKey = 'XML.courseplayFields';
 		if hasXMLProperty(cpFile, fieldsKey) then
@@ -499,4 +492,3 @@ courseplay:initialize();
 
 --load(), update(), updateTick(), draw() are located in base.lua
 --mouseEvent(), keyEvent() are located in input.lua
-

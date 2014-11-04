@@ -644,6 +644,7 @@ function courseplay:getDriveDirection(node, x, y, z)
 	return lx,ly,lz
 end
 
+-- TODO (Jakob) (FS15): move all UTF/normalization stuff to courseManagement.lua
 --UTF-8: ALLOWED CHARACTERS and NORMALIZATION
 --src: ASCII Table - Decimal (Base 10) Values @ http://www.parse-o-matic.com/parse/pskb/ASCII-Chart.htm
 --src: http://en.wikipedia.org/wiki/List_of_Unicode_characters
@@ -738,7 +739,26 @@ function courseplay:normalizeUTF8_BAK(str)
 end;
 
 
-function courseplay:normalizeUTF8(str)
+local fileNameSpecialChars = {
+	['\\'] = '_';
+	['/']  = '_';
+	[':']  = '_';
+	['*']  = '_';
+	['?']  = '_';
+	['"']  = '_';
+	['>']  = '_';
+	['<']  = '_';
+	['[']  = '_';
+	[']']  = '_';
+	['{']  = '_';
+	['}']  = '_';
+	['|']  = '_';
+};
+function courseplay.utils.replaceCharsForFileName(str)
+	return str:gsub('(.)', function(m) return fileNameSpecialChars[m] ~= nil and fileNameSpecialChars[m] or m end );
+end;
+
+function courseplay:normalizeUTF8(str, forFileName)
 	local len = str:len();
 	local utfLen = utf8Strlen(str);
 	courseplay:debug(string.format("str %q: len=%d, utfLen=%d", str, len, utfLen), 8);
@@ -749,11 +769,26 @@ function courseplay:normalizeUTF8(str)
 			local char = utf8Substr(str,i,1);
 			courseplay:debug(string.format("\tchar=%q, replaceChar=%q", char, tostring(courseplay.utf8normalization[char])), 8);
 
-			local clean = courseplay.utf8normalization[char] or char:lower();
+			local clean = courseplay.utf8normalization[char];
+			if clean == nil then
+				if forFileName then
+					clean = char; -- keep capitalization for file names
+				else
+					clean = char:lower();
+				end;
+			end;
 			result = result .. clean;
 		end;
 		courseplay:debug(string.format("normalizeUTF8(%q) --> clean=%q", str, result), 8);
+
+		if forFileName then
+			return courseplay.utils.replaceCharsForFileName(result);
+		end;
 		return result;
+	end;
+
+	if forFileName then
+		return courseplay.utils.replaceCharsForFileName(str);
 	end;
 
 	return str:lower();

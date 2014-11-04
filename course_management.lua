@@ -1,8 +1,9 @@
 local curFile = 'course_management.lua';
+local huge, random = math.huge, math.random;
 
 -- saving // loading courses
 
--- enables input for course name
+-- enables input for course/folder/filter name
 function courseplay:showSaveCourseForm(self, saveWhat)
 	saveWhat = saveWhat or 'course'
 	
@@ -142,7 +143,7 @@ function courseplay:load_course(self, id, useRealId, addCourseAtEnd)
 				courseplay:debug(string.format('course 1 has %d crossing points (excluding first point), course 2 has %d crossing points (excluding last point), useFirstMatch=%s', #crossingPoints[1], #crossingPoints[2], tostring(useFirstMatch)), 8);
 
 				--find < 50m match
-				local smallestDist = math.huge;
+				local smallestDist = huge;
 				if #crossingPoints[1] > 0 and #crossingPoints[2] > 0 then
 					for _,wpNum1 in pairs(crossingPoints[1]) do
 						local wp1 = course1[wpNum1];
@@ -675,8 +676,8 @@ function courseplay.courses.openOrCreateXML(forceCreation)
 	forceCreation = forceCreation or false
 	
 	local File;
-	if courseplay.cpXmlFilePath ~= nil then
-		local filePath = courseplay.cpXmlFilePath;
+	local filePath = courseplay.cpXmlFilePath;
+	if filePath ~= nil then
 		if fileExists(filePath) and (not forceCreation) then
 			File = loadXMLFile("courseFile", filePath)
 		else

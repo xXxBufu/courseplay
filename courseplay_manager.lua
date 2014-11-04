@@ -451,6 +451,7 @@ function courseplay_manager:update(dt)
 		courseplay.moreRealisticVersion = courseplay:getMoreRealisticVersion();
 		courseplay:addCpNilTempFillLevelFunction();
 
+		-- courseplay.courses.saveCourseToXml(2);
 		self.firstRun = false;
 	end;
 
