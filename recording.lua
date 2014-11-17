@@ -219,7 +219,7 @@ end;
 
 -- clears current course -- just setting variables
 function courseplay:clearCurrentLoadedCourse(vehicle)
-	courseplay:reset_merged(vehicle)
+	courseplay:reset_merged(vehicle) -- TODO (Jakob): why is this being done?
 	courseplay:setRecordNumber(vehicle, 1);
 	vehicle.cp.curTarget.x, vehicle.cp.curTarget.y, vehicle.cp.curTarget.z = nil, nil, nil;
 	vehicle.cp.nextTargets = {};

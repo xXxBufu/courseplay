@@ -40,6 +40,10 @@ courseplay.sonOfaBangSonOfaBoom = {
 courseplay.isDeveloper = courseplay.sonOfaBangSonOfaBoom[getMD5(g_settingsNickname)];
 if courseplay.isDeveloper then
 	print('Special dev magic for Courseplay developer unlocked. You go, girl!');
+else
+	print('No cookies for you! (please wait until we have some limited form of a working version...)');
+	courseplay.houstonWeGotAProblem = true;
+	return;
 end;
 
 -- working tractors saved in this
@@ -165,15 +169,16 @@ function courseplay:initialize()
 end;
 
 function courseplay:setGlobalData()
+	if courseplay.globalDataSet then
+		return;
+	end;
+
 	courseplay.cpFolderPath = getUserProfileAppPath() .. 'courseplay/';
 	courseplay.cpSavegameFolderPath = courseplay.cpFolderPath .. 'savegame' .. g_careerScreen.selectedIndex .. '/';
 	courseplay.cpXmlFilePath = courseplay.cpSavegameFolderPath .. '_courseplay.xml';
 	courseplay.cpFieldsXmlFilePath = courseplay.cpSavegameFolderPath .. '_courseplayFields.xml';
 	createFolder(courseplay.cpFolderPath);
 	createFolder(courseplay.cpSavegameFolderPath);
-
--- TODO (Jakob): move to courseplay_manager:loadMap() when done
-courseplay.courses:loadCourseReferences();
 
 	local customPosX, customPosY;
 	local fieldsAutomaticScan, fieldsDebugScan, fieldsDebugCustomLoad, fieldsCustomScanStep, fieldsOnlyScanOwnedFields = true, false, false, nil, true;
@@ -486,6 +491,8 @@ courseplay.courses:loadCourseReferences();
 	courseplay.wagePerMin  = wagesAmount / 60;
 
 	--print("\t### Courseplay: setGlobalData() finished");
+
+	courseplay.globalDataSet = true;
 end;
 
 courseplay:initialize();
