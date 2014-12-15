@@ -1030,28 +1030,32 @@ function courseplay:calculateAstarPathToCoords(vehicle, targetX, targetZ)
 		if numPoints < firstPoint then
 			return false;
 		end;
-		-- for i, cp in pairs(targetPoints) do
+		local lastInsertedIndex = firstPoint
+		
 		for i=firstPoint, numPoints do
-			local cp = targetPoints[i];
+			local currentPoint = targetPoints[i];
+			local lastPoint = targetPoints[lastInsertedIndex]
 			local insert = true;
-
 			--clean path (only keep corner points)
-			if i > firstPoint and i < numPoints then
-				local pp = targetPoints[i-1];
-				local np = targetPoints[i+1];
-				if cp.x == pp.x and cp.x == np.x then
-					courseplay:debug(string.format('\t%d: [x] cp.x==pp.x==np.x = %d, [z] cp.z = %d -> insert=false', i, cp.x, cp.z), 22);
+			--[[if i > firstPoint and i < numPoints then
+				if courseplay.utils:get​NumIsWithinTolerance​(lastPoint.x,currentPoint.x,1)  then 
+					courseplay:debug(string.format('%d: [x] = %d, [z] cp.z = %d -> insert=false', i, currentPoint.x, currentPoint.z), 22);
 					insert = false;
-				elseif cp.z == pp.z and cp.z == np.z then
-					courseplay:debug(string.format('\t%d: [x] cp.x = %d, [z] cp.z==pp.z==np.z = %d -> insert=false', i, cp.x, cp.z), 22);
+				elseif courseplay.utils:get​NumIsWithinTolerance​(lastPoint.z,currentPoint.z,1) then
+					courseplay:debug(string.format('%d: [x] %d, [z] = %d -> insert=false', i, currentPoint.x, currentPoint.z), 22);
 					insert = false;
 				end;
-			end;
+				local distance = courseplay:distance(currentPoint.x, currentPoint.z, lastPoint.x, lastPoint.z)
+				if  distance <5 then
+					courseplay:debug(string.format('%d: distance < 5m (%d)  -> insert=false', i,distance), 22);
+					insert = false;
+				end
+			end;]]
 
 			if insert then
-				courseplay:debug(string.format('%d: [x] cp.x = %d, [z] cp.z = %d, insert=true', i, cp.x, cp.z), 22);
-				table.insert(vehicle.cp.nextTargets, { x = cp.x, y = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, cp.x, 1, cp.z) + 3, z = cp.z });
-				--print(tableShow(vehicle.cp.nextTargets,"(vehicle.cp.nextTargets"))
+				lastInsertedIndex = i
+				courseplay:debug(string.format('%d: [x] currentPoint.x = %d, [z] currentPoint.z = %d, insert=true', i, currentPoint.x, currentPoint.z), 22);
+				table.insert(vehicle.cp.nextTargets, { x = currentPoint.x, y = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, currentPoint.x, 1, currentPoint.z) + 3, z = currentPoint.z });
 			end;
 		end;
 		courseplay:setCurrentTargetFromList(vehicle, 1);
@@ -1226,3 +1230,4 @@ end;
 
 function courseplay:onModeStateChange(vehicle, oldState, newState)
 end;
+

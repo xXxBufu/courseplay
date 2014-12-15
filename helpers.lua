@@ -994,3 +994,6 @@ function courseplay.utils:getColorFromPct(pct, colorMap)
 	end;
 end;
 
+function courseplay.utils:get​NumIsWithinTolerance​(num, sourceNum, tolerance)
+    return num >= sourceNum - tolerance * 0.5 and num <= sourceNum + tolerance * 0.5;
+end;
