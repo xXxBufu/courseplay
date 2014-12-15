@@ -3,7 +3,7 @@ function CpManager:setUpDebugChannels()
 
 	-- DEBUG CHANNELS
 	courseplay.numAvailableDebugChannels = 24;
-	courseplay.numDebugChannels = 21;
+	courseplay.numDebugChannels = 22;
 	courseplay.numDebugChannelButtonsPerLine = 12;
 	courseplay.numDebugChannelSections = math.ceil(courseplay.numAvailableDebugChannels / courseplay.numDebugChannelButtonsPerLine);
 	courseplay.debugChannelSection = 1;
@@ -37,6 +37,7 @@ function CpManager:setUpDebugChannels()
 		[19] = 'Debug: special triggers';
 		[20] = 'Debug: WeightStation';
 		[21] = 'Debug: Speed setting';
+		[22] = 'Debug: Fruit finding';
 	};
 
 	courseplay.debugButtonPosData = {};

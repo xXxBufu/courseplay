@@ -369,7 +369,7 @@ function courseplay:unload_combine(vehicle, dt)
 			end
 		end
 
-		--[[
+		
 		-- PATHFINDING / REALISTIC DRIVING (ASTAR)
 		if vehicle.cp.realisticDriving and not vehicle.cp.calculatedCourseToCombine then
 			-- if courseplay:calculate_course_to(vehicle, currentX, currentZ) then
@@ -379,7 +379,7 @@ function courseplay:unload_combine(vehicle, dt)
 				courseplay:setMode2NextState(vehicle, 2); -- modeState when waypoint is reached
 			end;
 		end;
-		--]]
+		
 
 
 
@@ -979,7 +979,7 @@ end
 
 -- GET ASTAR PATH TO COMBINE
 function courseplay:calculateAstarPathToCoords(vehicle, targetX, targetZ)
-	courseplay:debug(('%s: calculateAstarPathToCoords(..., targetX=%.2f, targetZ=%.2f)'):format(nameNum(vehicle), targetX, targetZ), 4);
+	courseplay:debug(('%s: calculateAstarPathToCoords(..., targetX=%.2f, targetZ=%.2f)'):format(nameNum(vehicle), targetX, targetZ), 22);
 	local tileSize = 5; -- meters
 	vehicle.cp.calculatedCourseToCombine = true;
 	
@@ -992,20 +992,20 @@ function courseplay:calculateAstarPathToCoords(vehicle, targetX, targetZ)
 	-- local hasFruit, density, fruitType, fruitName = courseplay:hasLineFruit(nil, x, z, targetX, targetZ);
 	local hasFruit, density, fruitType, fruitName = courseplay:hasLineFruit(node, nil, nil, targetX, targetZ);
 	if lineIsField and not hasFruit then
-		courseplay:debug('\tno fruit between tractor and target -> return false', 4);
+		courseplay:debug('no fruit between tractor and target -> return false', 22);
 		return false;
 	end;
-	courseplay:debug(string.format('\tfruit density between tractor and target = %s -> continue calculation', tostring(density)), 4);
+	courseplay:debug(string.format('fruit density between tractor and target = %s -> continue calculation', tostring(density)), 22);
 
 	-- check fruit: tipper
 	if vehicle.cp.workToolAttached then
 		for i,tipper in pairs(vehicle.cp.workTools) do
 			if tipper.getCurrentFruitType and tipper.fillLevel > 0 then
 				local tipperFruitType = tipper:getCurrentFruitType();
-				courseplay:debug(string.format('%s: workTools[%d]: fillType=%d (%s), getCurrentFruitType()=%s (%s)', nameNum(vehicle), i, tipper.currentFillType, tostring(Fillable.fillTypeIntToName[tipper.currentFillType]), tostring(tipperFruitType), tostring(FruitUtil.fruitIndexToDesc[tipperFruitType].name)), 4);
+				courseplay:debug(string.format('%s: workTools[%d]: fillType=%d (%s), getCurrentFruitType()=%s (%s)', nameNum(vehicle), i, tipper.currentFillType, tostring(Fillable.fillTypeIntToName[tipper.currentFillType]), tostring(tipperFruitType), tostring(FruitUtil.fruitIndexToDesc[tipperFruitType].name)), 22);
 				if tipperFruitType and tipperFruitType ~= FruitUtil.FRUITTYPE_UNKNOWN then
 					fruitType = tipperFruitType;
-					courseplay:debug(string.format('\tset pathFinding fruitType as workTools[%d]\'s fruitType', i), 4);
+					courseplay:debug(string.format('set pathFinding fruitType as workTools[%d]\'s fruitType', i), 22);
 					break;
 				end;
 			end;
@@ -1015,17 +1015,18 @@ function courseplay:calculateAstarPathToCoords(vehicle, targetX, targetZ)
 		fruitType = fieldFruitType;
 		courseplay:debug(string.format('%s: tipper fruitType=nil, fieldFruitType=%d (%s) -> set astar fruitType as fieldFruitType', nameNum(vehicle), fieldFruitType, FruitUtil.fruitIndexToDesc[fieldFruitType].name), 4);
 	elseif fruitType == nil and fieldFruitType == nil then
-		courseplay:debug(string.format('%s: tipper fruitType=nil, fieldFruitType = nil -> return false', nameNum(vehicle)), 4);
+		courseplay:debug(string.format('%s: tipper fruitType=nil, fieldFruitType = nil -> return false', nameNum(vehicle)), 22);
 		return false;
 	end;
 
 
-	local targetPoints = courseplay:calcMoves(z, x, targetZ, targetX, fruitType);
+	local targetPoints = courseplay:calcMoves(vehicle, fruitType);
 	if targetPoints ~= nil then
+		--print(tableShow(targetPoints,"targetPoints"))
 		vehicle.cp.nextTargets = {};
 		local numPoints = #targetPoints;
 		local firstPoint = ceil(vehicle.cp.turnRadius / 5);
-		courseplay:debug(string.format('numPoints=%d, first point = ceil(turnRadius [%.1f] / 5) = %d', numPoints, vehicle.cp.turnRadius, firstPoint), 4);
+		courseplay:debug(string.format('numPoints=%d, first point = ceil(turnRadius [%.1f] / 5) = %d', numPoints, vehicle.cp.turnRadius, firstPoint), 22);
 		if numPoints < firstPoint then
 			return false;
 		end;
@@ -1034,23 +1035,23 @@ function courseplay:calculateAstarPathToCoords(vehicle, targetX, targetZ)
 			local cp = targetPoints[i];
 			local insert = true;
 
-			--[[clean path (only keep corner points)
+			--clean path (only keep corner points)
 			if i > firstPoint and i < numPoints then
 				local pp = targetPoints[i-1];
 				local np = targetPoints[i+1];
-				if cp.y == pp.y and cp.y == np.y then
-					courseplay:debug(string.format('\t%d: [x] cp.y==pp.y==np.y = %d, [z] cp.x = %d -> insert=false', i, cp.y, cp.x), 4);
+				if cp.x == pp.x and cp.x == np.x then
+					courseplay:debug(string.format('\t%d: [x] cp.x==pp.x==np.x = %d, [z] cp.z = %d -> insert=false', i, cp.x, cp.z), 22);
 					insert = false;
-				elseif cp.x == pp.x and cp.x == np.x then
-					courseplay:debug(string.format('\t%d: [x] cp.y = %d, [z] cp.x==pp.x==np.x = %d -> insert=false', i, cp.y, cp.x), 4);
+				elseif cp.z == pp.z and cp.z == np.z then
+					courseplay:debug(string.format('\t%d: [x] cp.x = %d, [z] cp.z==pp.z==np.z = %d -> insert=false', i, cp.x, cp.z), 22);
 					insert = false;
 				end;
 			end;
-			--]]
 
 			if insert then
-				courseplay:debug(string.format('%d: [x] cp.y = %d, [z] cp.x = %d, insert=true', i, cp.y, cp.x), 4);
-				table.insert(vehicle.cp.nextTargets, { x = cp.y, y = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, cp.y, 1, cp.x) + 3, z = cp.x });
+				courseplay:debug(string.format('%d: [x] cp.x = %d, [z] cp.z = %d, insert=true', i, cp.x, cp.z), 22);
+				table.insert(vehicle.cp.nextTargets, { x = cp.x, y = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, cp.x, 1, cp.z) + 3, z = cp.z });
+				--print(tableShow(vehicle.cp.nextTargets,"(vehicle.cp.nextTargets"))
 			end;
 		end;
 		courseplay:setCurrentTargetFromList(vehicle, 1);
@@ -1203,7 +1204,7 @@ function courseplay:setModeState(vehicle, state, debugLevel)
 	debugLevel = debugLevel or 2;
 	if vehicle.cp.modeState ~= state then
 		-- courseplay:onModeStateChange(vehicle, vehicle.cp.modeState, state);
-		-- print(('%s: modeState=%d -> set modeState to %d\n\t%s'):format(nameNum(vehicle), vehicle.cp.modeState, state, courseplay.utils:getFnCallPath(debugLevel))); -- DEBUG140301
+		print(('%s: modeState=%d -> set modeState to %d\n %s'):format(nameNum(vehicle), vehicle.cp.modeState, state, courseplay.utils:getFnCallPath(debugLevel))); -- DEBUG140301
 		
 		vehicle.cp.modeState = state;
 	end;
