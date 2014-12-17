@@ -990,7 +990,7 @@ function courseplay:calculateAstarPathToCoords(vehicle, targetX, targetZ)
 
 	local lineIsField = courseplay:isLineField(node, nil, nil, targetX, targetZ);
 	-- local hasFruit, density, fruitType, fruitName = courseplay:hasLineFruit(nil, x, z, targetX, targetZ);
-	local hasFruit, density, fruitType, fruitName = courseplay:hasLineFruit(node, nil, nil, targetX, targetZ);
+	local hasFruit, density, fieldFruitType, fruitName = courseplay:hasLineFruit(node, nil, nil, targetX, targetZ);
 	if lineIsField and not hasFruit then
 		courseplay:debug('no fruit between tractor and target -> return false', 22);
 		return false;
