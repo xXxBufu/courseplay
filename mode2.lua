@@ -961,7 +961,7 @@ function courseplay:unload_combine(vehicle, dt)
 		AIVehicleUtil.driveInDirection(vehicle, dt, vehicle.cp.steeringAngle, 1, 0.5, 10, allowedToDrive, moveForwards, lx, lz, refSpeed, 1)
 		
 
-		if courseplay.debugChannels[4] and vehicle.cp.nextTargets and vehicle.cp.curTarget.x and vehicle.cp.curTarget.z then
+		if (courseplay.debugChannels[4] or courseplay.debugChannels[22]) and vehicle.cp.nextTargets and vehicle.cp.curTarget.x and vehicle.cp.curTarget.z then
 			drawDebugPoint(vehicle.cp.curTarget.x, vehicle.cp.curTarget.y or 0, vehicle.cp.curTarget.z, 1, 0.65, 0, 1);
 			
 			for i,tp in pairs(vehicle.cp.nextTargets) do
@@ -1019,7 +1019,7 @@ function courseplay:calculateAstarPathToCoords(vehicle, targetX, targetZ)
 		return false;
 	end;
 
-
+	local tolerance = 2
 	local targetPoints = courseplay:calcMoves(vehicle, fruitType);
 	if targetPoints ~= nil then
 		--print(tableShow(targetPoints,"targetPoints"))
@@ -1035,23 +1035,24 @@ function courseplay:calculateAstarPathToCoords(vehicle, targetX, targetZ)
 		for i=firstPoint, numPoints do
 			local currentPoint = targetPoints[i];
 			local lastPoint = targetPoints[lastInsertedIndex]
+			local nextPoint = targetPoints[i+1]
 			local insert = true;
-			--clean path (only keep corner points)
-			--[[if i > firstPoint and i < numPoints then
-				if courseplay.utils:get​NumIsWithinTolerance​(lastPoint.x,currentPoint.x,1)  then 
+			--clean path (only keep major points)
+			if i > firstPoint and i < numPoints then
+				if courseplay.utils:get​NumIsWithinTolerance​(lastPoint.x,currentPoint.x,tolerance) and courseplay.utils:get​NumIsWithinTolerance​(nextPoint.x,currentPoint.x,tolerance)  then 
 					courseplay:debug(string.format('%d: [x] = %d, [z] cp.z = %d -> insert=false', i, currentPoint.x, currentPoint.z), 22);
 					insert = false;
-				elseif courseplay.utils:get​NumIsWithinTolerance​(lastPoint.z,currentPoint.z,1) then
+				elseif courseplay.utils:get​NumIsWithinTolerance​(lastPoint.z,currentPoint.z,tolerance) and courseplay.utils:get​NumIsWithinTolerance​(nextPoint.z,currentPoint.z,tolerance) then
 					courseplay:debug(string.format('%d: [x] %d, [z] = %d -> insert=false', i, currentPoint.x, currentPoint.z), 22);
 					insert = false;
 				end;
 				local distance = courseplay:distance(currentPoint.x, currentPoint.z, lastPoint.x, lastPoint.z)
-				if  distance <5 then
+				if  distance < 5 then
 					courseplay:debug(string.format('%d: distance < 5m (%d)  -> insert=false', i,distance), 22);
 					insert = false;
 				end
-			end;]]
-
+			end;
+			
 			if insert then
 				lastInsertedIndex = i
 				courseplay:debug(string.format('%d: [x] currentPoint.x = %d, [z] currentPoint.z = %d, insert=true', i, currentPoint.x, currentPoint.z), 22);
@@ -1208,7 +1209,7 @@ function courseplay:setModeState(vehicle, state, debugLevel)
 	debugLevel = debugLevel or 2;
 	if vehicle.cp.modeState ~= state then
 		-- courseplay:onModeStateChange(vehicle, vehicle.cp.modeState, state);
-		print(('%s: modeState=%d -> set modeState to %d\n %s'):format(nameNum(vehicle), vehicle.cp.modeState, state, courseplay.utils:getFnCallPath(debugLevel))); -- DEBUG140301
+		-- print(('%s: modeState=%d -> set modeState to %d\n %s'):format(nameNum(vehicle), vehicle.cp.modeState, state, courseplay.utils:getFnCallPath(debugLevel))); -- DEBUG140301
 		
 		vehicle.cp.modeState = state;
 	end;
