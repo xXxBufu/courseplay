@@ -46,10 +46,10 @@ end;
 
 local function initialize()
 	local fileList = {
-		'astar', 
 		'base',
 		'button', 
 		'bypass',
+		'calculatePath',
 		'combines', 
 		'courseplay_event', 
 		'course_management',

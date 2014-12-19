@@ -41,6 +41,10 @@ function courseplay:handle_mode2(vehicle, dt)
 	-- STATE 8 (all trailers are full)
 	if vehicle.cp.modeState == 8 then
 		courseplay:setRecordNumber(vehicle, 2);
+		
+		
+		
+		
 		courseplay:unregisterFromCombine(vehicle, vehicle.cp.activeCombine)
 		courseplay:setModeState(vehicle, 0);
 		courseplay:setIsLoaded(vehicle, true);
@@ -345,6 +349,22 @@ function courseplay:unload_combine(vehicle, dt)
 
 		local x1, y1, z1 = worldToLocal(tractor.cp.DirectionNode or tractor.rootNode, x, y, z)
 
+				-- PATHFINDING / REALISTIC DRIVING (ASTAR)
+		if vehicle.cp.realisticDriving and not vehicle.cp.calculatedCourseToCombine then
+			if not combine.cp.isChopper then
+				currentX, currentY, currentZ = localToWorld(tractor.cp.DirectionNode or tractor.rootNode, vehicle.cp.combineOffset, 0, -(vehicle.cp.turnRadius + safetyDistance)) --!!!
+			else
+				currentX, currentY, currentZ = localToWorld(tractor.cp.DirectionNode or tractor.rootNode, 0, 0, -(vehicle.cp.turnRadius + safetyDistance))
+			end
+						
+			-- if courseplay:calculate_course_to(vehicle, currentX, currentZ) then
+			if courseplay:calculateAstarPathToCoords(vehicle, currentX, currentZ) then
+				courseplay:setModeState(vehicle, 5);
+				vehicle.cp.shortestDistToWp = nil;
+				courseplay:setMode2NextState(vehicle, 2); -- modeState when waypoint is reached
+			end;
+		end;
+		
 		if z1 > -(vehicle.cp.turnRadius + safetyDistance) then -- tractor in front of combine     
 			-- left side of combine
 			local cx_left, cy_left, cz_left = localToWorld(tractor.cp.DirectionNode or tractor.rootNode, 20, 0, -30)
@@ -371,18 +391,6 @@ function courseplay:unload_combine(vehicle, dt)
 				currentX, currentY, currentZ = localToWorld(tractor.cp.DirectionNode or tractor.rootNode, 0, 0, -(vehicle.cp.turnRadius + safetyDistance))
 			end
 		end
-
-		
-		-- PATHFINDING / REALISTIC DRIVING (ASTAR)
-		if vehicle.cp.realisticDriving and not vehicle.cp.calculatedCourseToCombine then
-			-- if courseplay:calculate_course_to(vehicle, currentX, currentZ) then
-			if courseplay:calculateAstarPathToCoords(vehicle, currentX, currentZ) then
-				courseplay:setModeState(vehicle, 5);
-				vehicle.cp.shortestDistToWp = nil;
-				courseplay:setMode2NextState(vehicle, 2); -- modeState when waypoint is reached
-			end;
-		end;
-		
 
 
 
@@ -849,7 +857,7 @@ function courseplay:unload_combine(vehicle, dt)
 		local dx,dz = AIVehicleUtil.getDriveDirection(frontTractor.cp.DirectionNode, x, y, z);
 		local x1, y1, z1 = worldToLocal(frontTractor.cp.DirectionNode, x, y, z)
 		local distance = Utils.vector2Length(x1, z1)
-		--[[if z1 > -backDistance and dz > -0.9 then
+		if z1 > -backDistance and dz > -0.9 then
 			-- tractor in front of tractor
 			-- left side of tractor
 			local cx_left, cy_left, cz_left = localToWorld(frontTractor.cp.DirectionNode, 30, 0, -backDistance-20)
@@ -866,23 +874,10 @@ function courseplay:unload_combine(vehicle, dt)
 			else
 				currentX, currentY, currentZ = cx_right, cy_right, cz_right
 			end
-		else]]
+		else
 			-- tractor behind tractor
 			currentX, currentY, currentZ = localToWorld(frontTractor.cp.DirectionNode, 0, 0, -backDistance * 1.5); -- -backDistance * 1
-		--end;
-
-		-- PATHFINDING / REALISTIC DRIVING (ASTAR)
-		if vehicle.cp.realisticDriving and not vehicle.cp.calculatedCourseToCombine then
-			-- if courseplay:calculate_course_to(vehicle, currentX, currentZ) then
-			if courseplay:calculateAstarPathToCoords(vehicle, currentX, currentZ) then
-				courseplay:setModeState(vehicle, 5);
-				vehicle.cp.shortestDistToWp = nil;
-				courseplay:setMode2NextState(vehicle, 6); -- modeState when waypoint is reached
-			end;
 		end;
-		
-		
-		
 
 		local lx, ly, lz = worldToLocal(vehicle.cp.DirectionNode, currentX, currentY, currentZ)
 		dod = Utils.vector2Length(lx, lz)
