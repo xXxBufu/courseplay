@@ -102,6 +102,9 @@ function courseplay:handle_mode2(vehicle, dt)
 
 
 	if vehicle.cp.activeCombine ~= nil then
+		if not vehicle.cp.activeCombine.cp.isChopper and courseplay:isSpecialChopper(vehicle.cp.activeCombine)then -- attached wood chipper will not be recognised as chopper before
+			vehicle.cp.activeCombine.cp.isChopper = true
+		end 
 		if vehicle.cp.positionWithCombine == 1 then
 			-- is there a trailer to fill, or at least a waypoint to go to?
 			if vehicle.cp.currentTrailerToFill or vehicle.cp.modeState == 5 then
@@ -138,7 +141,7 @@ function courseplay:handle_mode2(vehicle, dt)
 				if distance > 20 then
 					vehicle.cp.lastActiveCombine = nil
 				else
-					courseplay:debug(string.format("%s (%s): last combine is just %.0f away, so wait", nameNum(vehicle), tostring(vehicle.id), distance), 4);
+					courseplay:debug(string.format("%s (%s): last combine is just %.0fm away, so wait", nameNum(vehicle), tostring(vehicle.id), distance), 4);
 				end
 			else 
 				courseplay:updateReachableCombines(vehicle)
@@ -527,7 +530,7 @@ function courseplay:unload_combine(vehicle, dt)
 			courseplay:setInfoText(vehicle, courseplay:loc("COURSEPLAY_COMBINE_WANTS_ME_TO_STOP")); -- "Drescher sagt ich soll anhalten."
 			allowedToDrive = false
 		elseif combine.cp.isChopper then
-			if combine.movingDirection == 0 and dod == -1 and vehicle.cp.chopperIsTurning == false then
+			if (combine.movingDirection == 0 or courseplay:isSpecialChopper(combine)) and dod == -1 and vehicle.cp.chopperIsTurning == false then
 				allowedToDrive = false
 				courseplay:setInfoText(vehicle, courseplay:loc("COURSEPLAY_COMBINE_WANTS_ME_TO_STOP")); -- "Drescher sagt ich soll anhalten."
 			end
@@ -1089,11 +1092,9 @@ function courseplay:calculateCombineOffset(vehicle, combine)
 		prnwX, prnwY, prnwZ = getWorldTranslation(combine.pipeRaycastNode)
 		combineToPrnX, combineToPrnY, combineToPrnZ = worldToLocal(combine.cp.DirectionNode or combine.rootNode, prnwX, prnwY, prnwZ)
 
-		if combineToPrnX >= 0 then
-			combine.cp.pipeSide = 1; --left
-		else
-			combine.cp.pipeSide = -1; --right
-		end;
+		if combine.cp.pipeSide == nil then
+			courseplay:getCombinesPipeSide(combine)
+		end
 	end;
 
 	--special tools, special cases
