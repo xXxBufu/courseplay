@@ -472,6 +472,9 @@ function courseplay:drive(self, dt)
 	
 	-- allowedToDrive false -> STOP OR HOLD POSITION
 	if not allowedToDrive then
+		-- reset slipping timers
+		courseplay:resetSlippingTimers(self)
+
 		self.cp.TrafficBrake = false;
 		self.cp.isTrafficBraking = false;
 
@@ -1314,6 +1317,10 @@ function courseplay:handleSlipping(vehicle, refSpeed)
 	end;
 end;
 
+function courseplay:resetSlippingTimers(vehicle)
+	courseplay:resetCustomTimer(vehicle, 'slippingStage1');
+	courseplay:resetCustomTimer(vehicle, 'slippingStage2');
+end
 
 -----------------------------------------------------------------------------------------
 

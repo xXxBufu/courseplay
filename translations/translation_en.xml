@@ -37,6 +37,10 @@
 		<text name="COURSEPLAY_FOLDER_NAME" 							 text="Folder name:" />
 		<text name="COURSEPLAY_FILTER_COURSES" 							 text="Filter courses:" />
 		<text name="COURSEPLAY_COURSES_FILTER_TITLE" 					 text="Courses: %q" />
+		<text name="COURSEPLAY_LOAD_COURSE" 						 	 text="Load course/merge into loaded course" />
+		<text name="COURSEPLAY_APPEND_COURSE" 						 	 text="Append course at the end" />
+		<text name="COURSEPLAY_MOVE_TO_FOLDER" 						 	 text="Move to folder" />
+		<text name="COURSEPLAY_DELETE_COURSE" 						 	 text="Delete course/folder" />
 		<text name="COURSEPLAY_CREATE_FOLDER" 							 text="Create new folder" />
 		<text name="COURSEPLAY_SEARCH_FOR_COURSES_AND_FOLDERS" 			 text="Search for courses and folders" />
 		<text name="COURSEPLAY_DEACTIVATE_FILTER" 						 text="Deactivate filter" />
