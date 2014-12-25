@@ -297,10 +297,9 @@ function courseplay:changeToolOffsetX(vehicle, changeBy, force, noDraw)
 	end;
 	vehicle.cp.totalOffsetX = vehicle.cp.laneOffset + vehicle.cp.toolOffsetX;
 
-	if noDraw == nil then noDraw = false; end;
-	if not noDraw and vehicle.cp.mode ~= 3 and vehicle.cp.mode ~= 7 then
+	if not noDraw and vehicle.cp.mode ~= 2 and vehicle.cp.mode ~= 3 and vehicle.cp.mode ~= 7 then
 		courseplay:setCustomTimer(vehicle, 'showWorkWidth', 2);
-	end
+	end;
 end;
 
 function courseplay:changeToolOffsetZ(vehicle, changeBy, force)
@@ -310,7 +309,7 @@ function courseplay:changeToolOffsetZ(vehicle, changeBy, force)
 	end;
 end;
 
-function courseplay:calculateWorkWidth(vehicle)
+function courseplay:calculateWorkWidth(vehicle, noDraw)
 	local l,r;
 
 	courseplay:debug(('%s: calculateWorkWidth()'):format(nameNum(vehicle)), 7);
@@ -323,7 +322,7 @@ function courseplay:calculateWorkWidth(vehicle)
 			local workWidth = courseplay:getSpecialWorkWidth(implement.object);
 			if workWidth then
 				courseplay:debug(('\tSpecial workWidth found: %.1fm'):format(workWidth), 7);
-				courseplay:changeWorkWidth(vehicle, nil, workWidth);
+				courseplay:changeWorkWidth(vehicle, nil, workWidth, noDraw);
 				return;
 			end;
 
@@ -371,7 +370,7 @@ function courseplay:calculateWorkWidth(vehicle)
 	local workWidth = l - r;
 	courseplay:debug(('\tl=%s, r=%s -> workWidth=l-r=%s'):format(tostring(l), tostring(r), tostring(workWidth)), 7);
 
-	courseplay:changeWorkWidth(vehicle, nil, workWidth);
+	courseplay:changeWorkWidth(vehicle, nil, workWidth, noDraw);
 end;
 
 function courseplay:getCuttingAreaValuesX(object)
@@ -422,7 +421,7 @@ function courseplay:getCuttingAreaValuesX(object)
 	return left, right;
 end;
 
-function courseplay:changeWorkWidth(vehicle, changeBy, force)
+function courseplay:changeWorkWidth(vehicle, changeBy, force, noDraw)
 	if force then
 		vehicle.cp.workWidth = max(courseplay:round(abs(force), 1), 0.1);
 	else
@@ -440,7 +439,9 @@ function courseplay:changeWorkWidth(vehicle, changeBy, force)
 			vehicle.cp.workWidth = max(vehicle.cp.workWidth + changeBy, 0.1);
 		end;
 	end;
-	courseplay:setCustomTimer(vehicle, 'showWorkWidth', 2);
+	if not noDraw then
+		courseplay:setCustomTimer(vehicle, 'showWorkWidth', 2);
+	end;
 end;
 
 function courseplay:changeVisualWaypointsMode(vehicle, changeBy, force)
@@ -1441,8 +1442,13 @@ function courseplay:setCurrentTargetFromList(vehicle, index)
 	end;
 end;
 
-function courseplay:addNewTargetVector(vehicle, x, z)
-	local tx, ty, tz = localToWorld(vehicle.cp.DirectionNode or vehicle.rootNode, x, 0, z);
+function courseplay:addNewTargetVector(vehicle, x, z, trailer)
+	local tx, ty, tz = 0,0,0
+	if trailer ~= nil then
+		tx, ty, tz = localToWorld(trailer.rootNode, x, 0, z);
+	else
+		tx, ty, tz = localToWorld(vehicle.cp.DirectionNode or vehicle.rootNode, x, 0, z);
+	end
 	table.insert(vehicle.cp.nextTargets, { x = tx, y = ty, z = tz });
 end;
 
@@ -1546,6 +1552,16 @@ end;
 
 function courseplay:toggleAlwaysUseFourWD(vehicle)
 	vehicle.cp.driveControl.alwaysUseFourWD = not vehicle.cp.driveControl.alwaysUseFourWD;
+end;
+
+function courseplay:getAndSetFixedWorldPosition(object)
+	if object.cp.fixedWorldPosition == nil then
+		object.cp.fixedWorldPosition = {};
+		object.cp.fixedWorldPosition.px, object.cp.fixedWorldPosition.py, object.cp.fixedWorldPosition.pz = getWorldTranslation(object.components[1].node);
+		object.cp.fixedWorldPosition.rx, object.cp.fixedWorldPosition.ry, object.cp.fixedWorldPosition.rz = getWorldRotation(object.components[1].node);
+	end;
+	local fwp = object.cp.fixedWorldPosition;
+	object:setWorldPosition(fwp.px,fwp.py,fwp.pz, fwp.rx,fwp.ry,fwp.rz, 1);
 end;
 
 ----------------------------------------------------------------------------------------------------

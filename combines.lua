@@ -23,10 +23,20 @@ function courseplay:updateReachableCombines(vehicle)
 
 	vehicle.cp.reachableCombines = {};
 
-	if not vehicle.cp.searchCombineAutomatically and vehicle.cp.savedCombine then
-		courseplay:debug(nameNum(vehicle)..": combine is manually set", 4);
-		table.insert(vehicle.cp.reachableCombines, vehicle.cp.savedCombine);
-		return;
+	if not vehicle.cp.searchCombineAutomatically then
+		if not vehicle.cp.savedCombine then
+			-- manual mode, but no combine selected -> empty list
+			return;
+		end;
+
+		local combine = vehicle.cp.savedCombine
+		if combine.cp and combine.cp.isCheckedIn and not combine.cp.isChopper then
+			courseplay:debug(nameNum(vehicle)..": combine (id"..tostring(combine.id)..") is manually set, but already checked in", 4);
+		else
+			courseplay:debug(nameNum(vehicle)..": combine (id"..tostring(combine.id)..") is manually set", 4);
+			table.insert(vehicle.cp.reachableCombines, combine);
+		end
+		return;			
 	end;
 
 	local allCombines = courseplay:getAllCombines();
@@ -194,7 +204,7 @@ function courseplay:registerAtCombine(callerVehicle, combine)
 	end
 
 	courseplay:debug(string.format("%s is being checked in with %s", nameNum(callerVehicle), tostring(combine.name)), 4)
-	combine.cp.isCheckedIn = 1;
+	combine.cp.isCheckedIn = true;
 	callerVehicle.cp.callCombineFillLevel = nil
 	callerVehicle.cp.distanceToCombine = nil
 	callerVehicle.cp.combineID = nil
@@ -230,7 +240,7 @@ function courseplay:unregisterFromCombine(vehicle, combine)
 	if vehicle.cp.activeCombine == nil or combine == nil then
 		return true
 	end
-
+	courseplay:debug(string.format("%s: unregistering from combine id(%s)", nameNum(vehicle), tostring(combine.id)), 4)
 	vehicle.cp.calculatedCourseToCombine = false;
 	courseplay:removeFromCombinesIgnoreList(vehicle, combine)
 	combine.cp.isCheckedIn = nil;
@@ -413,6 +423,12 @@ function courseplay:getSpecialCombineOffset(combine)
 		return 4.8;
 	elseif combine.cp.isGrimmeRootster604 then
 		return -4.3;
+	elseif combine.cp.isPoettingerMex5 then
+		combine.cp.offset = 5.9;
+		return 5.9;
+	elseif combine.cp.isKroneBigX1100 then
+		combine.cp.offset = 8.5;
+		return 8.5;
 	elseif combine.cp.isSugarBeetLoader then
 		local utwX,utwY,utwZ = getWorldTranslation(combine.unloadingTrigger.node);
 		local combineToUtwX,_,_ = worldToLocal(combine.cp.DirectionNode or combine.rootNode, utwX,utwY,utwZ);
