@@ -23,9 +23,9 @@ function courseplay:calcMoves(vehicle,tx,tz,fruitType)
 	local angleGrad = math.deg(Utils.getYRotationFromDirection(ldX, ldZ),22)
 	--courseplay:debug("angleGrad = "..tostring(angleGrad),22)
 	courseplay:debug("call clockwise",22)
-	tableCw, travelDistanceCw = courseplay:scanFruit(vehicle,targetNode,angleGrad,1,fruitType,huge,timeoutDistance,startDistance)
+	tableCw, travelDistanceCw = courseplay:scanFruit(vehicle,targetNode,angleGrad,-1,fruitType,huge,timeoutDistance,startDistance)
 	courseplay:debug("call counter clockwise",22)
-	tableCcw , travelDistanceCcw  = courseplay:scanFruit(vehicle,targetNode,angleGrad,-1,fruitType, travelDistanceCw,timeoutDistance,startDistance)
+	tableCcw , travelDistanceCcw  = courseplay:scanFruit(vehicle,targetNode,angleGrad,1,fruitType, travelDistanceCw,timeoutDistance,startDistance)
 	courseplay:debug("travelDistanceCw = "..tostring(travelDistanceCcw),22)
 	courseplay:debug("travelDistanceCcw = "..tostring(travelDistanceCw),22)
 	
@@ -49,6 +49,7 @@ function courseplay:scanFruit(vehicle,targetNode,startAngle,direction,fruitType,
 	local angleGrad = startAngle
 	local backUpAngle = 0
 	local cx,cy,cz = getWorldTranslation(targetNode);
+	local borderFound,back,backFromBack
 	local i = 1
 	while i<= 360 do
 		i= i+1	
@@ -58,14 +59,14 @@ function courseplay:scanFruit(vehicle,targetNode,startAngle,direction,fruitType,
 		elseif angleGrad < 0 then 
 			angleGrad = angleGrad +360
 		end
+		local lastDistance = distance
 		courseplay:debug(string.format("1st checking: %d Grad distance: %d, fruitType: %s",angleGrad,distance,tostring(fruitType)),22)
 		local ldX, ldZ = Utils.getDirectionFromYRotation(math.rad(angleGrad))
 		local wdX,wdY,wdZ = localDirectionToWorld(targetNode, ldX, 0,ldZ)
-		local lastDistance = distance
-		foundFruit, distance = courseplay:getFieldBorderInDirection(targetNode,wdX,wdZ,fruitType,distance,timeoutDistance)
-		if not foundFruit then -- backup if smart fining doesn't find st
+		foundFruit, distance = courseplay:getFruitBorderInDirection(targetNode,wdX,wdZ,fruitType,distance,timeoutDistance)
+		if not foundFruit then -- backup if smart finding doesn't find something
 			courseplay:debug(string.format("1st checking: no fruit found"),22)
-			foundFruit, distance = courseplay:getFieldBorderInDirection(targetNode,wdX,wdZ,fruitType,0,timeoutDistance)
+			foundFruit, distance = courseplay:getFruitBorderInDirection(targetNode,wdX,wdZ,fruitType,0,timeoutDistance)
 			courseplay:debug(string.format("1st checking: no fruit found new distance: %s",tostring(distance)),22)
 			if not foundFruit then --still nothing found
 				courseplay:debug(string.format("1st checking: backup no fruit found -> break"),22)
@@ -75,106 +76,110 @@ function courseplay:scanFruit(vehicle,targetNode,startAngle,direction,fruitType,
 			timeoutDistance = distance * 3
 			courseplay:debug(string.format("1st checking: found in distance: %d",distance),22)
 		end
+		local icx = cx+(wdX*(distance))
+		local icz = cz+(wdZ*(distance))
+		
 		--is there a jump in distances?
-									--50
-		local loopWatch =  courseplay.utils:get​NumIsWithinTolerance​(math.ceil(backUpAngle),math.ceil(angleGrad),2) --was the last 2nd check at the same angle or near?
-		local developersStop = true
-		if lastDistance > distance+30 and not loopWatch and not developersStop then
-			courseplay:debug(string.format("lastDistance (%d) > distance+50(%d)	jump found at %d Grad", lastDistance ,distance,angleGrad),22)
-			local secondAngleGrad = angleGrad +(2*-direction)
-			--courseplay:debug(string.format("	set angle to %s Grad",tostring(secondAngleGrad)),22)
-			local goBack = true
-			local secondFoundFruit =false
-			local secondDistance = distance
-			backUpAngle = angleGrad
-			while goBack do
-				i= i-1
-				courseplay:debug(string.format("	2nd checking: %d Grad, distance: %d, fruitType: %s",secondAngleGrad,secondDistance,tostring(fruitType)),22)
-				local sldX, sldZ = Utils.getDirectionFromYRotation(math.rad(secondAngleGrad))
-				local swdX,swdY,swdZ = localDirectionToWorld(targetNode, sldX, 0,sldZ)
-				secondFoundFruit, distance = courseplay:getFieldBorderInDirection(targetNode,swdX,swdZ,fruitType,secondDistance,10,true)
-				
-				if not secondFoundFruit then
-					courseplay:debug("	2nd checking: fruit is full, go back to normal",22)
-					angleGrad = secondAngleGrad + (2*direction)
-					distance = secondDistance
-					courseplay:debug("distance = "..tostring(distance),22)
-					goBack = false
-				else
-					courseplay:debug(string.format("	2nd checking: found in distance: %d",distance),22)
-					secondDistance = distance 
-					
-					local icx = cx+(swdX*(distance-5))
-					local icz = cz+(swdZ*(distance-5))
-					
-					
-					secondDistance = distance
-					-- put new way point to table
-					local icx = cx+(swdX*(distance-5))
-					local icz = cz+(swdZ*(distance-5))
-							
-					-- calculate the travel distance of the course
-					if #tempTable>1 then
-						totalDistance = totalDistance + courseplay:distance(icx, icz, tempTable[#tempTable].x, tempTable[#tempTable].z)
-					end
-					if totalDistance > maxLastDistance then
-						return tempTable , totalDistance
-					end		
-					table.insert(tempTable, { x = icx, z = icz });
-					
-					secondAngleGrad = secondAngleGrad + (1*-direction)
-					if secondAngleGrad > 360 then
-						secondAngleGrad = secondAngleGrad -360
-					elseif secondAngleGrad < 0 then 
-							secondAngleGrad = secondAngleGrad +360
-					end
-					
+		local jump = abs(lastDistance - distance)
+		if jump > 30 and lastDistance > 0 and not backFromBack then
+			local oldX, oldZ = cx, cz
+			if #tempTable > 1 then
+				oldX, oldZ = tempTable[#tempTable].x, tempTable[#tempTable].z
+			end
+			local isField = courseplay:isLineField(nil,oldX,oldZ,icx,icz);
+			local hasFruit = courseplay:hasLineFruit(nil,oldX,oldZ,icx,icz);
+			courseplay:debug(string.format("jump found:old %d vs new %d; isField: %s, hasFruit: %s ",lastDistance,distance,tostring(isField),tostring(hasFruit)),22)
+			if isField and hasFruit then
+				courseplay:debug(string.format("isField and hasFruit"),22)
+			elseif isField and not hasFruit then
+				courseplay:debug(string.format("isField and not hasFruit"),22)
+			elseif not isField then
+				courseplay:debug(string.format("not isField"),22)
+				back = true
+				distance = lastDistance
+				while back do
+					if angleGrad > 360 then
+						angleGrad = angleGrad -360
+					elseif angleGrad < 0 then 
+						angleGrad = angleGrad +360
+					end					
+					ldX, ldZ = Utils.getDirectionFromYRotation(math.rad(angleGrad))
+					wdX,wdY,wdZ = localDirectionToWorld(targetNode, ldX, 0,ldZ)
+					courseplay:debug(string.format("border checking: %d Grad distance: %d, fruitType: %s",angleGrad,distance,tostring(fruitType)),22)
+					borderFound , distance = courseplay:getFieldBorderInDirection(targetNode,wdX,wdZ,distance)
+					if borderFound then
+						courseplay:debug(string.format("border found at %d",distance ),22)
+						tempTable , totalDistance = courseplay:addWaypointToTargets(tempTable,totalDistance,cx,cz,wdX,wdZ,distance)
+						angleGrad = angleGrad + (1*-direction)
+					else
+						courseplay:debug(string.format("no border found"),22)
+						back = false
+						backFromBack = true
+						timeoutDistance = distance+30
+					end									
 				end
 			end			
-			--return tempTable , totalDistance
 		else	
-				-- put new way point to table
-				local icx = cx+(wdX*(distance+5))
-				local icz = cz+(wdZ*(distance+5))
-						
-				-- calculate the travel distance of the course
-				if #tempTable>1 then
-					totalDistance = totalDistance + courseplay:distance(icx, icz, tempTable[#tempTable].x, tempTable[#tempTable].z)
-				end
-				if totalDistance > maxLastDistance then
-					return tempTable , totalDistance
-				end		
-				table.insert(tempTable, { x = icx, z = icz });
+			backFromBack = false
+			-- no jump, put new waypoint to table
+			tempTable , totalDistance = courseplay:addWaypointToTargets(tempTable,totalDistance,cx,cz,wdX,wdZ,distance)
+			
+			--[[if totalDistance > maxLastDistance then
+				return tempTable , totalDistance
+			end	]]
 		end
 	end	
-	return tempTable , totalDistance
+	return tempTable,totalDistance
 end	
 
-function courseplay:getFieldBorderInDirection(targetNode,wdX,wdZ,fruitType,distance,timeoutDistance,inversed)
-	local safetyRadius = 5
-	local forward = 1
-	if inversed then
-		safetyRadius = max(distance+50,safetyRadius)
-		forward = -1
-	else
-		safetyRadius = max(distance-50,safetyRadius)
-	end
+function courseplay:getFruitBorderInDirection(targetNode,wdX,wdZ,fruitType,distance,timeoutDistance)
+	local safetyRadius = max(distance-50,5)
 	local cx,cy,cz =  getWorldTranslation(targetNode);
 	local firstHit = false
+	local lastDistance = 0 
 	--courseplay:debug("	check distance = "..safetyRadius,22)
-	for i=safetyRadius,timeoutDistance,forward do
+	for i=safetyRadius,timeoutDistance do
 		local x = cx+(wdX*i)
 		local z = cz+(wdZ*i)
 		if not courseplay:areaHasFruit(x, z, fruitType, 2, 2) then
 			if firstHit then
 				--if inversed then courseplay:debug("	return true, "..tostring(i),22) end
-				return true,i
+				lastDistance = i
+				firstHit = false
 			end
 		else
 			--courseplay:debug("		Hit = "..i,22)
 			firstHit = true
 		end
 	end
-	return false
+	if lastDistance > 0 then
+		return true,lastDistance
+	else
+		return false
+	end
 end
 
+function courseplay:getFieldBorderInDirection(targetNode,wdX,wdZ,distance)
+	local cx,cy,cz = getWorldTranslation(targetNode)
+	for i=distance+10,5,-1 do
+		local x,z = cx+(wdX*i),cz+(wdZ*i)
+		if not courseplay:isField(x, z, 1, 1) then
+			return true, i
+		end
+	end
+		return false,distance
+end
+
+
+function courseplay:addWaypointToTargets(tempTable,totalDistance,cx,cz,wdX,wdZ,distance)
+	local icx = cx+(wdX*(distance+5))
+	local icz = cz+(wdZ*(distance+5))
+
+	-- calculate the travel distance of the course
+	if #tempTable>1 then
+		totalDistance = totalDistance + courseplay:distance(icx, icz, tempTable[#tempTable].x, tempTable[#tempTable].z)
+	end					
+	table.insert(tempTable, { x = icx, z = icz });
+	
+	return tempTable, totalDistance
+end

@@ -1077,8 +1077,8 @@ function courseplay:calculateAstarPathToCoords(vehicle, targetX, targetZ)
 					insert = false;
 				end;
 				local distance = courseplay:distance(currentPoint.x, currentPoint.z, lastPoint.x, lastPoint.z)
-				if  distance < 5 then
-					courseplay:debug(string.format('%d: distance < 5m (%d)  -> insert=false', i,distance), 22);
+				if  distance < vehicle.cp.turnDiameter then
+					courseplay:debug(string.format('%d: distance(%d) < vehicle.cp.turnDiameter(%d)  -> insert=false', i,distance,vehicle.cp.turnDiameter), 22);
 					insert = false;
 				end
 			end;
