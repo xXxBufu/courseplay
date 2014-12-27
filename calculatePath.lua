@@ -2,8 +2,18 @@ local abs, max, min, pow, sin , huge = math.abs, math.max, math.min, math.pow, m
 
 function courseplay:calcMoves(vehicle,tx,tz,fruitType) 
 	courseplay:debug(string.format("calcMoves(vehicle,tx(%d), tz(%d), fruitType %s) ",tx,tz,tostring(fruitType)),22)
-	
 	local sx,sy,sz =  getWorldTranslation(vehicle.cp.DirectionNode);
+	
+	for k,v in pairs(courseplay.fields.fieldData) do
+		local _, centerInPoly = courseplay.fields:getPolygonData(courseplay.fields.fieldData[k].points, tx, tz, true);
+		if centerInPoly then
+			vehicle.cp.actualTargetsField = courseplay.fields.fieldData[k].fieldNum
+		end
+	end
+	
+	local area, centerInPoly, dimensions = courseplay.fields:getPolygonData(courseplay.fields.fieldData[vehicle.cp.actualTargetsField].points, sx, sz, true);
+	print("field: "..tostring(vehicle.cp.actualTargetsField)..", centerInPoly: "..tostring(centerInPoly))
+	
 	local _,ty,_ = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, tx, 0, tz) 
 	local tableCw = {}
 	local tableCcw = {}
@@ -49,7 +59,7 @@ function courseplay:scanFruit(vehicle,targetNode,startAngle,direction,fruitType,
 	local angleGrad = startAngle
 	local backUpAngle = 0
 	local cx,cy,cz = getWorldTranslation(targetNode);
-	local borderFound,back,backFromBack
+	local borderFound,back,backFromBack,backupDistance
 	local i = 1
 	while i<= 360 do
 		i= i+1	
@@ -91,11 +101,12 @@ function courseplay:scanFruit(vehicle,targetNode,startAngle,direction,fruitType,
 			courseplay:debug(string.format("jump found:old %d vs new %d; isField: %s, hasFruit: %s ",lastDistance,distance,tostring(isField),tostring(hasFruit)),22)
 			if isField and hasFruit then
 				courseplay:debug(string.format("isField and hasFruit"),22)
-			elseif isField and not hasFruit then
-				courseplay:debug(string.format("isField and not hasFruit"),22)
-			elseif not isField then
-				courseplay:debug(string.format("not isField"),22)
+			elseif isField and not hasFruit then 
+				courseplay:debug(string.format("isField and not hasFruit -> go on"),22)
+			elseif not isField then 
+				courseplay:debug(string.format("not isField -> find a way along the border"),22)
 				back = true
+				lastFruitDistance = distance
 				distance = lastDistance
 				while back do
 					if angleGrad > 360 then
@@ -106,11 +117,17 @@ function courseplay:scanFruit(vehicle,targetNode,startAngle,direction,fruitType,
 					ldX, ldZ = Utils.getDirectionFromYRotation(math.rad(angleGrad))
 					wdX,wdY,wdZ = localDirectionToWorld(targetNode, ldX, 0,ldZ)
 					courseplay:debug(string.format("border checking: %d Grad distance: %d, fruitType: %s",angleGrad,distance,tostring(fruitType)),22)
-					borderFound , distance = courseplay:getFieldBorderInDirection(targetNode,wdX,wdZ,distance)
-					if borderFound then
+					borderFound , distance = courseplay:getFieldBorderInDirection(vehicle,targetNode,wdX,wdZ,distance)
+					local borderIsCloser = distance < lastFruitDistance
+					if borderFound and not borderIsCloser then
 						courseplay:debug(string.format("border found at %d",distance ),22)
 						tempTable , totalDistance = courseplay:addWaypointToTargets(tempTable,totalDistance,cx,cz,wdX,wdZ,distance)
 						angleGrad = angleGrad + (1*-direction)
+					elseif borderIsCloser then
+						courseplay:debug(string.format("border is closer than fruit -> ignore"),22)
+						distance = lastFruitDistance
+						back = false
+						backFromBack = true
 					else
 						courseplay:debug(string.format("no border found"),22)
 						back = false
@@ -159,12 +176,24 @@ function courseplay:getFruitBorderInDirection(targetNode,wdX,wdZ,fruitType,dista
 	end
 end
 
-function courseplay:getFieldBorderInDirection(targetNode,wdX,wdZ,distance)
+function courseplay:getFieldBorderInDirection(vehicle,targetNode,wdX,wdZ,distance)
 	local cx,cy,cz = getWorldTranslation(targetNode)
+	local firstHit= false
 	for i=distance+10,5,-1 do
 		local x,z = cx+(wdX*i),cz+(wdZ*i)
-		if not courseplay:isField(x, z, 1, 1) then
-			return true, i
+		if vehicle.cp.actualTargetsField ~= nil then
+			local _, centerInPoly = courseplay.fields:getPolygonData(courseplay.fields.fieldData[vehicle.cp.actualTargetsField].points, x, z, true);
+			if centerInPoly then
+				firstHit = true
+			elseif firstHit then
+				return true, i
+			end			
+		else
+			if courseplay:isField(x, z, 1, 1) then -- its dangerous, when U are on a different field
+				firstHit= true				
+			elseif firstHit then
+				return true, i
+			end
 		end
 	end
 		return false,distance
