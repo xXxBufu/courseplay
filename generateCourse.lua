@@ -2,7 +2,7 @@
 @title:     Course Generation for Courseplay
 @authors:   Jakob Tischler, Fck54 (Franck Champlon)
 @version:   2.00
-@date:      09 Jan 2015
+@date:      10 Jan 2015
 
 @copyright: No reproduction, usage or copying without the explicit permission by the authors allowed.
 ]]--
@@ -12,8 +12,8 @@ function courseplay:generateCourse(vehicle)
 
 	-----------------------------------
 	if not vehicle.cp.overlap then vehicle.cp.overlap = 1/4 end; --TODO add this in the menu
-	if not vehicle.cp.minPointDistance then vehicle.cp.minPointDistance = .5 end;
-	if not vehicle.cp.maxPointDistance then vehicle.cp.maxPointDistance = 5 end;
+	if not vehicle.cp.headland.minPointDistance then vehicle.cp.headland.minPointDistance = .5 end;
+	if not vehicle.cp.headland.maxPointDistance then vehicle.cp.headland.maxPointDistance = 5 end;
 
 	local fieldCourseName = tostring(vehicle.cp.currentCourseName);
 	if vehicle.cp.fieldEdge.selectedField.fieldNum > 0 then
@@ -573,10 +573,8 @@ function courseplay:generateCourse(vehicle)
 						    prevLane[idx].turnStart = true;
 						    prevLane[idx].turn = orderCW and 'right' or 'left';
 						else
-        					if i < numHeadlanes then
-        					    table.remove(lane);
-        					    numPoints = numPoints - 1;
-        					end;
+       					    table.remove(lane);
+       					    numPoints = numPoints - 1;
     						crossing = courseplay:lineIntersection(p1, p2, p3, p4);
     						while crossing.ip1 == 'TIP' or crossing.ip1 == 'NFIP' do
     							table.remove(prevLane);
@@ -592,16 +590,13 @@ function courseplay:generateCourse(vehicle)
 						table.insert(lanes,prevLane);
 						numPoints = #lane;
 						startPoint = lane[1];
-					elseif i > 1 then
+					end;
+					if i > 1 and not orderCW then
 						local p3 = lane[1];
 						local p4 = lane[2];
 						local idx = #prevLane;
 						local p1, p2 = prevLane[idx-1], prevLane[idx];
 						local crossing;
-						if i < numHeadlanes then
-							table.remove(lane);
-							numPoints = numPoints - 1;
-						end;
 						crossing = courseplay:lineIntersection(p1, p2, p3, p4);
 						while crossing.ip1 == 'TIP' or crossing.ip1 == 'NFIP' do
 							table.remove(prevLane);
@@ -748,7 +743,7 @@ function courseplay:generateCourse(vehicle)
 		local p3 = vehicle.Waypoints[2];
 		local p4 = vehicle.Waypoints[1];
 		local dist = Utils.vector2Length(p2.cx-p3.cx,p2.cz-p3.cz);
-		returnToStart = courseplay.generation:smoothSpline(p1, p2, p3, p4, dist/vehicle.cp.maxPointDistance);
+		returnToStart = courseplay.generation:smoothSpline(p1, p2, p3, p4, dist/vehicle.cp.headland.maxPointDistance);
 		table.remove(returnToStart, 1);
 		local data = {};
 		for i, point in pairs(returnToStart) do
