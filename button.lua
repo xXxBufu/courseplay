@@ -193,6 +193,9 @@ function courseplay.button:render()
 			elseif fn == "changeWorkWidth" then
 				canScrollUp   = true;
 				canScrollDown = vehicle.cp.workWidth > 0.1;
+			elseif fn == 'changeDouglasPeuckerEpsilon' then
+				canScrollUp   = true;
+				canScrollDown = vehicle.cp.fieldEdge.douglasPeuckerEpsilon > 1.0;
 			end;
 		end;
 
@@ -391,6 +394,12 @@ function courseplay.button:render()
 						show = vehicle.cp.headland.numLanes > 0;
 					elseif prm > 0 then
 						show = vehicle.cp.headland.numLanes < vehicle.cp.headland.maxNumLanes;
+					end;
+				elseif fn == 'changeDouglasPeuckerEpsilon' then
+					if prm < 0 then
+						show = vehicle.cp.fieldEdge.douglasPeuckerEpsilon > 1.0;
+					else
+						show = true;
 					end;
 				-- NOTE: generateCourse button is handled in buttonsActiveEnabled(), section 'generateCourse'
 				end;

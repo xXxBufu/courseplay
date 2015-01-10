@@ -413,6 +413,7 @@ function courseplay:load(xmlFile)
 			fieldNum = 0;
 			selectedFieldNumExists = false;
 		};
+		douglasPeuckerEpsilon = 2.0;
 	};
 
 	-- WOOD CUTTING: increase max cut length

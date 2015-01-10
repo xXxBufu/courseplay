@@ -1055,6 +1055,12 @@ function courseplay.hud:loadPage(vehicle, page)
 		vehicle.cp.hud.content.pages[8][6][1].text = courseplay:loc('COURSEPLAY_HEADLAND');
 		vehicle.cp.hud.content.pages[8][6][2].text = vehicle.cp.headland.numLanes ~= 0 and tostring(vehicle.cp.headland.numLanes) or '-';
 
+		-- line 7 = Douglas-Peucker epsilon
+		if CpManager.isDeveloper then
+			vehicle.cp.hud.content.pages[8][7][1].text = 'Douglas-Peucker epsilon';
+			vehicle.cp.hud.content.pages[8][7][2].text = ('%.1f m'):format(vehicle.cp.fieldEdge.douglasPeuckerEpsilon);
+		end;
+
 
 	-- PAGE 9: SHOVEL SETTINGS
 	elseif page == 9 then
@@ -1548,8 +1554,15 @@ function courseplay.hud:setupVehicleHud(vehicle)
 	vehicle.cp.headland.orderButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'headlandOrdBef' }, 'toggleHeadlandOrder', nil, orderBtnX, self.linesButtonPosY[6], wBig, hSmall, 6, nil, false, nil, nil, 'Headland before/after field course'); -- TODO (Jakob): i18n
 
 	-- 6.3: numLanes
-	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navUp' },   'changeHeadlandNumLanes',   1, self.buttonPosX[2], self.linesButtonPosY[6], wSmall, hSmall, 6, nil, false);
-	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navDown' }, 'changeHeadlandNumLanes',  -1, self.buttonPosX[1], self.linesButtonPosY[6], wSmall, hSmall, 6, nil, false);
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navDown' }, 'changeHeadlandNumLanes',  -1, self.buttonPosX[2], self.linesButtonPosY[6], wSmall, hSmall, 6, nil, false);
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navUp' },   'changeHeadlandNumLanes',   1, self.buttonPosX[1], self.linesButtonPosY[6], wSmall, hSmall, 6, nil, false);
+
+	-- 7: Douglas-Peucker epsilon
+	if CpManager.isDeveloper then
+		courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navMinus' }, 'changeDouglasPeuckerEpsilon', -0.5, self.buttonPosX[2], self.linesButtonPosY[7], wSmall, hSmall, 7, -1, false);
+		courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navPlus' },  'changeDouglasPeuckerEpsilon',  0.5, self.buttonPosX[1], self.linesButtonPosY[7], wSmall, hSmall, 7,  1, false);
+		courseplay.button:new(vehicle, 8, nil, 'changeDouglasPeuckerEpsilon', 0.5, mouseWheelArea.x, self.linesButtonPosY[7], mouseWheelArea.w, mouseWheelArea.h, 7, 1, true, true);
+	end;
 
 	-- generation action button
 	local toolTip = 'Generate field course'; -- TODO: i18n

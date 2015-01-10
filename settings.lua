@@ -1627,6 +1627,11 @@ function courseplay:getIsEngineReady(vehicle)
 	return vehicle.isMotorStarted and (vehicle.motorStartTime == nil or vehicle.motorStartTime < g_currentMission.time);
 end;
 
+function courseplay:changeDouglasPeuckerEpsilon(vehicle, changeBy)
+	vehicle.cp.fieldEdge.douglasPeuckerEpsilon = max(vehicle.cp.fieldEdge.douglasPeuckerEpsilon + changeBy, 1.0);
+	print(('%s: changeDouglasPeuckerEpsilon(%+.1f) -> new epsilon = %.1f'):format(nameNum(vehicle), changeBy, vehicle.cp.fieldEdge.douglasPeuckerEpsilon));
+end;
+
 ----------------------------------------------------------------------------------------------------
 
 function courseplay:setCpVar(varName, value, noEventSend)
