@@ -51,7 +51,7 @@ function courseplay:updateReachableCombines(vehicle)
 			if combineX >= fieldData.dimensions.minX and combineX <= fieldData.dimensions.maxX and combineZ >= fieldData.dimensions.minZ and combineZ <= fieldData.dimensions.maxZ then
 				courseplay:debug(string.format('%s: combine %q is in field %d\'s dimensions', nameNum(vehicle), nameNum(combine), vehicle.cp.searchCombineOnField), 4);
 				-- if courseplay:pointInPolygonV2b(fieldData.points, combineX, combineZ, true) then
-				local _, pointInPoly, _, _ = courseplay.fields:getPolygonData(fieldData.points, combineX, combineZ, true, true, true);
+				local _, pointInPoly, _, _ = courseplay.geometry:getPolygonData(fieldData.points, combineX, combineZ, true, true, true);
 				if pointInPoly then
 					courseplay:debug(string.format('\tcombine is in field %d\'s poly', vehicle.cp.searchCombineOnField), 4);
 					courseplay:debug(string.format('%s: adding %q to reachableCombines table', nameNum(vehicle), nameNum(combine)), 4);

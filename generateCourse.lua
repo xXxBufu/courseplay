@@ -7,6 +7,7 @@
 @copyright: No reproduction, usage or copying without the explicit permission by the authors allowed.
 ]]--
 
+local geometry = courseplay.geometry;
 local abs, sqrt = math.abs, math.sqrt;
 
 function courseplay:generateCourse(vehicle)
@@ -35,7 +36,7 @@ function courseplay:generateCourse(vehicle)
 	else
 		field = courseplay.utils.table.copy(vehicle.Waypoints, true);
 	end;
-	field = self:setPolyClockwise(field);
+	field = geometry:setPolyClockwise(field);
 
 	local pointsInField = #(field);
 	local polyPoints = field;
@@ -106,7 +107,7 @@ function courseplay:generateCourse(vehicle)
 			-- --------------------------------------------------
 			-- (2.1) CREATE INITIAL OFFSET POINTS
 			courseplay:debug('(2.1) CREATE INITIAL OFFSET POINTS', 7);
-			local lane = courseplay:offsetPoly(polyPoints, -offsetWidth, vehicle);
+			local lane = geometry:offsetPoly(polyPoints, -offsetWidth, vehicle);
 			polyPoints = courseplay.utils.table.copy(lane,true); -- save result for next lane and field lanes calculation.
 			if not(orderCW) then -- offset pline is always clockwise.
 				lane = table.reverse(lane);
@@ -118,9 +119,9 @@ function courseplay:generateCourse(vehicle)
 			if numOffsetPoints > 2 then
 				for i, point in ipairs(lane) do
 					if i < numOffsetPoints then
-						point.angle = courseplay.generation:signAngleDeg(point,lane[i+1]);
+						point.angle = geometry:signAngleDeg(point,lane[i+1]);
 					else
-						point.angle = courseplay.generation:signAngleDeg(point,lane[1]);
+						point.angle = geometry:signAngleDeg(point,lane[1]);
 					end;
 					if i > 1 then
 						courseplay:debug(string.format('headland - lane %d (data.angle = %s, point.angle = %s)', curLane, tostring(data.angle), tostring(point.angle)),7);
@@ -171,7 +172,7 @@ function courseplay:generateCourse(vehicle)
 			if vehicle.cp.overlap ~= 0 then
 				offsetWidth = self:getOffsetWidth(vehicle, numHeadlanes + 1);
 				offsetWidth = (offsetWidth / 2) * (1 - vehicle.cp.overlap);
-				polyPoints = courseplay:offsetPoly(polyPoints, -offsetWidth);
+				polyPoints = geometry:offsetPoly(polyPoints, -offsetWidth);
 			end;
 			numPoints = #(polyPoints);
 			courseplay:debug(string.format('headland: numHeadlanes=%d, workArea has %s points', numHeadlanes, tostring(numPoints)), 7);
@@ -193,7 +194,7 @@ function courseplay:generateCourse(vehicle)
 
 	local fieldWorkCourse, fieldPoints = {}, {};
 
-	local dimensions = courseplay.generation:getPolyDimensions(field);
+	local _, _, dimensions, _ = geometry:getPolygonData(field, nil, nil, true, true, false);
 	courseplay:debug(string.format('minX=%s, maxX=%s', tostring(dimensions.minX), tostring(dimensions.maxX)), 7); --WORKS
 	courseplay:debug(string.format('minZ=%s, maxZ=%s', tostring(dimensions.minZ), tostring(dimensions.maxZ)), 7); --WORKS
 	courseplay:debug(string.format('generateCourse(%i): width=%s, height=%s', debug.getinfo(1).currentline, tostring(dimensions.width), tostring(dimensions.height)), 7); --WORKS
@@ -271,7 +272,7 @@ function courseplay:generateCourse(vehicle)
 				curPoint.cx = Utils.clamp(curPoint.cx, dimensions.minX + (workWidth/2), dimensions.maxX - (workWidth/2));
 
 				--is point in field?
-				local _, pointInPoly = courseplay:minDistToPline(curPoint, polyPoints);
+				local _, pointInPoly = geometry:minDistToPline(curPoint, polyPoints);
 				if pointInPoly then
 					courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - in Poly - adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
 					table.insert(pathPoints, curPoint);
@@ -279,7 +280,7 @@ function courseplay:generateCourse(vehicle)
 				else
 					courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - not in Poly - not adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
 				end;
-				_, pointInPoly = courseplay:minDistToPline(curPoint, field);
+				_, pointInPoly = geometry:minDistToPline(curPoint, field);
 				if pointInPoly then
 				    table.insert(fieldPoints, curPoint);
 				end;
@@ -356,7 +357,7 @@ function courseplay:generateCourse(vehicle)
 				curPoint.z = Utils.clamp(curPoint.cz, dimensions.minZ + (workWidth/2), dimensions.maxZ - (workWidth/2));
 
 				--is point in field?
-				local _, pointInPoly = courseplay:minDistToPline(curPoint, polyPoints);
+				local _, pointInPoly = geometry:minDistToPline(curPoint, polyPoints);
 				if pointInPoly then
 					courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - in Poly - adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
 					table.insert(pathPoints, curPoint);
@@ -364,7 +365,7 @@ function courseplay:generateCourse(vehicle)
 				else
 					courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - not in Poly - not adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
 				end;
-				_, pointInPoly = courseplay:minDistToPline(curPoint, field);
+				_, pointInPoly = geometry:minDistToPline(curPoint, field);
 				if pointInPoly then
 				    table.insert(fieldPoints, curPoint);
 				end;
@@ -401,11 +402,11 @@ function courseplay:generateCourse(vehicle)
 		--SIGN ANGLE: N=180, E=90, S=0, W=270
 		local angleDeg, signAngleDeg;
 		if cp.firstInLane or i == 1 then
-			angleDeg     = math.deg(math.atan2(np.cz - cp.cz, np.cx - cp.cx));
-			signAngleDeg = math.deg(math.atan2(np.cx - cp.cx, np.cz - cp.cz));
+			angleDeg     = geometry:angleDeg(cp, np);
+			signAngleDeg = geometry:signAngleDeg(cp, np);
 		else
-			angleDeg     = math.deg(math.atan2(cp.cz - pp.cz, cp.cx - pp.cx));
-			signAngleDeg = math.deg(math.atan2(cp.cx - pp.cx, cp.cz - pp.cz));
+			angleDeg     = geometry:angleDeg(pp, cp);
+			signAngleDeg = geometry:signAngleDeg(pp, cp);
 		end;
 
 		if cp.firstInLane or i == 1 or isLastLane then
@@ -431,7 +432,7 @@ function courseplay:generateCourse(vehicle)
 
 		--TURN MANEUVER ... AND STUFF
 		if cp.firstInLane then
-			newFirstInLane = courseplay:findCrossing(np, cp, polyPoints, "PFIP"); -- search the intersection point before cp
+			newFirstInLane = geometry:findCrossing(np, cp, polyPoints, "PFIP"); -- search the intersection point before cp
 
 			if newFirstInLane ~= nil then
 				--courseplay:debug(string.format("lane %d: newFirstInLane: x=%f, z=%f", cp.lane, newFirstInLane.x, newFirstInLane.z), 7);
@@ -486,9 +487,9 @@ function courseplay:generateCourse(vehicle)
 				point.turn = nil;
 			end;
 
-			angleDeg = courseplay:positiveAngleDeg(angleDeg);
+			angleDeg = geometry:positiveAngleDeg(angleDeg);
 
-			newLastInLane = courseplay:findCrossing(pp, cp, polyPoints, "PFIP");
+			newLastInLane = geometry:findCrossing(pp, cp, polyPoints, "PFIP");
 
 			if newLastInLane ~= nil then
 				--courseplay:debug(string.format("newLastInLane: x=%f, z=%f", newLastInLane.x, newLastInLane.z), 7);
@@ -531,7 +532,7 @@ function courseplay:generateCourse(vehicle)
 
 	if vehicle.cp.startingCorner == 0 then -- start on nearest point to vehicle ; TO BE ADDED TO HUD.
 		local cx, _, cz = getWorldTranslation(vehicle.rootNode);
-		local starIdx = self:getClosestPolyPoint(vehicle.cp.headland.lanes[1], cx, cz);
+		local starIdx = geometry:getClosestPolyPoint(vehicle.cp.headland.lanes[1], cx, cz);
 		startPoint = vehicle.cp.headland.lanes[startIdx];
 	else
 
@@ -553,7 +554,7 @@ function courseplay:generateCourse(vehicle)
 				for i,lane in ipairs(vehicle.cp.headland.lanes) do
 					local numPoints = #lane;
 					courseplay:debug(string.format('curent lane has %d points',numPoints),7);
-					local closest = self:getClosestPolyPoint(lane, startPoint.cx, startPoint.cz);
+					local closest = geometry:getClosestPolyPoint(lane, startPoint.cx, startPoint.cz);
 					courseplay:debug(string.format('closest point on lane is : %s (%.2f, %.2f)', tostring(closest), lane[closest].cx, lane[closest].cz), 7);
 					courseplay:debug(string.format('[before] rotating headland lane=%d, closest=%d -> rotate: numPoints-(closest)=%d-(%d-1)=%d', i, closest, numPoints, closest, numPoints - (closest-1)), 7);
 				    if orderCW then
@@ -567,20 +568,20 @@ function courseplay:generateCourse(vehicle)
 						local idx = #prevLane;
 						local p1, p2 = prevLane[idx-1], prevLane[idx];
 						local crossing;
-						if self:areOpposit(p4.angle,p1.angle,10,true) then
-						    crossing = courseplay:lineIntersection(p1,p2,prevLane[1],prevLane[2]);
+						if geometry:areOpposite(p4.angle,p1.angle,10,true) then
+						    crossing = geometry:lineIntersection(p1,p2,prevLane[1],prevLane[2]);
 						    lane[1].turnEnd = true;
 						    prevLane[idx].turnStart = true;
 						    prevLane[idx].turn = orderCW and 'right' or 'left';
 						else
        					    table.remove(lane);
        					    numPoints = numPoints - 1;
-    						crossing = courseplay:lineIntersection(p1, p2, p3, p4);
+    						crossing = geometry:lineIntersection(p1, p2, p3, p4);
     						while crossing.ip1 == 'TIP' or crossing.ip1 == 'NFIP' do
     							table.remove(prevLane);
     							idx = idx - 1;
     							p1, p2 = prevLane[idx-1], prevLane[idx];
-    							crossing = courseplay:lineIntersection(p1, p2, p3, p4);
+    							crossing = geometry:lineIntersection(p1, p2, p3, p4);
     						end;
 							prevLane[idx].cx = crossing.cx;
 							prevLane[idx].cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, crossing.cx, 1, crossing.cz)
@@ -597,12 +598,12 @@ function courseplay:generateCourse(vehicle)
 						local idx = #prevLane;
 						local p1, p2 = prevLane[idx-1], prevLane[idx];
 						local crossing;
-						crossing = courseplay:lineIntersection(p1, p2, p3, p4);
+						crossing = geometry:lineIntersection(p1, p2, p3, p4);
 						while crossing.ip1 == 'TIP' or crossing.ip1 == 'NFIP' do
 							table.remove(prevLane);
 							idx = idx - 1;
 							p1, p2 = prevLane[idx-1], prevLane[idx];
-							crossing = courseplay:lineIntersection(p1, p2, p3, p4);
+							crossing = geometry:lineIntersection(p1, p2, p3, p4);
 						end;
 						table.remove(lanes);
 						table.insert(lanes,prevLane);
@@ -612,7 +613,7 @@ function courseplay:generateCourse(vehicle)
 					end;
 					if i == numHeadlanes and not(turnAround) then -- last headlane link to first fieldWorkCourse point
 						courseplay:debug(string.format('last direction is %.2f, field start direction is %.2f',lane[numPoints].angle,fieldWorkCourse[1].angle),7);
-						if courseplay.generation:areOpposit(lane[numPoints].angle,fieldWorkCourse[1].angle,20,true) then
+						if geometry:areOpposite(lane[numPoints].angle,fieldWorkCourse[1].angle,20,true) then
 							local data = lane[numPoints];
 							data.cx = (dir == "N" or dir == "S") and lane[numPoints].cx or fieldWorkCourse[1].cx;
 							data.cz = (dir == "E" or dir == "W") and lane[numPoints].cz or fieldWorkCourse[1].cz;
@@ -621,20 +622,20 @@ function courseplay:generateCourse(vehicle)
 							lane[numPoints] = data ;
 							fieldWorkCourse[1].turnEnd = true;
 						else
-							local crossing = courseplay:lineIntersection(lane[numPoints-1],lane[numPoints],fieldWorkCourse[1],fieldWorkCourse[2]);
+							local crossing = geometry:lineIntersection(lane[numPoints-1],lane[numPoints],fieldWorkCourse[1],fieldWorkCourse[2]);
 							while crossing.ip1 == 'TIP' or crossing.ip1 == 'NFIP' do
 								table.remove(lane);
 								numPoints = numPoints - 1;
-								crossing = courseplay:lineIntersection(lane[numPoints-1],lane[numPoints],fieldWorkCourse[1],fieldWorkCourse[2]);
+								crossing = geometry:lineIntersection(lane[numPoints-1],lane[numPoints],fieldWorkCourse[1],fieldWorkCourse[2]);
 							end;
 							local p1,p2,p3,p4 = lane[numPoints-1],lane[numPoints],fieldWorkCourse[1],fieldWorkCourse[2]
 							local dist = Utils.vector2Length(p2.cx-p3.cx,p2.cz-p3.cz);
 							if dist > 2 then
-								local spline = courseplay.generation:smoothSpline(p1, p2, p3, p4, dist/2);
+								local spline = geometry:smoothSpline(p1, p2, p3, p4, dist/2);
 								local data = {};
 								for i, point in pairs(spline) do
 									if  i < #spline then
-										point.angle = courseplay.generation:signAngleDeg(point,spline[i+1]);
+										point.angle = geometry:signAngleDeg(point,spline[i+1]);
 									else
 										point.angle = data.angle;
 									end;
@@ -656,13 +657,13 @@ function courseplay:generateCourse(vehicle)
 										};
 									spline[i] = data;
 								end;
-								lane = courseplay:appendPoly(lane, spline, false, false);
+								lane = geometry:appendPoly(lane, spline, false, false);
 							end;
 						end;
 					end;
 					if i == 1 then
 						-- set start point on the field edge
-						local newStart = courseplay:findCrossing(lane[3],lane[2], field, 'PFIP');
+						local newStart = geometry:findCrossing(lane[3],lane[2], field, 'PFIP');
 						if orderCW then
 						    startPoint = lane[2];
 						else
@@ -687,11 +688,11 @@ function courseplay:generateCourse(vehicle)
 					local lane = vehicle.cp.headland.lanes[i];
 					table.remove(lane);
 					local numPoints = #lane;
-					local closest = self:getClosestPolyPoint(lane, lastFieldworkPoint.cx, lastFieldworkPoint.cz); --TODO: works, but how if lastFieldWorkPoint is nil???
+					local closest = geometry:getClosestPolyPoint(lane, lastFieldworkPoint.cx, lastFieldworkPoint.cz); --TODO: works, but how if lastFieldWorkPoint is nil???
 					courseplay:debug(string.format('[after] rotating headland lane=%d, closest=%d -> rotate: numPoints-(closest-1)=%d-(%d-1)=%d', i, closest, numPoints, closest, numPoints - (closest-1)), 7);
 
 					lane = table.rotate(lane, numPoints - (closest+1));
-					if i == numHeadlandLanesCreated and self:near(self:pointAngle(lane[1],lane[2]) + 180,lastFieldworkPoint.angle, 5, 'deg') then
+					if i == numHeadlandLanesCreated and geometry:near(self:pointAngle(lane[1],lane[2]) + 180,lastFieldworkPoint.angle, 5, 'deg') then
 						--we will have to make a turn maneuver before entering headland
 						tmpLane[1].turnEnd = true;
 					end;
@@ -743,12 +744,12 @@ function courseplay:generateCourse(vehicle)
 		local p3 = vehicle.Waypoints[2];
 		local p4 = vehicle.Waypoints[1];
 		local dist = Utils.vector2Length(p2.cx-p3.cx,p2.cz-p3.cz);
-		returnToStart = courseplay.generation:smoothSpline(p1, p2, p3, p4, dist/vehicle.cp.headland.maxPointDistance);
+		returnToStart = geometry:smoothSpline(p1, p2, p3, p4, dist/vehicle.cp.headland.maxPointDistance);
 		table.remove(returnToStart, 1);
 		local data = {};
 		for i, point in pairs(returnToStart) do
 			if  i < #returnToStart then
-				point.angle = courseplay.generation:signAngleDeg(point,returnToStart[i+1]);
+				point.angle = geometry:signAngleDeg(point,returnToStart[i+1]);
 			else
 				point.angle = data.angle;
 			end;
@@ -770,7 +771,7 @@ function courseplay:generateCourse(vehicle)
 				};
 			returnToStart[i] = data;
 		end;
-		p4.angle = courseplay:invertAngleDeg(p4.angle);
+		p4.angle = geometry:invertAngleDeg(p4.angle);
 		table.insert(returnToStart,p4);
 
 		-- local srcCourse = fieldWorkCourse;
@@ -785,7 +786,7 @@ function courseplay:generateCourse(vehicle)
 			-- local point = {
 				-- cx = origPathPoint.cx,
 				-- cz = origPathPoint.cz,
-				-- angle = courseplay:invertAngleDeg(origPathPoint.angle),
+				-- angle = geometry:invertAngleDeg(origPathPoint.angle),
 				-- wait = false, --b == 1,
 				-- rev = false,
 				-- crossing = false,
@@ -829,766 +830,27 @@ function courseplay:generateCourse(vehicle)
 	courseplay:validateCourseGenerationData(vehicle);
 	courseplay:validateCanSwitchMode(vehicle);
 	courseplay:debug(string.format("generateCourse() finished: %d lanes, %d headland", numLanes, #(vehicle.cp.headland.lanes)), 7);
-
 end;
 
 
-------------------------------------------------------------------------
-------------------------------------------------------------------------
-------------------------------------------------------------------------
--- ############# HELPER FUNCTIONS
--- function courseplay.generation:getPolyDimensions(polyXValues, polyZValues)
-	-- local dimensions = {
-		-- minX = math.min(unpack(polyXValues));
-		-- maxX = math.max(unpack(polyXValues));
-		-- minZ = math.min(unpack(polyZValues));
-		-- maxZ = math.max(unpack(polyZValues));
-	-- };
-	-- dimensions.width = dimensions.maxX - dimensions.minX;
-	-- dimensions.height = dimensions.maxZ - dimensions.minZ;
 
-	-- return dimensions;
--- end;
+-- ####################################################################################################
 
-function courseplay.generation:getPolyDimensions(poly)
-	local dimensions = {
-		minX = math.huge,
-		maxX = -math.huge,
-		minZ = math.huge,
-		maxZ = -math.huge
-	};
-	for _, point in pairs(poly) do
-		if point.cx < dimensions.minX then
-			dimensions.minX = point.cx;
-		end;
-		if point.cx > dimensions.maxX then
-			dimensions.maxX = point.cx;
-		end;
-		if point.cz < dimensions.minZ then
-			dimensions.minZ = point.cz;
-		end;
-		if point.cz > dimensions.maxZ then
-			dimensions.maxZ = point.cz;
-		end;
-	end;
-	dimensions.width = dimensions.maxX - dimensions.minX;
-	dimensions.height = dimensions.maxZ - dimensions.minZ;
 
-	return dimensions;
-end;
-
-function courseplay:invertAngleDeg(ang)
-	if ang > 0 then
-		return ang - 180;
-	else
-		return ang + 180;
-	end;
-end;
-
-function courseplay:positiveAngleDeg(ang)
-	while ang < 0 do
-		ang = ang + 360;
-	end;
-	return ang;
-end;
-
-function courseplay.generation:angleDeg(p1,p2)
-	return math.deg(math.atan2(p2.cz-p1.cz, p2.cx-p1.cx));
-end;
-
-function courseplay.generation:signAngleDeg(p1,p2)
-	return math.deg(math.atan2(p2.cx-p1.cx, p2.cz-p1.cz));
-end;
-
-function courseplay.generation:lineIntersectsPoly(point1, point2, poly)
-	for k,wp in pairs(poly.points) do
-		local nextPointIdx;
-		if k < poly.numPoints then
-			nextPointIdx = k + 1;
-		elseif k == poly.numPoints then
-			nextPointIdx = 1;
-		end;
-		local nextPoint = poly.points[nextPointIdx];
-
-		local intersects = courseplay:segmentsIntersection(point1.x, point1.z, point2.x, point2.z, wp.cx, wp.cz, nextPoint.cx, nextPoint.cz);
-		if intersects then
-			return intersects;
-		end;
-	end;
-	return nil;
-end;
-
-function courseplay:segmentsIntersection(A1x, A1y, A2x, A2y, B1x, B1y, B2x, B2y, where) --@src: http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect#comment19248344_1968345
-	if where == nil then
-		where = 'segment';
-	end;
-
-	local s1_x = A2x - A1x;
-	local s1_y = A2y - A1y;
-	local s2_x = B2x - B1x;
-	local s2_y = B2y - B1y;
-
-	local denom = (-s2_x * s1_y + s1_x * s2_y);
-	if math.abs(denom) > 0 then
-		local s = (-s1_y * (A1x - B1x) + s1_x * (A1y - B1y)) / denom; --concerns p3,p4
-		local t = ( s2_x * (A1y - B1y) - s2_y * (A1x - B1x)) / denom; --concerns p1,p2
-		if ((s >= 0 and s <= 1 and t >= 0 and t <= 1) and where == 'segment')
-			or (s <= 0 and t >= 0 and where == 'between')
-			or (s >= 0 and s <= 1 and t >= 0 and where == 'lineonsegment') then
-			--Collision detected
-			--courseplay:debug(string.format('segInter ( %s, denom = %.4f, s = %.4f, t = %.4f )',where, denom, s, t), 7);
-			local x = A1x + (t * s1_x);
-			local z = A1y + (t * s1_y);
-			return { x = x, z = z };
-		end;
-	end;
-	--No collision
-	return nil;
-end;
-
---@src: https://github.com/ChubbRck/Cosmic-Crossfire/blob/master/mathlib.lua#L322
---NOTE: combined area check with 2 virtual offset points (1 on each side) 'in poly' check
-function courseplay.generation:isPolyClockwise(poly)
-	--offset test points
-	local dirX,dirZ = self:getPointDirection(poly[1],poly[2]);
-	local offsetRight = {
-		cx = poly[2].cx - dirZ,
-		cz = poly[2].cz + dirX,
-		isInPoly = false
-	};
-	local offsetLeft = {
-		cx = poly[2].cx + dirZ,
-		cz = poly[2].cz - dirX,
-		isInPoly = false
-	};
-
-	-- clockwise vs counterclockwise variables
-	local area, success, tries = 0, false, 1;
-
-	-- point in poly variables
-	local numPoints = #poly;
-
-	local cp, np, pp;
-	local fp = poly[1];
-	for i=1, numPoints do
-		cp = poly[i];
-		np = poly[i+1];
-		pp = poly[i-1];
-		if i == 1 then
-			pp = poly[numPoints];
-		end;
-
-		-- clockwise vs counterclockwise
-		if i < numPoints then
-			local pointStart = {
-				x = cp.cx - fp.cx;
-				z = cp.cz - fp.cz;
-			};
-			local pointEnd = {
-				x = np.cx - fp.cx;
-				z = np.cz - fp.cz;
-			};
-			area = area + (pointStart.x * -pointEnd.z) - (pointEnd.x * -pointStart.z);
-		end;
-
-		-- offset right point in poly
-		if ((cp.cz > offsetRight.cz) ~= (pp.cz > offsetRight.cz)) and (offsetRight.cx < (pp.cx - cp.cx) * (offsetRight.cz - cp.cz) / (pp.cz - cp.cz) + cp.cx) then
-			offsetRight.isInPoly = not offsetRight.isInPoly;
-		end;
-
-		-- offset left point in poly
-		if ((cp.cz > offsetLeft.cz)  ~= (pp.cz > offsetLeft.cz))  and (offsetLeft.cx  < (pp.cx - cp.cx) * (offsetLeft.cz  - cp.cz) / (pp.cz - cp.cz) + cp.cx) then
-			offsetLeft.isInPoly = not offsetLeft.isInPoly;
-		end;
-	end;
-
-	local isClockwise = area < 0;
-	if isClockwise then
-		courseplay:debug(string.format('isPolyClockwise(): isClockwise=%s, offsetRight.isInPoly=%s -> %s', tostring(isClockwise), tostring(offsetRight.isInPoly), offsetRight.isInPoly and 'match' or 'no match'), 7);
-	else
-		courseplay:debug(string.format('isPolyClockwise(): isClockwise=%s, offsetLeft.isInPoly=%s -> %s', tostring(isClockwise), tostring(offsetLeft.isInPoly), offsetLeft.isInPoly and 'match' or 'no match'), 7);
-	end;
-
-	return isClockwise;
-end;
-
-function courseplay.generation:getPointDirection(cp, np, useC)
-	if useC == nil then useC = true; end;
-	local x,z = 'x','z';
-	if useC then
-		x,z = 'cx','cz';
-	end;
-
-	local dx, dz = np[x] - cp[x], np[z] - cp[z];
-	local vl = Utils.vector2Length(dx, dz);
-	if vl and vl > 0.0001 then
-		dx = dx / vl;
-		dz = dz / vl;
-	end;
-	return dx, dz, vl;
-end;
 
 function courseplay.generation:getOffsetWidth(vehicle, laneNum)
 	local w = vehicle.cp.workWidth;
 	if laneNum == 1 then
-		w = w/2;
+		w = w * 0.5;
 	end;
 	return w;
-end;
-
-function courseplay.generation:mirrorPoint(p1, p2, useC)
-	--returns p1 mirrored at p2
-	if useC == nil then useC = true;  end;
-	local x, z = 'x', 'z';
-	if useC then
-		x, z = 'cx', 'cz';
-	end;
-	local sp = {
-		[x] = p2[x] + (p2[x] - p1[x]),
-		[z] = p2[z] + (p2[z] - p1[z])
-	} ;
-	return sp;
-end;
-
--- @src: http://www.efg2.com/Lab/Graphics/Jean-YvesQueinecBezierCurves.htm
-function courseplay.generation:smoothSpline(refPoint1, startPoint, endPoint , refPoint2 , steps, useC, addHeight)
-	if useC == nil then useC = true; end;
-	if addHeight == nil then addHeight = false; end;
-
-	local steps = steps or 5;
-	local spline = {};
-	local x,y,z = 'x','y','z';
-	if useC then
-		x,y,z = 'cx','cy','cz';
-	end;
-	local p1,p2,p3,p4;
-	if refPoint1 or RefPoint2 then
-		p1 = startPoint;
-		p4 = endPoint;
-		if refPoint1 and refPoint2 then
-			local crossingPoint = courseplay:lineIntersection(refPoint1, startPoint, endPoint, refPoint2);
-			if crossingPoint.ip1 == 'PFIP' and crossingPoint.ip2 == 'NFIP' then -- crossing point is used as reference
-				crossingPoint.x, crossingPoint.z = crossingPoint.cx, crossingPoint.cz;
-				courseplay:debug(string.format('lines are crossing at : %.4f, %.4f', crossingPoint[x], crossingPoint[z]), 7);
-				p2 = crossingPoint;
-				p3 = crossingPoint;
-			else
-				p2 = self:mirrorPoint(refPoint1, startPoint, useC);
-				p3 = self:mirrorPoint(refPoint2, endPoint, useC);
-			end;
-		else
-			if refPoint1 then
-				p3 = self:mirrorPoint(refPoint1, startPoint, useC);
-				p2 = p3;
-			else
-				p2 = self:mirrorPoint(refPoint2, endPoint, useC);
-				p3 = p2;
-			end;
-		end;
-		for t = 0, 1, (1/steps) do
-			local point = {
-				[x] = math.pow(1-t, 3) * p1[x] + 3 * math.pow(1-t, 2) * t * p2[x] + 3 * (1-t) * t*t *  p3[x] + t*t*t * p4[x],
-				[z] = math.pow(1-t, 3) * p1[z] + 3 * math.pow(1-t, 2) * t * p2[z] + 3 * (1-t) * t*t *  p3[z] + t*t*t * p4[z],
-				[y] = addHeight and getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, point[x], 1, point[z]) + 3 or nil
-			};
-			table.insert(spline, point);
-			courseplay:debug(string.format('smoothSpline adding point : %.2f, %.2f', point[x], point[z]), 7);
-		end;
-	else
-		table.insert(spline,startPoint);
-		table.insert(spline,endPoint);
-	end;
-	return spline;
-end;
-
-function courseplay:appendPoly(poly1 ,poly2 ,withStart, withEnd) -- appends poly1 to poly2 with without start and end points of poly2
-	local startidx = withStart and 1 or 2;
-	local endidx = withend and #poly2 or #poly2 - 1;
-	for idx = startidx, endidx do --add all but first and last point
-		table.insert(poly1, poly2[idx]);
-	end;
-	return poly1;
-end;
-
-function courseplay.generation:getClosestPolyPoint(poly, x, z)
-	local closestDistance = math.huge;
-	local closestPointIndex;
-
-	for i, point in pairs(poly) do
-		local distanceToPoint = Utils.vector2Length(point.cx-x, point.cz-z);
-		if distanceToPoint < closestDistance then
-			closestDistance = distanceToPoint;
-			closestPointIndex = i;
-		end;
-	end;
-	return closestPointIndex;
-end;
-
-function courseplay.generation:near(v1, v2, tolerance,angle)
-
-	--returns true if difference between v1 and v2 is under the tolerance value
-	local areNear = false;
-	if tolerance == nil then tolerance = 0 end;
-	if angle then
-		local angle1, angle2 = v1, v2;
-		if angle == 'deg' then
-			tolerance = math.rad(tolerance);
-			angle1 = math.rad(angle1);
-			angle2 = math.rad(angle2);
-		end;
-		if math.abs(math.sin(angle1)-math.sin(angle2)) <= math.sin(tolerance) and math.abs(math.cos(angle1)-math.cos(angle2)) <= math.cos(tolerance) then
-			--courseplay:debug(string.format('angle1 = %.4f and angle2 = %.4f are near', v1 ,v2 ), 7);
-			areNear = true;
-		end;
-	elseif math.abs(v1 - v2) <= tolerance then
-		--courseplay:debug(string.format('v1 = %.4f and v2 = %.4f are near', v1 ,v2 ), 7);
-		areNear = true;
-	else
-		--courseplay:debug(string.format('v1 = %.4f and v2 = %.4f are not near', v1 ,v2 ), 7);
-	end;
-	return areNear;
-end;
-
-function courseplay.generation:arePerpendicular(angle1,angle2,tolerance,isDeg)
-	if tolerance == nil then tolerance = 0 end;
-	if isDeg then
-		tolerance = math.rad(tolerance);
-		angle1 = math.rad(angle1);
-		angle2 = math.rad(angle2);
-	end;
-	tolerance = math.tan(tolerance);
-
-	if math.abs(math.cos(angle1))-math.abs(math.sin(angle2)) <= tolerance and math.abs(math.sin(angle1))-math.abs(math.cos(angle2)) <= tolerance then
-		--courseplay:debug(string.format('a1 = %.4f and a2 = %.4f are perpendicular', angle1 ,angle2 ), 7);
-		return true;
-	end;
-	return false;
-end;
-
-function courseplay.generation:areOpposit(angle1,angle2,tolerance,isDeg)
-	if tolerance == nil then tolerance = 0 end;
-	if isDeg then
-		angle1 = angle1 < 0 and angle1+360 or angle1;
-		angle2 = angle2 < 0 and angle2+360 or angle2;
-	else
-		angle1 = angle1 < 0 and angle1+(math.pi*2) or angle1;
-		angle2 = angle2 < 0 and angle2+(math.pi*2) or angle2;
-	end;
-	local diff = angle1 < angle2 and angle2 - angle1 or angle1 - angle2;
-	diff = isDeg and 180 - diff or math.pi - diff;
-	courseplay:debug(string.format('[areOpposit] angle1 = %.2f, angle2 = %.2f -> %s',angle1,angle2,tostring(diff<=tolerance)),7);
-	return diff <= tolerance;
-end;
-
-function courseplay:getNormal(p1,p2)
-	local length = Utils.vector2Length(p1.cx-p2.cx, p1.cz-p2.cz);
-	return {
-		nx = (p2.cz-p1.cz) / length,
-		nz = (p1.cx-p2.cx) / length
-	};
-end;
-
-function courseplay:offsetPoint(point, normal, offset)
-	local x = point.cx + (normal.nx * offset);
-	local z = point.cz + (normal.nz * offset);
-	--courseplay:debug(string.format(' point %.4f, %.4f offset to %.4f, %.4f', point.cx,point.cz,x,z),7);
-	return {
-		cx = x,
-		cz = z
-	};
-end;
-
-function courseplay:lineIntersection(p1, p2, p3, p4) --@src: http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect#comment19248344_1968345
---	courseplay:debug(string.format('/t/t%.4f,%.4f - %.4f,%.4f ',p1.cx,p1.cz,p2.cx,p2.cz),7);
---	courseplay:debug(string.format('/t/t%.4f,%.4f - %.4f,%.4f ',p3.cx,p3.cz,p4.cx,p4.cz),7);
-	local s1_x, s1_y, s2_x, s2_y, x, z;
-	s1_x = p2.cx - p1.cx;
-	s1_y = p2.cz - p1.cz;
-	s2_x = p4.cx - p3.cx;
-	s2_y = p4.cz - p3.cz;
-
-	local denom = (-s2_x * s1_y + s1_x * s2_y);
-	local pos1, pos2, onEnd = 'NO', 'NO', false;
-	if denom ~= 0 then
-		local s = (-s1_y * (p1.cx - p3.cx) + s1_x * (p1.cz - p3.cz)) / denom; -- on p3-p4
-		local t = ( s2_x * (p1.cz - p3.cz) - s2_y * (p1.cx - p3.cx)) / denom; -- on p1-p2
-
-		x = p1.cx + (t * s1_x);
-		z = p1.cz + (t * s1_y);
-		onEnd = s==1 or s==0 or t==0 or t==1;
-		if (s >= 0 and s <= 1) then
-			pos2 = 'TIP';
-		elseif s > 1 then
-			pos2 = 'PFIP';
-		else
-			pos2 = 'NFIP';
-		end;
-		if (t >= 0 and t <= 1) then
-			pos1 ='TIP';
-		elseif t > 1 then
-			pos1 = 'PFIP';
-		else
-			pos1 = 'NFIP';
-		end;
-		courseplay:debug(string.format('lineCrossing -> %.2f, %.2f - %s - %s',x,z,pos1,pos2),7);
-	end;
-	return {
-		cx = x,
-		cz = z,
-		ip1 = pos1,
-		ip2 = pos2,
-		notOnEnds = not(onEnd)
-	};
-end;
-
-function courseplay:appendArc(points, center, radius, startPoint, endPoint)
-	radius = math.abs(radius);
-	local twoPi = math.pi*2;
-	local startAngle = math.atan2(startPoint.cz- center.cz, startPoint.cx - center.cx);
-	local endAngle = math.atan2(endPoint.cz - center.cz, endPoint.cx - center.cx);
-	if startAngle < 0 then
-		startAngle = startAngle + twoPi;
-	end;
-	if endAngle < 0 then
-		endAngle = endAngle + twoPi;
-	end;
-	local angle;
-	if startAngle > endAngle then
-		angle = startAngle - endAngle;
-	else
-		angle = startAngle + twoPi - endAngle;
-	end;
-	local arcSegmentCount = angle * radius / 5;
-	local arcAngle = -angle / arcSegmentCount;
-	courseplay:debug(string.format('angle is %2.f, %.2f points in arc',math.deg(angle),arcSegmentCount),7);
-	table.insert(points, startPoint);
-	for i = 1, arcSegmentCount do
-		local angle = startAngle + arcAngle * i;
-		local point = {
-			cx = center.cx + math.cos(angle) * radius,
-			cz = center.cz + math.sin(angle) * radius
-		};
-		table.insert(points, point);
-	end;
-	table.insert(points, endPoint);
-	return points;
-end;
-
-function courseplay:untrimmedOffsetPline(pline, offset)
-	table.insert(pline,pline[1]);
-	local numPoints = #pline;
-	local offPline = {};
-	for idx1 = 1, numPoints do
-		local idx2 = idx1 == numPoints and 1 or idx1 + 1;
-		local idx3 = idx2 == numPoints and 1 or idx2 + 1;
-		local normal = courseplay:getNormal(pline[idx1], pline[idx2]);
-		local s1p1 = courseplay:offsetPoint(pline[idx1], normal, offset);
-		local s1p2 = courseplay:offsetPoint(pline[idx2], normal, offset);
-		normal = courseplay:getNormal(pline[idx2], pline[idx3]);
-		local s2p1 = courseplay:offsetPoint(pline[idx2], normal, offset);
-		local s2p2 = courseplay:offsetPoint(pline[idx3], normal, offset);
-		local crossing = courseplay:lineIntersection(s1p1, s1p2, s2p1, s2p2);
-		if idx1 == numPoints - 1 then
-			table.insert(offPline, s1p2);
-		elseif crossing.ip1 == 'TIP' and crossing.ip2 == 'TIP' then
-			table.insert(offPline, crossing);
-		elseif crossing.ip1 == 'PFIP' and crossing.ip2 == 'NFIP' then
-			table.insert(offPline, crossing);
-		else
-			table.insert(offPline, s1p2);
-			table.insert(offPline, s2p1);
-		end;
-	end;
-	courseplay:debug(string.format('Untrimmed offset finished with %d points', #offPline),7);
-	table.remove(pline);
-	return offPline;
-end;
-
-function courseplay:pointDistToLine(point,linePoint1,linePoint2)
-	local segLength = Utils.vector2Length(linePoint1.cx-linePoint2.cx,linePoint1.cz-linePoint2.cz);
-	local dist;
-	local t = math.huge;
-	if segLenth == 0 then
-		dist = Utils.vector2Length(linePoint1.cx - point.cx,linePoint1.cz - point.cz);
-	else
-		t = ((point.cx - linePoint1.cx) * (linePoint2.cx - linePoint1.cx) + (point.cz - linePoint1.cz) * (linePoint2.cz - linePoint1.cz) ) / (segLength * segLength);
-		if t < 0 then
-			dist = Utils.vector2Length(linePoint1.cx - point.cx,linePoint1.cz - point.cz);
-		elseif t > 1 then
-			dist = Utils.vector2Length(linePoint2.cx - point.cx,linePoint2.cz - point.cz);
-		else
-			local x = linePoint1.cx + t * (linePoint2.cx - linePoint1.cx);
-			local z = linePoint1.cz + t * (linePoint2.cz - linePoint1.cz);
-			dist = Utils.vector2Length(point.cx - x, point.cz - z);
-		end;
-	end;
-	return dist, (t >= 0 and t <= 1);
-end;
-
-function courseplay.generation:samePoints(p1,p2)
-	return p1.cx == p2.cx and p1.cz == p2.cz;
-end;
-
-function courseplay:cleanPline(pline,boundingPline,offset,vehicle)
-	local minPointDistance = 0.5;
-	local maxPointDistance = 5;
-	courseplay:debug('CLEANPLINE',7);
-	local newPline, pointsInNewPline = {}, 0;
-	table.insert(pline,pline[1]);
-	local numPoints = #pline;
-	for idx1 = 1, numPoints - 1 do
-		local p1 = pline[idx1];
-		if p1.cx == p1.cx and p1.cz == p1.cz then --taking away "nan" points
-			local idx2 = idx1 + 1;
-			--courseplay:debug(string.format('Searching selfintersections after point %d  ' , idx1),7);
-			local p2 = pline[idx2];
-			if idx2 == numPoints then
-				if #newPline > 0 then
-					p2 = newPline[1];
-				else
-					break;
-				end;
-			end;
-
-			local keep1 = courseplay:keepPoint(p1, boundingPline, offset);
-			local keep2 = courseplay:keepPoint(p2, boundingPline, offset);
-			if (keep1 and keep2) and Utils.vector2Length(p1.cx-p2.cx,p1.cz-p2.cz) > .1 then
-				table.insert(newPline,pline[idx1]);
-				pointsInNewPline = pointsInNewPline + 1;
-			elseif keep1 or keep2 then --courseplay:debug('Crossing to be found',7);
-				for idx3 = 2 , numPoints - 1 do
-					local idx4 = idx3 + 1;
-					local crossing = courseplay:lineIntersection(p1, p2, pline[idx3], pline[idx4]);
-					if (crossing.ip1 == 'TIP' and crossing.ip2 == 'TIP') and crossing.notOnEnds then
-						if keep1 then
-							table.insert(newPline,p1);
-							pointsInNewPline = pointsInNewPline + 1;
-							if courseplay:keepPoint(crossing, boundingPline, offset) then
-								table.insert(newPline,crossing);
-								pointsInNewPline = pointsInNewPline + 1;
-							end;
-						elseif pointsInNewPline >0 then
-							if Utils.vector2Length(newPline[pointsInNewPline].cx-crossing.cx,newPline[pointsInNewPline].cz-crossing.cz) > .1 and courseplay:keepPoint(crossing, boundingPline, offset) then
-								table.insert(newPline,crossing);
-								pointsInNewPline = pointsInNewPline + 1;
-							end;
-						elseif courseplay:keepPoint(crossing, boundingPline, offset) then
-							table.insert(newPline,crossing);
-							pointsInNewPline = pointsInNewPline + 1;
-						end;
-					end;
-				end;
-			end;
-		end;
-	end;
-	table.remove(pline);
-	newPline = courseplay.generation:refinePoly(newPline, maxPointDistance);
-	return newPline;
-end;
-
-function courseplay:minDistToPline(point, pline)
-	local numPoints = #pline;
-	table.insert(pline,pline[1]);
-	local pointInPline = -1;
-	local minDist = math.huge;
-	for i=1, numPoints do
-		local cp = pline[i];
-		local np = pline[i+1];
-		pointInPline = pointInPline * courseplay.utils:crossProductQuery(point, cp, np, true);
-		local dist, _ = courseplay:pointDistToLine(point,cp,np);
-		if dist < minDist then
-			minDist = dist;
-		end;
-	end;
-	pointInPline = pointInPline ~= -1 ;
-	courseplay:debug(string.format('Point at %.4f InPoly = %s', minDist, tostring(pointInPline)),7);
-	table.remove(pline);
-	return minDist, pointInPline;
-end;
-
-function courseplay:keepPoint(point, pline, offset)
-	local dist, inPline = courseplay:minDistToPline(point, pline);
-	local keep = inPline and (courseplay:round(dist,5) >= courseplay:round(math.abs(offset),5)) ;
-	courseplay:debug(string.format(' dist = %.8f offset = %.8f keep = %s ', courseplay:round(dist,5),courseplay:round(offset,5), tostring(keep)),7);
-	return keep;
-end;
-
-function courseplay:offsetPoly(pline, offset, vehicle)
-	local pline1 = courseplay:untrimmedOffsetPline(pline, offset);
-	pline1 = courseplay:cleanPline(pline1, pline, offset, vehicle);
-	return pline1;
-end;
-
-function courseplay:findCrossing(p1,p2, poly, where)
-	if where == nil then where = 'TIP' end;
-	local numPoints = #poly;
-	table.insert(poly, poly[1]);
-	local i, found = 0, false;
-	local crossing = {};
-	while not(found) and i < numPoints do
-		i = i + 1;
-		crossing = courseplay:lineIntersection(p1, p2, poly[i], poly[i+1]);
-		if (crossing.ip1 == where and crossing.ip2 == 'TIP') then
-			found = true;
-		end;
-	end;
-	table.remove(poly);
-	if found then
-	    return crossing;
-	else
-	    return false;
-	end;
-end;
-
-function courseplay.generation:refinePoly(poly, maxDistance)
-	local pointsInPline = #poly;
-	local newPline = {};
-	for idx = 1, pointsInPline do
-		local idxPrev = idx - 1 ;
-		if idx == 1 then
-			idxPrev = pointsInPline;
-		end;
-		local idxNext = idx + 1 ;
-		if idx == pointsInPline then
-			idxNext = 1;
-		end;
-		local idxNext2 = idxNext + 1 ;
-		if idxNext == pointsInPline then
-			idxNext2 = 1;
-		end;
-		local p1, p2, p3, p4 = poly[idxPrev], poly[idx], poly[idxNext], poly[idxNext2];
-		if Utils.vector2Length(p2.cx - p3.cx, p2.cz - p3.cz) > maxDistance then
-			local spline = courseplay.generation:smoothSpline(p1, p2, p3, p4, Utils.vector2Length(p2.cx - p3.cx, p2.cz - p3.cz)/maxDistance);
-			newPline = courseplay:appendPoly(newPline, spline, true, false);
-		else
-			table.insert(newPline,p2);
-		end;
-	end;
-	return newPline;
-end;
-
-function courseplay.generation:setPolyClockwise(poly)
-	local _, _, _, isClockwise = courseplay.fields:getPolygonData(poly, nil, nil, true, true, true);
-	if isClockwise then
-		return poly;
-	else
-		-- print('reversing order of polygon');
-		local newPoly = table.reverse(poly);
-		return newPoly;
-	end;
-end;
-
-function courseplay.generation:setPolyCounterClockwise(poly)
-	local _, _, _, isClockwise = courseplay.fields:getPolygonData(poly, nil, nil, true, true, true);
-	if isClockwise then
-		-- print('reversing order of polygon');
-		local newPoly = table.reverse(poly);
-		return newPoly;
-	else
-		return poly;
-	end;
 end;
 
 
 
 -- ####################################################################################################
 -- Simplify polygon with Douglas-Peucker
--- parts of the HardOnCollider-project by Matthias Richter on gitHub are used. Original copyright of this project can be found at the end of this file.
 
--- local remainingPoints = courseplay.generation:simplifyPolygon(points, epsilon);
--- local simplePoly = courseplay.generation:newPolyFromIndices(points, remainingPoints); -- make new polygon
-
-function courseplay.generation:simplifyPolygon(points, epsilon)
-	local remainingPoints = {};
-
-	self:douglasPeucker(points, 1, #points, epsilon, remainingPoints);
-	table.sort(remainingPoints);
-
-	local distance1 = self:dPointLine(points[1], points[remainingPoints[1]], points[ remainingPoints[#remainingPoints] ]);
-	local distance2 = self:dPointLine(points[#points], points[remainingPoints[1]], points[ remainingPoints[#remainingPoints] ]);
-	if distance1 > epsilon or distance2 > epsilon then -- we need at least one of the end points
-		local distance3 = self:dPointLine(points[#points],points[1], points[ remainingPoints[#remainingPoints] ]);
-		local distance4 = self:dPointLine(points[1],points[#points], points[ remainingPoints[1] ]);
-		if distance3 < distance4 then
-			table.insert(remainingPoints, 1, 1);
-		else
-			table.insert(remainingPoints, #points);
-		end;
-	end;
-
-	return remainingPoints;
-end;
-
--- Douglas-Peucker adapted from http://quangnle.wordpress.com/2012/12/30/corona-sdk-curve-fitting-1-implementation-of-ramer-douglas-peucker-algorithm-to-reduce-points-of-a-curve/
-function courseplay.generation:douglasPeucker(points, firstPointNum, lastPointNum, tolerance, pointIndices)
-	local maxDistance = 0;
-	local indexFurthest = 0;
-
-	for i=firstPointNum, lastPointNum do
-		local distance = cpScanner.dPointLine(points[i], points[firstPointNum], points[lastPointNum]);
-
-		if distance > maxDistance then
-			maxDistance = distance;
-			indexFurthest = i;
-		end;
-	end;
-
-	if maxDistance > tolerance and indexFurthest ~= 1 then
-		table.insert(pointIndices, indexFurthest);
-
-		self:douglasPeucker(points, firstPointNum, indexFurthest, tolerance, pointIndices);
-		self:douglasPeucker(points, indexFurthest, lastPointNum, tolerance, pointIndices);
-	end;
-end;
-
-function courseplay.generation:dPointLine(point1, point2, point3)
-	-- calculates area of the triangle
-	local area = abs(0.5 * (point2.cx * point3.cz + point3.cx * 
-	point1.cz + point1.cx * point2.cz - point3.cx * point2.cz - point1.cx * 
-	point3.cz - point2.cx * point1.cz));
-
-	-- calculates the length of the bottom edge
-	local bottom = sqrt((point2.cx - point3.cx) ^ 2 + (point2.cz - point3.cz) ^ 2);
-
-	-- the triangle's height is also the distance found
-	local height = area / bottom;
-
-	return height;
-end;
-
-function courseplay.generation:newPolyFromIndices(polyIn, indices)
-	local polyOut = {};
-	for _,index in pairs(indices) do
-		local point = { cx=polyIn[index].cx, cz = polyIn[index].cz };
-		table.insert(polyOut, point);
-	end;
-	polyOut = self:setPolyCounterClockwise(polyOut);
-	return polyOut;
-end;
-
-
-
--- ####################################################################################################
--- copyright statement from HardOnCollider-project:
---[[
-Copyright (c) 2011 Matthias Richter
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-Except as contained in this notice, the name(s) of the above copyright holders
-shall not be used in advertising or otherwise to promote the sale, use or
-other dealings in this Software without prior written authorization.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-]]
+-- local remainingPoints = geometry:simplifyPolygon(points, epsilon);
+-- local simplePoly = geometry:newPolyFromIndices(points, remainingPoints); -- make new polygon
 

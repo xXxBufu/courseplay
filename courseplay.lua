@@ -50,6 +50,8 @@ end;
 
 local function initialize()
 	local fileList = {
+		'geometry', -- needs to be called first so other functions/classes can use it
+
 		'astar', 
 		'base',
 		'button', 

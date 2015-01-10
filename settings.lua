@@ -1365,7 +1365,7 @@ function courseplay:addCustomSingleFieldEdgeToList(vehicle)
 		name = string.format("%s %d (%s)", courseplay:loc('COURSEPLAY_FIELD'), vehicle.cp.fieldEdge.customField.fieldNum, courseplay:loc('COURSEPLAY_USER'));
 		isCustom = true;
 	};
-	local area, _, dimensions = courseplay.fields:getPolygonData(data.points, nil, nil, true);
+	local area, _, dimensions = courseplay.geometry:getPolygonData(data.points, nil, nil, true);
 	data.areaSqm = area;
 	data.areaHa = area / 10000;
 	data.dimensions = dimensions;

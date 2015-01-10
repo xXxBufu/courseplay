@@ -4,6 +4,8 @@
 
 courseplay.fields = {};
 
+local geometry = courseplay.geometry;
+
 function courseplay.fields:setup()
 	print('## Courseplay: setting up fields (basic)');
 	self.fieldData = {};
@@ -261,7 +263,7 @@ function courseplay.fields:setSingleFieldEdgePath(initObject, initX, initZ, scan
 			if numEdgePoints >= 30 then
 				self:dbg(string.format("\ttry %d: %d edge points found", try, numEdgePoints), dbgType);
 
-				local area, centerInPoly, dimensions = self:getPolygonData(edgePoints, initX, initZ, true);
+				local area, centerInPoly, dimensions = geometry:getPolygonData(edgePoints, initX, initZ, true);
 				if centerInPoly then
 					self:dbg('\t\tinitObject is in poly --> valid, no retry', dbgType);
 
@@ -305,135 +307,6 @@ function courseplay.fields:setSingleFieldEdgePath(initObject, initX, initZ, scan
 	if returnPoints then
 		return nil;
 	end;
-end;
-
-courseplay.fields.getPointDirection = courseplay.generation.getPointDirection; -- TODO (Jakob): generateCourse is sourced after fields, so this shouldn't really work!
-
-function courseplay.fields:getPolygonData(poly, px, pz, useC, skipArea, skipDimensions)
-	-- This function gets a polygon's area, a boolean if x,z is inside the polygon, the poly's dimensions and the poly's direction (clockwise vs. counter-clockwise).
-	-- Since all of those queries require a for loop through the polygon's vertices, it is better to combine them into one big query.
-
-	if useC == nil then useC = true; end;
-	local x,z = useC and 'cx' or 'x', useC and 'cz' or 'z';
-	local numPoints = #poly;
-	local cp,np,pp;
-	local fp = poly[1];
-
-	-- POINT IN POLYGON (Jordan method) -- @src: http://de.wikipedia.org/wiki/Punkt-in-Polygon-Test_nach_Jordan
-	-- returns:
-	--	 1	point is inside of poly
-	--	-1	point is outside of poly
-	--	 0	point is directly on poly
-	local getPointInPoly = px ~= nil and pz ~= nil;
-	local pointInPoly = -1;
-	local point = { [x] = px, [z] = pz };
-
-	-- AREA -- @src: https://gist.github.com/listochkin/1200393
-	-- area will be twice the signed area of the polygon. If the poly is counter-clockwise, the area will be positive. If clockwise, the area will be negative.
-	-- returns: real area (|area| / 2)
-	local area = 0;
-
-	-- DIMENSIONS
-	local dimensions = {
-		minX =  999999,
-		maxX = -999999,
-		minZ =  999999,
-		maxZ = -999999
-	};
-
-	--[[
-	-- DIRECTION
-	-- offset test points
-	local dirX,dirZ = self:getPointDirection(poly[1], poly[2], useC);
-	local offsetRight = {
-		[x] = poly[2][x] - dirZ,
-		[z] = poly[2][z] + dirX,
-		isInPoly = false
-	};
-	local offsetLeft = {
-		[x] = poly[2][x] + dirZ,
-		[z] = poly[2][z] - dirX,
-		isInPoly = false
-	};
-	-- clockwise vs counterclockwise variables
-	local dirArea, dirSuccess, dirTries = 0, false, 1;
-	]]
-
-	-- ############################################################
-
-	for i=1, numPoints do
-		cp = poly[i];
-		np = i < numPoints and poly[i+1] or poly[1];
-		pp = i > 1 and poly[i-1] or poly[numPoints];
-
-		-- point in polygon
-		if getPointInPoly and pointInPoly ~= 0 then
-			pointInPoly = pointInPoly * courseplay.utils:crossProductQuery(point, cp, np, useC);
-		end;
-
-		-- area
-		if not skipArea then
-			area = area + cp[x] * np[z];
-			area = area - cp[z] * np[x];
-		end;
-
-		-- dimensions
-		if not skipDimensions then
-			if cp[x] < dimensions.minX then dimensions.minX = cp[x]; end;
-			if cp[x] > dimensions.maxX then dimensions.maxX = cp[x]; end;
-			if cp[z] < dimensions.minZ then dimensions.minZ = cp[z]; end;
-			if cp[z] > dimensions.maxZ then dimensions.maxZ = cp[z]; end;
-		end;
-
-		--[[
-		-- direction
-		if i < numPoints then
-			local pointStart = {
-				[x] = cp[x] - fp[x];
-				[z] = cp[z] - fp[z];
-			};
-			local pointEnd = {
-				[x] = np[x] - fp[x];
-				[z] = np[z] - fp[z];
-			};
-			dirArea = dirArea + (pointStart[x] * -pointEnd[z]) - (pointEnd[x] * -pointStart[z]);
-		end;
-
-		-- offset right point in poly
-		if ((cp[z] > offsetRight[z]) ~= (pp[z] > offsetRight[z])) and (offsetRight[x] < (pp[x] - cp[x]) * (offsetRight[z] - cp[z]) / (pp[z] - cp[z]) + cp[x]) then
-			offsetRight.isInPoly = not offsetRight.isInPoly;
-		end;
-
-		-- offset left point in poly
-		if ((cp[z] > offsetLeft[z])  ~= (pp[z] > offsetLeft[z]))  and (offsetLeft[x]  < (pp[x] - cp[x]) * (offsetLeft[z]  - cp[z]) / (pp[z] - cp[z]) + cp[x]) then
-			offsetLeft.isInPoly = not offsetLeft.isInPoly;
-		end;
-		]]
-	end;
-
-	if getPointInPoly then
-		pointInPoly = pointInPoly ~= -1;
-	else
-		pointInPoly = nil;
-	end;
-
-	if not skipDimensions then
-		dimensions.width  = dimensions.maxX - dimensions.minX;
-		dimensions.height = dimensions.maxZ - dimensions.minZ;
-	else
-		dimensions = nil;
-	end;
-
-	local isClockwise;
-	if not skipArea then
-		area = math.abs(area) / 2;
-		isClockwise = area < 0;
-	else
-		area = nil;
-		isClockwise = nil;
-	end;
-
-	return area, pointInPoly, dimensions, isClockwise;
 end;
 
 function courseplay.fields.buyField(self, fieldDef, isOwned) -- scan field when it's bought
@@ -534,7 +407,7 @@ function courseplay.fields:loadAllCustomFields()
 								end;
 							end;
 						end;
-						local area, _, dimensions = self:getPolygonData(fieldData.points, nil, nil, true);
+						local area, _, dimensions = geometry:getPolygonData(fieldData.points, nil, nil, true);
 						fieldData.areaSqm = area;
 						fieldData.areaHa = area / 10000;
 						fieldData.fieldAreaText = courseplay:loc('COURSEPLAY_SEEDUSAGECALCULATOR_FIELD'):format(fieldNum, self:formatNumber(fieldData.areaHa, 2), g_i18n:getText('area_unit_short'));

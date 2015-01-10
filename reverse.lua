@@ -65,7 +65,7 @@ function courseplay:goReverse(vehicle,lx,lz)
 			tcx = vehicle.Waypoints[i].cx;
 			tcz = vehicle.Waypoints[i].cz;
 		else
-			local dx, dz, _ = courseplay.generation:getPointDirection(vehicle.Waypoints[i-2], vehicle.Waypoints[i-1]);
+			local dx, dz, _ = courseplay.geometry:getPointDirection(vehicle.Waypoints[i-2], vehicle.Waypoints[i-1]);
 			tcx = vehicle.Waypoints[i-1].cx + dx * (vehicle.Waypoints[i-1].wait and 15 or 30);
 			tcz = vehicle.Waypoints[i-1].cz + dz * (vehicle.Waypoints[i-1].wait and 15 or 30);
 		end;
