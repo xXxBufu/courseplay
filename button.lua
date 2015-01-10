@@ -195,7 +195,7 @@ function courseplay.button:render()
 				canScrollDown = vehicle.cp.workWidth > 0.1;
 			elseif fn == 'changeDouglasPeuckerEpsilon' then
 				canScrollUp   = true;
-				canScrollDown = vehicle.cp.fieldEdge.douglasPeuckerEpsilon > 1.0;
+				canScrollDown = vehicle.cp.fieldEdge.douglasPeuckerEpsilon > 0.0;
 			end;
 		end;
 
@@ -397,7 +397,7 @@ function courseplay.button:render()
 					end;
 				elseif fn == 'changeDouglasPeuckerEpsilon' then
 					if prm < 0 then
-						show = vehicle.cp.fieldEdge.douglasPeuckerEpsilon > 1.0;
+						show = vehicle.cp.fieldEdge.douglasPeuckerEpsilon > 0.0;
 					else
 						show = true;
 					end;

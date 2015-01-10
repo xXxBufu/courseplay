@@ -7,6 +7,8 @@
 @copyright: No reproduction, usage or copying without the explicit permission by the authors allowed.
 ]]--
 
+local abs, sqrt = math.abs, math.sqrt;
+
 function courseplay:generateCourse(vehicle)
 	local self = courseplay.generation;
 
@@ -27,15 +29,13 @@ function courseplay:generateCourse(vehicle)
 		return;
 	end;
 
-	local field={} ;
+	local field = {};
 	if vehicle.cp.fieldEdge.selectedField.fieldNum > 0 then
 		field = courseplay.utils.table.copy(courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].points, true);
 	else
 		field = courseplay.utils.table.copy(vehicle.Waypoints, true);
 	end;
-	if not(self:isPolyClockwise(field)) then
-		field = table.reverse(field);
-	end;
+	field = self:setPolyClockwise(field);
 
 	local pointsInField = #(field);
 	local polyPoints = field;
@@ -1466,3 +1466,129 @@ function courseplay.generation:refinePoly(poly, maxDistance)
 	end;
 	return newPline;
 end;
+
+function courseplay.generation:setPolyClockwise(poly)
+	local _, _, _, isClockwise = courseplay.fields:getPolygonData(poly, nil, nil, true, true, true);
+	if isClockwise then
+		return poly;
+	else
+		-- print('reversing order of polygon');
+		local newPoly = table.reverse(poly);
+		return newPoly;
+	end;
+end;
+
+function courseplay.generation:setPolyCounterClockwise(poly)
+	local _, _, _, isClockwise = courseplay.fields:getPolygonData(poly, nil, nil, true, true, true);
+	if isClockwise then
+		-- print('reversing order of polygon');
+		local newPoly = table.reverse(poly);
+		return newPoly;
+	else
+		return poly;
+	end;
+end;
+
+
+
+-- ####################################################################################################
+-- Simplify polygon with Douglas-Peucker
+-- parts of the HardOnCollider-project by Matthias Richter on gitHub are used. Original copyright of this project can be found at the end of this file.
+
+-- local remainingPoints = courseplay.generation:simplifyPolygon(points, epsilon);
+-- local simplePoly = courseplay.generation:newPolyFromIndices(points, remainingPoints); -- make new polygon
+
+function courseplay.generation:simplifyPolygon(points, epsilon)
+	local remainingPoints = {};
+
+	self:douglasPeucker(points, 1, #points, epsilon, remainingPoints);
+	table.sort(remainingPoints);
+
+	local distance1 = self:dPointLine(points[1], points[remainingPoints[1]], points[ remainingPoints[#remainingPoints] ]);
+	local distance2 = self:dPointLine(points[#points], points[remainingPoints[1]], points[ remainingPoints[#remainingPoints] ]);
+	if distance1 > epsilon or distance2 > epsilon then -- we need at least one of the end points
+		local distance3 = self:dPointLine(points[#points],points[1], points[ remainingPoints[#remainingPoints] ]);
+		local distance4 = self:dPointLine(points[1],points[#points], points[ remainingPoints[1] ]);
+		if distance3 < distance4 then
+			table.insert(remainingPoints, 1, 1);
+		else
+			table.insert(remainingPoints, #points);
+		end;
+	end;
+
+	return remainingPoints;
+end;
+
+-- Douglas-Peucker adapted from http://quangnle.wordpress.com/2012/12/30/corona-sdk-curve-fitting-1-implementation-of-ramer-douglas-peucker-algorithm-to-reduce-points-of-a-curve/
+function courseplay.generation:douglasPeucker(points, firstPointNum, lastPointNum, tolerance, pointIndices)
+	local maxDistance = 0;
+	local indexFurthest = 0;
+
+	for i=firstPointNum, lastPointNum do
+		local distance = cpScanner.dPointLine(points[i], points[firstPointNum], points[lastPointNum]);
+
+		if distance > maxDistance then
+			maxDistance = distance;
+			indexFurthest = i;
+		end;
+	end;
+
+	if maxDistance > tolerance and indexFurthest ~= 1 then
+		table.insert(pointIndices, indexFurthest);
+
+		self:douglasPeucker(points, firstPointNum, indexFurthest, tolerance, pointIndices);
+		self:douglasPeucker(points, indexFurthest, lastPointNum, tolerance, pointIndices);
+	end;
+end;
+
+function courseplay.generation:dPointLine(point1, point2, point3)
+	-- calculates area of the triangle
+	local area = abs(0.5 * (point2.cx * point3.cz + point3.cx * 
+	point1.cz + point1.cx * point2.cz - point3.cx * point2.cz - point1.cx * 
+	point3.cz - point2.cx * point1.cz));
+
+	-- calculates the length of the bottom edge
+	local bottom = sqrt((point2.cx - point3.cx) ^ 2 + (point2.cz - point3.cz) ^ 2);
+
+	-- the triangle's height is also the distance found
+	local height = area / bottom;
+
+	return height;
+end;
+
+function courseplay.generation:newPolyFromIndices(polyIn, indices)
+	local polyOut = {};
+	for _,index in pairs(indices) do
+		local point = { cx=polyIn[index].cx, cz = polyIn[index].cz };
+		table.insert(polyOut, point);
+	end;
+	polyOut = self:setPolyCounterClockwise(polyOut);
+	return polyOut;
+end;
+
+
+
+-- ####################################################################################################
+-- copyright statement from HardOnCollider-project:
+--[[
+Copyright (c) 2011 Matthias Richter
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+Except as contained in this notice, the name(s) of the above copyright holders
+shall not be used in advertising or otherwise to promote the sale, use or
+other dealings in this Software without prior written authorization.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+]]
+
