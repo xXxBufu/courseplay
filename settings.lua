@@ -1635,21 +1635,21 @@ function courseplay:setCpVar(varName, value, noEventSend)
 		self.cp[varName] = value;		
 		if CpManager.isMP and not noEventSend then
 			--print(courseplay.utils:getFnCallPath(2))
-			courseplay:debug(string.format("setCpVar: %s: %s -> send Event",varName,tostring(value)), 5);
+			courseplay:debug(string.format("setCpVar: %s: %s -> send Event",varName,tostring(value)), 22);
 			CourseplayEvent.sendEvent(self, "self.cp."..varName, value)
 		end
 		if varName == "isDriving" then
-			courseplay:debug("reload page 1", 5);
+			courseplay:debug("reload page 1", 22);
 			courseplay.hud:setReloadPageOrder(self, 1, true);
 		elseif varName:sub(1, 3) == 'HUD' then
 			if Utils.startsWith(varName, 'HUD0') then
-				courseplay:debug("reload page 0", 5);
+				courseplay:debug("reload page 0", 22);
 				courseplay.hud:setReloadPageOrder(self, 0, true);
 			elseif Utils.startsWith(varName, 'HUD1') then
-				courseplay:debug("reload page 1", 5);
+				courseplay:debug("reload page 1", 22);
 				courseplay.hud:setReloadPageOrder(self, 1, true);
 			elseif Utils.startsWith(varName, 'HUD4') then
-				courseplay:debug("reload page 4", 5);
+				courseplay:debug("reload page 4", 22);
 				courseplay.hud:setReloadPageOrder(self, 4, true);
 			end;
 		elseif varName == 'waypointIndex' and self.cp.hud.currentPage == courseplay.hud.PAGE_CP_CONTROL and (self.cp.isRecording or self.cp.recordingIsPaused) and value and value == 4 then -- record pause action becomes available

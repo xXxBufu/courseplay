@@ -135,7 +135,7 @@ function courseplay:isBetween(n, num1, num2, include)
 end;
 
 function courseplay:setVarValueFromString(self, str, value)
-	print(string.format("courseplay:setVarValueFromString(self, %s, %s)",str,tostring(value)))
+	courseplay:debug(string.format("courseplay:setVarValueFromString(self, %s, %s)",str,tostring(value)),22)
 	local what = Utils.splitString(".", str);
 	local whatDepth = #what;
 	if whatDepth < 1 or whatDepth > 5 then
