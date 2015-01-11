@@ -1505,9 +1505,6 @@ end;
 
 function courseplay:toggleFindFirstWaypoint(vehicle)
 	vehicle:setCpVar('distanceCheck',not vehicle.cp.distanceCheck,courseplay.isClient);
-	if not courseplay.isClient and not vehicle.cp.distanceCheck then
-		courseplay:setInfoText(vehicle, nil);
-	end;
 	courseplay:buttonsActiveEnabled(vehicle, 'findFirstWaypoint');
 end;
 
