@@ -50,37 +50,6 @@ function courseplay.geometry:appendPoly(poly1 ,poly2 ,withStart, withEnd) -- app
 	return poly1;
 end;
 
-function courseplay.geometry:areOpposite(angle1,angle2,tolerance,isDeg) -- TODO: rename "getAnglesAreOpposite"
-	if tolerance == nil then tolerance = 0 end;
-	if isDeg then
-		angle1 = angle1 < 0 and angle1+360 or angle1;
-		angle2 = angle2 < 0 and angle2+360 or angle2;
-	else
-		angle1 = angle1 < 0 and angle1+(math.pi*2) or angle1;
-		angle2 = angle2 < 0 and angle2+(math.pi*2) or angle2;
-	end;
-	local diff = angle1 < angle2 and angle2 - angle1 or angle1 - angle2;
-	diff = isDeg and 180 - diff or math.pi - diff;
-	courseplay:debug(string.format('[areOpposite] angle1 = %.2f, angle2 = %.2f -> %s',angle1,angle2,tostring(diff<=tolerance)),7);
-	return diff <= tolerance;
-end;
-
-function courseplay.geometry:arePerpendicular(angle1,angle2,tolerance,isDeg) -- TODO: rename "getAnglesArePerpendicular"
-	if tolerance == nil then tolerance = 0 end;
-	if isDeg then
-		tolerance = math.rad(tolerance);
-		angle1 = math.rad(angle1);
-		angle2 = math.rad(angle2);
-	end;
-	tolerance = math.tan(tolerance);
-
-	if math.abs(math.cos(angle1))-math.abs(math.sin(angle2)) <= tolerance and math.abs(math.sin(angle1))-math.abs(math.cos(angle2)) <= tolerance then
-		--courseplay:debug(string.format('a1 = %.4f and a2 = %.4f are perpendicular', angle1 ,angle2 ), 7);
-		return true;
-	end;
-	return false;
-end;
-
 function courseplay.geometry:cleanPline(pline,boundingPline,offset,vehicle)
 	local minPointDistance = 0.5;
 	local maxPointDistance = 5;
@@ -196,6 +165,41 @@ function courseplay.geometry:findCrossing(p1,p2, poly, where)
 	end;
 end;
 
+function courseplay.geometry:getAnglesAreOpposite(angle1,angle2,tolerance,isDeg)
+	if tolerance == nil then tolerance = 0 end;
+	if isDeg then
+		if angle1 < 0 then angle1 = angle1 + 360 end;
+		if angle2 < 0 then angle2 = angle2 + 360 end;
+	else
+		if angle1 < 0 then angle1 = angle1 + (math.pi * 2) end;
+		if angle2 < 0 then angle2 = angle2 + (math.pi * 2) end;
+	end;
+	local diff = angle1 < angle2 and angle2 - angle1 or angle1 - angle2;
+	if isDeg then
+		diff = 180 - diff; 
+	else
+		diff = math.pi - diff;
+	end;
+	courseplay:debug(string.format('[areOpposite] angle1 = %.2f, angle2 = %.2f -> %s',angle1,angle2,tostring(diff<=tolerance)),7);
+	return diff <= tolerance;
+end;
+
+function courseplay.geometry:getAnglesArePerpendicular(angle1,angle2,tolerance,isDeg) -- TODO: to rewrite not using cos and sin
+	if tolerance == nil then tolerance = 0 end;
+	if isDeg then
+		tolerance = math.rad(tolerance);
+		angle1 = math.rad(angle1);
+		angle2 = math.rad(angle2);
+	end;
+	tolerance = math.tan(tolerance);
+
+	if math.abs(math.cos(angle1))-math.abs(math.sin(angle2)) <= tolerance and math.abs(math.sin(angle1))-math.abs(math.cos(angle2)) <= tolerance then
+		--courseplay:debug(string.format('a1 = %.4f and a2 = %.4f are perpendicular', angle1 ,angle2 ), 7);
+		return true;
+	end;
+	return false;
+end;
+
 function courseplay.geometry:getClosestPolyPoint(poly, x, z)
 	local closestDistance = math.huge;
 	local closestPointIndex;
@@ -216,6 +220,14 @@ function courseplay.geometry:getNormal(p1,p2)
 		nx = (p2.cz-p1.cz) / length,
 		nz = (p1.cx-p2.cx) / length
 	};
+end;
+
+function courseplay.geometry:getPointSide(point,lineP1,lineP2)
+	local side = (lineP2.cx-lineP1.cx)*(point.cz-lineP1.cz)-(lineP2.cz-lineP1.cz)*(point.cx-lineP1.cx);
+	if side == 0 then return 'on';
+	elseif side > 0 then return 'right';
+	else return 'left';
+	end;
 end;
 
 function courseplay.geometry:getPolygonData(poly, px, pz, useC, skipArea, skipDimensions)
