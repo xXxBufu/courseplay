@@ -562,13 +562,13 @@ function courseplay:generateCourse(vehicle)
 				    else
 				        lane = table.rotate(lane, numPoints - closest -1);
 				    end
-					if i > 1 and orderCW then -- link lanes
+					if i > 1 then -- link lanes
 						local p3 = lane[1];
 						local p4 = lane[2];
 						local idx = #prevLane;
 						local p1, p2 = prevLane[idx-1], prevLane[idx];
 						local crossing;
-						if geometry:areOpposite(p4.angle,p1.angle,10,true) then
+						if geometry:getAnglesAreOpposite(p4.angle,p1.angle,10,true) then
 						    crossing = geometry:lineIntersection(p1,p2,prevLane[1],prevLane[2]);
 						    lane[1].turnEnd = true;
 						    prevLane[idx].turnStart = true;
@@ -592,28 +592,9 @@ function courseplay:generateCourse(vehicle)
 						numPoints = #lane;
 						startPoint = lane[1];
 					end;
-					if i > 1 and not orderCW then
-						local p3 = lane[1];
-						local p4 = lane[2];
-						local idx = #prevLane;
-						local p1, p2 = prevLane[idx-1], prevLane[idx];
-						local crossing;
-						crossing = geometry:lineIntersection(p1, p2, p3, p4);
-						while crossing.ip1 == 'TIP' or crossing.ip1 == 'NFIP' do
-							table.remove(prevLane);
-							idx = idx - 1;
-							p1, p2 = prevLane[idx-1], prevLane[idx];
-							crossing = geometry:lineIntersection(p1, p2, p3, p4);
-						end;
-						table.remove(lanes);
-						table.insert(lanes,prevLane);
-						numPoints = #lane;
-						startPoint = lane[1];
-
-					end;
 					if i == numHeadlanes and not(turnAround) then -- last headlane link to first fieldWorkCourse point
 						courseplay:debug(string.format('last direction is %.2f, field start direction is %.2f',lane[numPoints].angle,fieldWorkCourse[1].angle),7);
-						if geometry:areOpposite(lane[numPoints].angle,fieldWorkCourse[1].angle,20,true) then
+						if geometry:getAnglesAreOpposite(lane[numPoints].angle,fieldWorkCourse[1].angle,20,true) then
 							local data = lane[numPoints];
 							data.cx = (dir == "N" or dir == "S") and lane[numPoints].cx or fieldWorkCourse[1].cx;
 							data.cz = (dir == "E" or dir == "W") and lane[numPoints].cz or fieldWorkCourse[1].cz;
