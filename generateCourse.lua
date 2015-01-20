@@ -36,7 +36,7 @@ function courseplay:generateCourse(vehicle)
 	else
 		field = courseplay.utils.table.copy(vehicle.Waypoints, true);
 	end;
-	field = geometry:setPolyClockwise(field);
+	field = geometry:setPolyCounterClockwise(field);
 
 	local pointsInField = #(field);
 	local polyPoints = field;
@@ -72,8 +72,8 @@ function courseplay:generateCourse(vehicle)
 	local dir = directions[vehicle.cp.startingDirection];
 	local orderCW = vehicle.cp.headland.userDirClockwise;
 	local numLanes = vehicle.cp.headland.numLanes;
-	local turnAround = numLanes > 5;
-	local numHeadlanes ;
+	local turnAround = vehicle.cp.headland.turnAround or numLanes > 49;
+	local numHeadLanes ;
 
 	---#################################################################
 	-- (2) HEADLAND
@@ -109,7 +109,7 @@ function courseplay:generateCourse(vehicle)
 			courseplay:debug('(2.1) CREATE INITIAL OFFSET POINTS', 7);
 			local lane = geometry:offsetPoly(polyPoints, -offsetWidth, vehicle);
 			polyPoints = courseplay.utils.table.copy(lane,true); -- save result for next lane and field lanes calculation.
-			if not(orderCW) then -- offset pline is always clockwise.
+			if not(orderCW) then 
 				lane = table.reverse(lane);
 			end;
 
@@ -162,20 +162,20 @@ function courseplay:generateCourse(vehicle)
 		end; --END while curLane in numLanes
 
 
-		numHeadlanes = #(vehicle.cp.headland.lanes);
-		courseplay:debug(string.format('generateCourse(%i):  #vehicle.cp.headland.lanes=%s', debug.getinfo(1).currentline, tostring(numHeadlanes)), 7);
+		numHeadLanes = #(vehicle.cp.headland.lanes);
+		courseplay:debug(string.format('generateCourse(%i):  #vehicle.cp.headland.lanes=%s', debug.getinfo(1).currentline, tostring(numHeadLanes)), 7);
 		-- courseplay:debug(tableShow(vehicle.cp.headland.lanes, 'vehicle.cp.headland.lanes', 7), 7); --WORKS
 
 		-- --------------------------------------------------
 		-- (2.4) SETTING FIELD WORK COURSE BASE
-		if numHeadlanes > 0 and not(turnAround) then
+		if numHeadLanes > 0 and not(turnAround) then
 			if vehicle.cp.overlap ~= 0 then
-				offsetWidth = self:getOffsetWidth(vehicle, numHeadlanes + 1);
+				offsetWidth = self:getOffsetWidth(vehicle, numHeadLanes + 1);
 				offsetWidth = (offsetWidth / 2) * (1 - vehicle.cp.overlap);
 				polyPoints = geometry:offsetPoly(polyPoints, -offsetWidth);
 			end;
 			numPoints = #(polyPoints);
-			courseplay:debug(string.format('headland: numHeadlanes=%d, workArea has %s points', numHeadlanes, tostring(numPoints)), 7);
+			courseplay:debug(string.format('headland: numHeadLanes=%d, workArea has %s points', numHeadLanes, tostring(numPoints)), 7);
 		end;
 
 	end; --END if vehicle.cp.headland.numLanes ~= 0
@@ -380,7 +380,6 @@ function courseplay:generateCourse(vehicle)
 	-------------------------------------------------------------------------------
 	courseplay:debug('(4) CHECK PATH LANES FOR VALID START AND END POINTS and FILL fieldWorkCourse', 7);
 	local numPoints = #pathPoints;
-
 	for i=1, numPoints do
 		local cp = pathPoints[i];   --current
 		local np = pathPoints[i+1]; --next
@@ -408,7 +407,7 @@ function courseplay:generateCourse(vehicle)
 			angleDeg     = geometry:angleDeg(pp, cp);
 			signAngleDeg = geometry:signAngleDeg(pp, cp);
 		end;
-
+		
 		if cp.firstInLane or i == 1 or isLastLane then
 			cp.ridgeMarker = 0;
 		end;
@@ -544,11 +543,11 @@ function courseplay:generateCourse(vehicle)
 	-------------------------------------------------------------------------------
 	courseplay:debug('(5) ROTATE HEADLAND COURSES', 7);
 	if vehicle.cp.headland.numLanes > 0 then
-		courseplay:debug(string.format('[before] rotating headland, number of lanes = %d', numHeadlanes),7);
-		if numHeadlanes > 0 then
+		courseplay:debug(string.format('[headlands] rotating headland, number of lanes = %d', numHeadLanes),7);
+		if numHeadLanes > 0 then
 			-- -------------------------------------------------------------------------
 			-- (5.1) ROTATE AND LINK HEADLAND LANES
-			if vehicle.cp.headland.orderBefore then --each headland lane 's first point is closest to corresponding field begin point or previous lane end point
+			if vehicle.cp.headland.orderBefore or turnAround then --each headland lane 's first point is closest to corresponding field begin point or previous lane end point
 				local lanes = {};
 				local prevLane = {};
 				for i,lane in ipairs(vehicle.cp.headland.lanes) do
@@ -557,47 +556,66 @@ function courseplay:generateCourse(vehicle)
 					local closest = geometry:getClosestPolyPoint(lane, startPoint.cx, startPoint.cz);
 					courseplay:debug(string.format('closest point on lane is : %s (%.2f, %.2f)', tostring(closest), lane[closest].cx, lane[closest].cz), 7);
 					courseplay:debug(string.format('[before] rotating headland lane=%d, closest=%d -> rotate: numPoints-(closest)=%d-(%d-1)=%d', i, closest, numPoints, closest, numPoints - (closest-1)), 7);
-				    if orderCW then
-				        lane = table.rotate(lane, numPoints - (closest - 1));
-				    else
-				        lane = table.rotate(lane, numPoints - closest -1);
-				    end
+			        lane = table.rotate(lane, numPoints - (closest-1));
 					if i > 1 then -- link lanes
 						local p3 = lane[1];
 						local p4 = lane[2];
 						local idx = #prevLane;
-						local p1, p2 = prevLane[idx-1], prevLane[idx];
-						local crossing;
-						if geometry:getAnglesAreOpposite(p4.angle,p1.angle,10,true) then
-						    crossing = geometry:lineIntersection(p1,p2,prevLane[1],prevLane[2]);
+						local p2 = prevLane[idx];
+						local side = orderCW and 'left' or 'right';
+						if geometry:getAreAnglesClose(p3.angle,p2.angle,20) then
+							table.remove(prevLane);
+							idx = idx - 1;
+							p2 = prevLane[idx];
+						else
+							while geometry:getPointSide(p2, p3, p4) == side do
+								table.remove(prevLane);
+								idx = idx - 1;
+								p2 = prevLane[idx];
+							end;
+						end;
+						if geometry:getAreAnglesOpposite(p3.angle,p2.angle,10) then
 						    lane[1].turnEnd = true;
 						    prevLane[idx].turnStart = true;
 						    prevLane[idx].turn = orderCW and 'right' or 'left';
 						else
-       					    table.remove(lane);
-       					    numPoints = numPoints - 1;
-    						crossing = geometry:lineIntersection(p1, p2, p3, p4);
-    						while crossing.ip1 == 'TIP' or crossing.ip1 == 'NFIP' do
-    							table.remove(prevLane);
-    							idx = idx - 1;
-    							p1, p2 = prevLane[idx-1], prevLane[idx];
-    							crossing = geometry:lineIntersection(p1, p2, p3, p4);
-    						end;
-							prevLane[idx].cx = crossing.cx;
-							prevLane[idx].cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, crossing.cx, 1, crossing.cz)
-							prevLane[idx].cz = crossing.cz;
-    					end;
+							local p1 = prevLane[idx-1];
+							local crossing = geometry:lineIntersection(p1,p2,p3,p4);
+							if crossing.ip1 == 'PFIP' and crossing.ip2 == 'NFIP' and not(geometry:getAreAnglesClose(p2.angle,p3.angle,30)) then
+							crossing.angle = geometry:signAngleDeg(p2,crossing);
+								local data = {
+									cx = crossing.cx,
+									cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, crossing.cx, 1, crossing.cz), --TODO: actually only needed for debugPoint/debugLine
+									cz = crossing.cz,
+									angle = crossing.angle,
+									wait = false,
+									rev = false,
+									crossing = false,
+									generated = true,
+									lane = p2.lane, --negative lane = headland
+									-- cp.firstInLane = false;
+									turn = nil,
+									turnStart = false,
+									turnEnd = false,
+									ridgeMarker = p2.ridgeMarker
+								};
+								table.insert(prevLane,data);
+							end;
+						end;
+						prevLane[idx].turnStart = true; --debug
+						lane[1].turnEnd = true; --debug
 						table.remove(lanes);
 						table.insert(lanes,prevLane);
 						numPoints = #lane;
 						startPoint = lane[1];
 					end;
-					if i == numHeadlanes and not(turnAround) then -- last headlane link to first fieldWorkCourse point
+					if i == numHeadLanes and not(turnAround) then -- last headlane link to first fieldWorkCourse point
 						courseplay:debug(string.format('last direction is %.2f, field start direction is %.2f',lane[numPoints].angle,fieldWorkCourse[1].angle),7);
-						if geometry:getAnglesAreOpposite(lane[numPoints].angle,fieldWorkCourse[1].angle,20,true) then
+						if geometry:getAreAnglesOpposite(lane[numPoints].angle,fieldWorkCourse[1].angle,20,true) then
 							local data = lane[numPoints];
 							data.cx = (dir == "N" or dir == "S") and lane[numPoints].cx or fieldWorkCourse[1].cx;
 							data.cz = (dir == "E" or dir == "W") and lane[numPoints].cz or fieldWorkCourse[1].cz;
+							data.cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, data.cx, 1, data.cz)
 							data.turnStart = true;
 							data.turn = orderCW and 'right' or 'left';
 							lane[numPoints] = data ;
@@ -644,15 +662,13 @@ function courseplay:generateCourse(vehicle)
 					end;
 					if i == 1 then
 						-- set start point on the field edge
+						startPoint.cx = lane[1].cx;
+						startPoint.cz = lane[1].cz;
 						local newStart = geometry:findCrossing(lane[3],lane[2], field, 'PFIP');
-						if orderCW then
-						    startPoint = lane[2];
-						else
-						    startPoint = lane[1];
-						end;
-						lane[1].cx = newStart.cx;
-						lane[1].cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, newStart.cx, 1, newStart.cz)
-						lane[1].cz = newStart.cz;
+						local dx,dz,_ = geometry:getPointDirection(lane[3],lane[2],true);
+						lane[1].cx = newStart.cx + (1*dx);
+						lane[1].cz = newStart.cz + (1*dz);
+						lane[1].cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, lane[1].cx, 1, lane[1].cz)
 					end;
 					prevLane = lane;
 					table.insert(lanes,lane);
@@ -664,26 +680,84 @@ function courseplay:generateCourse(vehicle)
 			elseif #fieldWorkCourse and not vehicle.cp.headland.orderBefore then --each headland lanes' first point is closest to last fieldwork course point
 				local lastFieldworkPoint = fieldWorkCourse[#fieldWorkCourse];
 				--courseplay:debug(tableShow(lastFieldworkPoint, 'lastFieldworkPoint'), 7); --TODO: is nil - whyyyyy?
-				local headlandLanes = {} ;
-				for i = numHeadlanes, 1, -1 do
+				local lanes = {} ;
+				local prevLane = {};
+				for i = numHeadLanes, 1, -1 do
 					local lane = vehicle.cp.headland.lanes[i];
-					table.remove(lane);
 					local numPoints = #lane;
 					local closest = geometry:getClosestPolyPoint(lane, lastFieldworkPoint.cx, lastFieldworkPoint.cz); --TODO: works, but how if lastFieldWorkPoint is nil???
 					courseplay:debug(string.format('[after] rotating headland lane=%d, closest=%d -> rotate: numPoints-(closest-1)=%d-(%d-1)=%d', i, closest, numPoints, closest, numPoints - (closest-1)), 7);
-
 					lane = table.rotate(lane, numPoints - (closest+1));
-					if i == numHeadlandLanesCreated and geometry:near(self:pointAngle(lane[1],lane[2]) + 180,lastFieldworkPoint.angle, 5, 'deg') then
+					if i ~= numHeadLanes then -- link lanes
+						local p3 = lane[1];
+						local p4 = lane[2];
+						local idx = #prevLane;
+						local p2 = prevLane[idx];
+						local side = orderCW and 'left' or 'right';
+						if geometry:getAreAnglesClose(p3.angle,p2.angle,20) then
+							table.remove(prevLane);
+							idx = idx - 1;
+							p2 = prevLane[idx];
+						else
+							while geometry:getPointSide(p2, p3, p4) == side do
+								table.remove(prevLane);
+								idx = idx - 1;
+								p2 = prevLane[idx];
+							end;
+						end;
+						if geometry:getAreAnglesOpposite(p3.angle,p2.angle,10) then
+						    lane[1].turnEnd = true;
+						    prevLane[idx].turnStart = true;
+						    prevLane[idx].turn = orderCW and 'right' or 'left';
+						else
+							local p1 = prevLane[idx-1];
+							local crossing = geometry:lineIntersection(p1,p2,p3,p4);
+							if crossing.ip1 == 'PFIP' and crossing.ip2 == 'NFIP' and not(geometry:getAreAnglesClose(p2.angle,p3.angle,30)) then
+							crossing.angle = geometry:signAngleDeg(p2,crossing);
+								local data = {
+									cx = crossing.cx,
+									cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, crossing.cx, 1, crossing.cz), --TODO: actually only needed for debugPoint/debugLine
+									cz = crossing.cz,
+									angle = crossing.angle,
+									wait = false,
+									rev = false,
+									crossing = false,
+									generated = true,
+									lane = p2.lane, --negative lane = headland
+									-- cp.firstInLane = false;
+									turn = nil,
+									turnStart = false,
+									turnEnd = false,
+									ridgeMarker = p2.ridgeMarker
+								};
+								table.insert(prevLane,data);
+							end;
+						end;
+						--prevLane[idx].turnStart = true; --debug
+						--lane[1].turnEnd = true; --debug
+						table.remove(lanes);
+						table.insert(lanes,prevLane);
+						numPoints = #lane;
+						startPoint = lane[1];
+					end;
+					if i == numHeadLanes and geometry:getAreAnglesClose(geometry:signAngleDeg(lane[1],lane[2]) + 180,lastFieldworkPoint.angle, 5, 'deg') then
 						--we will have to make a turn maneuver before entering headland
-						tmpLane[1].turnEnd = true;
+						Lane[1].turnEnd = true;
+						fieldWorkCourse[#fieldWorkCourse].turnStart = true;
+						if orderCW then
+							fieldWorkCourse[#fieldWorkCourse].turn = 'right';
+						else
+							fieldWorkCourse[#fieldWorkCourse].turn = 'left';
+						end;
 					end;
 					lastFieldWorkPoint = lane[numPoints];
-					table.insert(headlandLanes, lane);
+					prevLane = lane ;
+					table.insert(lanes, lane);
 				end;
 
 				vehicle.cp.headland.lanes = nil;
 				vehicle.cp.headland.lanes = {};
-				vehicle.cp.headland.lanes = headlandLanes;
+				vehicle.cp.headland.lanes = lanes;
 				--courseplay:debug(tableShow(vehicle.cp.headland.lanes, 'rotated headland lanes'), 7);
 			end;
 		end;
