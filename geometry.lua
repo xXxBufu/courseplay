@@ -8,7 +8,7 @@ function courseplay.geometry:angleDeg(p1, p2)
 	return math.deg(math.atan2(p2.cz-p1.cz, p2.cx-p1.cx));
 end;
 
-function courseplay.geometry:appendArc(points, center, radius, startPoint, endPoint) -- TODO: not used anywhere
+function courseplay.geometry:appendArc(points, center, radius, startPoint, endPoint) -- TODO: probably needed after use of Douglas Peuker .
 	radius = math.abs(radius);
 	local twoPi = math.pi*2;
 	local startAngle = math.atan2(startPoint.cz- center.cz, startPoint.cx - center.cx);
@@ -41,13 +41,19 @@ function courseplay.geometry:appendArc(points, center, radius, startPoint, endPo
 	return points;
 end;
 
-function courseplay.geometry:appendPoly(poly1 ,poly2 ,withStart, withEnd) -- appends poly1 to poly2 with without start and end points of poly2
+function courseplay.geometry:appendPoly(poly1 ,poly2 ,withStart, withEnd) -- appends poly1 to poly2 with or without start and end points of poly2
 	local startidx = withStart and 1 or 2;
 	local endidx = withend and #poly2 or #poly2 - 1;
 	for idx = startidx, endidx do --add all but first and last point
 		table.insert(poly1, poly2[idx]);
 	end;
 	return poly1;
+end;
+
+function courseplay.geometry:clampAngle180(angle)
+	while angle > 180 do angle = angle - 360 end;
+	while angle < -180 do angle = angle + 360 end;
+	return angle;
 end;
 
 function courseplay.geometry:cleanPline(pline,boundingPline,offset,vehicle)
@@ -165,26 +171,24 @@ function courseplay.geometry:findCrossing(p1,p2, poly, where)
 	end;
 end;
 
-function courseplay.geometry:getAnglesAreOpposite(angle1,angle2,tolerance,isDeg)
+function courseplay.geometry:getAreAnglesClose(angle1, angle2, tolerance) 
 	if tolerance == nil then tolerance = 0 end;
-	if isDeg then
-		if angle1 < 0 then angle1 = angle1 + 360 end;
-		if angle2 < 0 then angle2 = angle2 + 360 end;
-	else
-		if angle1 < 0 then angle1 = angle1 + (math.pi * 2) end;
-		if angle2 < 0 then angle2 = angle2 + (math.pi * 2) end;
-	end;
+	angle1 = courseplay.geometry:clampAngle180(angle1);
+	angle2 = courseplay.geometry:clampAngle180(angle2);
+	return math.abs(angle1 - angle2) <= tolerance;
+end;
+
+function courseplay.geometry:getAreAnglesOpposite(angle1, angle2, tolerance)
+	if tolerance == nil then tolerance = 0 end;
+	angle1 = self:positiveAngleDeg(angle1);
+	angle2 = self:positiveAngleDeg(angle2);
 	local diff = angle1 < angle2 and angle2 - angle1 or angle1 - angle2;
-	if isDeg then
-		diff = 180 - diff; 
-	else
-		diff = math.pi - diff;
-	end;
+	diff = 180 - diff; 
 	courseplay:debug(string.format('[areOpposite] angle1 = %.2f, angle2 = %.2f -> %s',angle1,angle2,tostring(diff<=tolerance)),7);
 	return diff <= tolerance;
 end;
 
-function courseplay.geometry:getAnglesArePerpendicular(angle1,angle2,tolerance,isDeg) -- TODO: to rewrite not using cos and sin
+function courseplay.geometry:getAreAnglesPerpendicular(angle1,angle2,tolerance) -- TODO: to rewrite not using cos and sin
 	if tolerance == nil then tolerance = 0 end;
 	if isDeg then
 		tolerance = math.rad(tolerance);
@@ -222,11 +226,11 @@ function courseplay.geometry:getNormal(p1,p2)
 	};
 end;
 
-function courseplay.geometry:getPointSide(point,lineP1,lineP2)
+function courseplay.geometry:getPointSide(point,lineP1,lineP2) -- returns the position of 'point' relative to the line defined by 'lineP1' and 'lineP2' watching for P1 in P2 direction.  
 	local side = (lineP2.cx-lineP1.cx)*(point.cz-lineP1.cz)-(lineP2.cz-lineP1.cz)*(point.cx-lineP1.cx);
 	if side == 0 then return 'on';
 	elseif side > 0 then return 'right';
-	else return 'left';
+	else return 'left'
 	end;
 end;
 
@@ -347,8 +351,8 @@ function courseplay.geometry:getPolygonData(poly, px, pz, useC, skipArea, skipDi
 
 	local isClockwise;
 	if not skipArea then
-		area = math.abs(area) / 2;
 		isClockwise = area < 0;
+		area = math.abs(area) / 2;
 	else
 		area = nil;
 		isClockwise = nil;
@@ -436,7 +440,7 @@ function courseplay.geometry:lineIntersection(p1, p2, p3, p4)
 		else
 			pos1 = 'NFIP';
 		end;
-		courseplay:debug(string.format('lineCrossing -> %.2f, %.2f - %s - %s',x,z,pos1,pos2),7);
+		--courseplay:debug(string.format('lineCrossing -> %.2f, %.2f - %s - %s',x,z,pos1,pos2),7);
 	end;
 	return {
 		cx = x,
@@ -470,16 +474,21 @@ function courseplay.geometry:minDistToPline(point, pline)
 	table.insert(pline,pline[1]);
 	local pointInPline = -1;
 	local minDist = math.huge;
+	local extPoint = {
+		cx = 999999,
+		cz = 999999
+	};
 	for i=1, numPoints do
 		local cp = pline[i];
 		local np = pline[i+1];
-		pointInPline = pointInPline * courseplay.utils:crossProductQuery(point, cp, np, true); -- TODO: move to geometry
+		local crossing = courseplay.geometry:lineIntersection(extPoint,point,cp,np); -- TODO: move to geometry
+		if crossing.ip1 == 'TIP' and crossing.ip2 == 'TIP' then  pointInPline = pointInPline * -1 end;
 		local dist, _ = self:pointDistToLine(point,cp,np);
 		if dist < minDist then
 			minDist = dist;
 		end;
 	end;
-	pointInPline = pointInPline ~= -1 ;
+	pointInPline = pointInPline == 1 ;
 	courseplay:debug(string.format('Point at %.4f InPoly = %s', minDist, tostring(pointInPline)),7);
 	table.remove(pline);
 	return minDist, pointInPline;
@@ -497,30 +506,6 @@ function courseplay.geometry:mirrorPoint(p1, p2, useC)
 		[z] = p2[z] + (p2[z] - p1[z])
 	} ;
 	return sp;
-end;
-
-function courseplay.geometry:near(v1, v2, tolerance,angle) -- TODO: rename "getAreAnglesClose"
-	--returns true if difference between v1 and v2 is under the tolerance value
-	local areNear = false;
-	if tolerance == nil then tolerance = 0 end;
-	if angle then
-		local angle1, angle2 = v1, v2;
-		if angle == 'deg' then
-			tolerance = math.rad(tolerance);
-			angle1 = math.rad(angle1);
-			angle2 = math.rad(angle2);
-		end;
-		if math.abs(math.sin(angle1)-math.sin(angle2)) <= math.sin(tolerance) and math.abs(math.cos(angle1)-math.cos(angle2)) <= math.cos(tolerance) then
-			--courseplay:debug(string.format('angle1 = %.4f and angle2 = %.4f are near', v1 ,v2 ), 7);
-			areNear = true;
-		end;
-	elseif math.abs(v1 - v2) <= tolerance then
-		--courseplay:debug(string.format('v1 = %.4f and v2 = %.4f are near', v1 ,v2 ), 7);
-		areNear = true;
-	else
-		--courseplay:debug(string.format('v1 = %.4f and v2 = %.4f are not near', v1 ,v2 ), 7);
-	end;
-	return areNear;
 end;
 
 function courseplay.geometry:newPolyFromIndices(polyIn, indices)
@@ -570,7 +555,7 @@ function courseplay.geometry:pointDistToLine(point,linePoint1,linePoint2)
 	return dist, (t >= 0 and t <= 1);
 end;
 
-function courseplay.geometry:positiveAngleDeg(ang)
+function courseplay.geometry:positiveAngleDeg(ang) 
 	while ang < 0 do
 		ang = ang + 360;
 	end;
@@ -638,20 +623,20 @@ function courseplay.geometry:segmentsIntersection(A1x, A1y, A2x, A2y, B1x, B1y, 
 end;
 
 function courseplay.geometry:setPolyClockwise(poly)
-	local _, _, _, isClockwise = self:getPolygonData(poly, nil, nil, true, true, true); -- TODO: move that fn to geometry
+	local _, _, _, isClockwise = self:getPolygonData(poly, nil, nil, true, false, true); -- TODO: move that fn to geometry
 	if isClockwise then
 		return poly;
 	else
-		-- print('reversing order of polygon');
+		print(string.format('reversing order of polygon, isClockwise %s', tostring(isClockwise)));
 		local newPoly = table.reverse(poly);
 		return newPoly;
 	end;
 end;
 
 function courseplay.geometry:setPolyCounterClockwise(poly)
-	local _, _, _, isClockwise = self:getPolygonData(poly, nil, nil, true, true, true); -- TODO: move that fn to geometry
+	local _, _, _, isClockwise = self:getPolygonData(poly, nil, nil, true, false, true); -- TODO: move that fn to geometry
 	if isClockwise then
-		-- print('reversing order of polygon');
+		print('reversing order of polygon');
 		local newPoly = table.reverse(poly);
 		return newPoly;
 	else
