@@ -8,7 +8,10 @@ function courseplay.geometry:angleDeg(p1, p2)
 	return math.deg(math.atan2(p2.cz-p1.cz, p2.cx-p1.cx));
 end;
 
-function courseplay.geometry:appendArc(points, center, radius, startPoint, endPoint) -- TODO: probably needed after use of Douglas Peuker .
+function courseplay.geometry:appendArc(poly, center, radius, startPoint, endPoint, withFirst, withLast, vehicle) -- TODO: probably needed after use of Douglas Peuker .
+	local maxPointDistance = vehicle and vehicle.cp.headland.maxPointDistance or 5;
+	local points = {};
+	
 	radius = math.abs(radius);
 	local twoPi = math.pi*2;
 	local startAngle = math.atan2(startPoint.cz- center.cz, startPoint.cx - center.cx);
@@ -25,27 +28,29 @@ function courseplay.geometry:appendArc(points, center, radius, startPoint, endPo
 	else
 		angle = startAngle + twoPi - endAngle;
 	end;
-	local arcSegmentCount = angle * radius / 5;
+	local arcSegmentCount = angle * radius / maxPointDistance;
 	local arcAngle = -angle / arcSegmentCount;
 	courseplay:debug(string.format('angle is %2.f, %.2f points in arc',math.deg(angle),arcSegmentCount),7);
-	table.insert(points, startPoint);
+	if withFirst then table.insert(poly, startPoint) end;
 	for i = 1, arcSegmentCount do
 		local angle = startAngle + arcAngle * i;
 		local point = {
 			cx = center.cx + math.cos(angle) * radius,
 			cz = center.cz + math.sin(angle) * radius
 		};
-		table.insert(points, point);
+		table.insert(poly, point);
 	end;
-	table.insert(points, endPoint);
-	return points;
+	if withLast then table.insert(poly, endPoint) end;
+	return poly;
 end;
 
-function courseplay.geometry:appendPoly(poly1 ,poly2 ,withStart, withEnd) -- appends poly1 to poly2 with or without start and end points of poly2
+function courseplay.geometry:appendPoly(poly1 ,poly2 ,withStart, withEnd, boundingPline) -- appends poly1 to poly2 with or without start and end points of poly2
 	local startidx = withStart and 1 or 2;
 	local endidx = withend and #poly2 or #poly2 - 1;
 	for idx = startidx, endidx do --add all but first and last point
-		table.insert(poly1, poly2[idx]);
+		if (boundingPline and self:keepPoint(poly2[idx],boundingPline,0)) or not(boundingPline) then
+			table.insert(poly1, poly2[idx]);
+		end;
 	end;
 	return poly1;
 end;
@@ -109,7 +114,7 @@ function courseplay.geometry:cleanPline(pline,boundingPline,offset,vehicle)
 		end;
 	end;
 	table.remove(pline);
-	newPline = self:refinePoly(newPline, maxPointDistance);
+	newPline = self:refinePoly(newPline, maxPointDistance, boundingPline);
 	return newPline;
 end;
 
@@ -529,7 +534,7 @@ function courseplay.geometry:offsetPoint(point, normal, offset)
 end;
 
 function courseplay.geometry:offsetPoly(pline, offset, vehicle)
-	local pline1 = self:untrimmedOffsetPline(pline, offset);
+	local pline1 = self:untrimmedOffsetPline(pline, offset, vehicle);
 	pline1 = self:cleanPline(pline1, pline, offset, vehicle);
 	return pline1;
 end;
@@ -562,7 +567,7 @@ function courseplay.geometry:positiveAngleDeg(ang)
 	return ang;
 end;
 
-function courseplay.geometry:refinePoly(poly, maxDistance)
+function courseplay.geometry:refinePoly(poly, maxDistance, boundingPline)
 	local pointsInPline = #poly;
 	local newPline = {};
 	for idx = 1, pointsInPline do
@@ -581,7 +586,7 @@ function courseplay.geometry:refinePoly(poly, maxDistance)
 		local p1, p2, p3, p4 = poly[idxPrev], poly[idx], poly[idxNext], poly[idxNext2];
 		if Utils.vector2Length(p2.cx - p3.cx, p2.cz - p3.cz) > maxDistance then
 			local spline = self:smoothSpline(p1, p2, p3, p4, Utils.vector2Length(p2.cx - p3.cx, p2.cz - p3.cz)/maxDistance);
-			newPline = self:appendPoly(newPline, spline, true, false);
+			newPline = self:appendPoly(newPline, spline, true, false, boundingPline);
 		else
 			table.insert(newPline,p2);
 		end;
@@ -670,7 +675,8 @@ function courseplay.geometry:simplifyPolygon(points, epsilon)
 end;
 
 -- @src: http://www.efg2.com/Lab/Graphics/Jean-YvesQueinecBezierCurves.htm
-function courseplay.geometry:smoothSpline(refPoint1, startPoint, endPoint , refPoint2 , steps, useC, addHeight)
+function courseplay.geometry:smoothSpline(refPoint1, startPoint, endPoint , refPoint2 , steps, useC, addHeight, useCrossing)
+	if useCrossing == nil then useCrossing = true; end;
 	if useC == nil then useC = true; end;
 	if addHeight == nil then addHeight = false; end;
 
@@ -680,13 +686,13 @@ function courseplay.geometry:smoothSpline(refPoint1, startPoint, endPoint , refP
 	if useC then
 		x,y,z = 'cx','cy','cz';
 	end;
-	local p1,p2,p3,p4;
 	if refPoint1 or RefPoint2 then
+		local p1,p2,p3,p4;
 		p1 = startPoint;
 		p4 = endPoint;
 		if refPoint1 and refPoint2 then
 			local crossingPoint = self:lineIntersection(refPoint1, startPoint, endPoint, refPoint2);
-			if crossingPoint.ip1 == 'PFIP' and crossingPoint.ip2 == 'NFIP' then -- crossing point is used as reference
+			if crossingPoint.ip1 == 'PFIP' and crossingPoint.ip2 == 'NFIP' and useCrossing then -- crossing point is used as reference
 				crossingPoint.x, crossingPoint.z = crossingPoint.cx, crossingPoint.cz;
 				courseplay:debug(string.format('lines are crossing at : %.4f, %.4f', crossingPoint[x], crossingPoint[z]), 7);
 				p2 = crossingPoint;
@@ -707,9 +713,10 @@ function courseplay.geometry:smoothSpline(refPoint1, startPoint, endPoint , refP
 		for t = 0, 1, (1/steps) do
 			local point = {
 				[x] = math.pow(1-t, 3) * p1[x] + 3 * math.pow(1-t, 2) * t * p2[x] + 3 * (1-t) * t*t *  p3[x] + t*t*t * p4[x],
-				[z] = math.pow(1-t, 3) * p1[z] + 3 * math.pow(1-t, 2) * t * p2[z] + 3 * (1-t) * t*t *  p3[z] + t*t*t * p4[z],
-				[y] = addHeight and getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, point[x], 1, point[z]) + 3 or nil
+				[z] = math.pow(1-t, 3) * p1[z] + 3 * math.pow(1-t, 2) * t * p2[z] + 3 * (1-t) * t*t *  p3[z] + t*t*t * p4[z]
 			};
+			point[y] = addHeight and getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, point[x], 1, point[z]) + 3 or nil;
+
 			table.insert(spline, point);
 			courseplay:debug(string.format('smoothSpline adding point : %.2f, %.2f', point[x], point[z]), 7);
 		end;
@@ -720,7 +727,8 @@ function courseplay.geometry:smoothSpline(refPoint1, startPoint, endPoint , refP
 	return spline;
 end;
 
-function courseplay.geometry:untrimmedOffsetPline(pline, offset)
+function courseplay.geometry:untrimmedOffsetPline(pline, offset, vehicle)
+	local maxPointDistance = vehicle and vehicle.cp.headland.maxPointDistance or 5;
 	table.insert(pline,pline[1]);
 	local numPoints = #pline;
 	local offPline = {};
@@ -739,7 +747,17 @@ function courseplay.geometry:untrimmedOffsetPline(pline, offset)
 		elseif crossing.ip1 == 'TIP' and crossing.ip2 == 'TIP' then
 			table.insert(offPline, crossing);
 		elseif crossing.ip1 == 'PFIP' and crossing.ip2 == 'NFIP' then
-			table.insert(offPline, crossing);
+			if Utils.vector2Length(s1p1.cx-crossing.cx,s1p1.cz-crossing.cz) > maxPointDistance then
+				table.insert(offPline, s1p2);
+			end;
+			if Utils.vector2Length(s1p2.cx-s2p1.cx,s1p2.cz-s2p1.cz) > maxPointDistance then
+				offPline = self:appendArc(offPline,pline[idx2],offset,s1p2,s2p1,false, false, vehicle)
+			else
+				table.insert(offPline, crossing);
+			end;
+			if Utils.vector2Length(s2p2.cx-crossing.cx,s2p2.cz-crossing.cz) > maxPointDistance then
+				table.insert(offPline, s2p1);
+			end;
 		else
 			table.insert(offPline, s1p2);
 			table.insert(offPline, s2p1);

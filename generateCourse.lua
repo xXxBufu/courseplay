@@ -12,6 +12,9 @@ local abs, sqrt = math.abs, math.sqrt;
 
 function courseplay:generateCourse(vehicle)
 	local self = courseplay.generation;
+	-----------------------------------
+	local workWidth = vehicle.cp.workWidth;
+	local epsilon = vehicle.cp.fieldEdge.douglasPeuckerEpsilon or 2;
 
 	-----------------------------------
 	if not vehicle.cp.overlap then vehicle.cp.overlap = 1/4 end; --TODO add this in the menu
@@ -33,6 +36,8 @@ function courseplay:generateCourse(vehicle)
 	local field = {};
 	if vehicle.cp.fieldEdge.selectedField.fieldNum > 0 then
 		field = courseplay.utils.table.copy(courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].points, true);
+		local remainingPoints = geometry:simplifyPolygon(field, epsilon);
+		local field = geometry:newPolyFromIndices(field, remainingPoints); -- make new polygon
 	else
 		field = courseplay.utils.table.copy(vehicle.Waypoints, true);
 	end;
@@ -50,7 +55,6 @@ function courseplay:generateCourse(vehicle)
 	--------------------------------------------------------------------
 	courseplay:debug('(1) SET UP CORNERS AND DIRECTIONS', 7);
 
-	local workWidth = vehicle.cp.workWidth;
 	local corners = {
 		[1] = 'SW',
 		[2] = 'NW',
@@ -602,10 +606,11 @@ function courseplay:generateCourse(vehicle)
 								table.insert(prevLane,data);
 							end;
 						end;
-						prevLane[idx].turnStart = true; --debug
-						lane[1].turnEnd = true; --debug
+						--prevLane[idx].turnStart = true; --debug
+						--lane[1].turnEnd = true; --debug
 						table.remove(lanes);
 						table.insert(lanes,prevLane);
+						table.remove(lane);
 						numPoints = #lane;
 						startPoint = lane[1];
 					end;
@@ -656,7 +661,7 @@ function courseplay:generateCourse(vehicle)
 										};
 									spline[i] = data;
 								end;
-								lane = geometry:appendPoly(lane, spline, false, false);
+								lane = geometry:appendPoly(lane, spline, false, false, prevLane);
 							end;
 						end;
 					end;
@@ -669,6 +674,7 @@ function courseplay:generateCourse(vehicle)
 						lane[1].cx = newStart.cx + (1*dx);
 						lane[1].cz = newStart.cz + (1*dz);
 						lane[1].cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, lane[1].cx, 1, lane[1].cz)
+						table.remove(lane);
 					end;
 					prevLane = lane;
 					table.insert(lanes,lane);
@@ -687,8 +693,8 @@ function courseplay:generateCourse(vehicle)
 					local numPoints = #lane;
 					local closest = geometry:getClosestPolyPoint(lane, lastFieldworkPoint.cx, lastFieldworkPoint.cz); --TODO: works, but how if lastFieldWorkPoint is nil???
 					courseplay:debug(string.format('[after] rotating headland lane=%d, closest=%d -> rotate: numPoints-(closest-1)=%d-(%d-1)=%d', i, closest, numPoints, closest, numPoints - (closest-1)), 7);
-					lane = table.rotate(lane, numPoints - (closest+1));
-					if i ~= numHeadLanes then -- link lanes
+					lane = table.rotate(lane, numPoints - (closest - 1));
+					if i < numHeadLanes then -- link lanes
 						local p3 = lane[1];
 						local p4 = lane[2];
 						local idx = #prevLane;
@@ -712,7 +718,7 @@ function courseplay:generateCourse(vehicle)
 						else
 							local p1 = prevLane[idx-1];
 							local crossing = geometry:lineIntersection(p1,p2,p3,p4);
-							if crossing.ip1 == 'PFIP' and crossing.ip2 == 'NFIP' and not(geometry:getAreAnglesClose(p2.angle,p3.angle,30)) then
+							if crossing.ip1 == 'PFIP' and crossing.ip2 == 'NFIP' and not(geometry:getAreAnglesClose(p2.angle,p3.angle,10)) then
 							crossing.angle = geometry:signAngleDeg(p2,crossing);
 								local data = {
 									cx = crossing.cx,
@@ -792,14 +798,10 @@ function courseplay:generateCourse(vehicle)
 
 		local p1 = vehicle.Waypoints[vehicle.maxnumber-1];
 		local p2 = vehicle.Waypoints[vehicle.maxnumber];
-		if not turnAround then
-		    p1 = vehicle.Waypoints[vehicle.maxnumber-1];
-		    p2 = vehicle.Waypoints[vehicle.maxnumber-2];
-		end
 		local p3 = vehicle.Waypoints[2];
 		local p4 = vehicle.Waypoints[1];
 		local dist = Utils.vector2Length(p2.cx-p3.cx,p2.cz-p3.cz);
-		returnToStart = geometry:smoothSpline(p1, p2, p3, p4, dist/vehicle.cp.headland.maxPointDistance);
+		returnToStart = geometry:smoothSpline(p1, p2, p3, p4, dist/vehicle.cp.headland.maxPointDistance, true, true, false);
 		table.remove(returnToStart, 1);
 		local data = {};
 		for i, point in pairs(returnToStart) do
