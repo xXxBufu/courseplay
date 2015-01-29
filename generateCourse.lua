@@ -77,7 +77,7 @@ function courseplay:generateCourse(vehicle)
 	local orderCW = vehicle.cp.headland.userDirClockwise;
 	local numLanes = vehicle.cp.headland.numLanes;
 	local turnAround = vehicle.cp.headland.turnAround or numLanes > 49;
-	local numHeadLanes ;
+	local numHeadlandLanesCreated ;
 
 	---#################################################################
 	-- (2) HEADLAND
@@ -166,20 +166,20 @@ function courseplay:generateCourse(vehicle)
 		end; --END while curLane in numLanes
 
 
-		numHeadLanes = #(vehicle.cp.headland.lanes);
-		courseplay:debug(string.format('generateCourse(%i):  #vehicle.cp.headland.lanes=%s', debug.getinfo(1).currentline, tostring(numHeadLanes)), 7);
+		numHeadlandLanesCreated = #(vehicle.cp.headland.lanes);
+		courseplay:debug(string.format('generateCourse(%i):  #vehicle.cp.headland.lanes=%s', debug.getinfo(1).currentline, tostring(numHeadlandLanesCreated)), 7);
 		-- courseplay:debug(tableShow(vehicle.cp.headland.lanes, 'vehicle.cp.headland.lanes', 7), 7); --WORKS
 
 		-- --------------------------------------------------
 		-- (2.4) SETTING FIELD WORK COURSE BASE
-		if numHeadLanes > 0 and not(turnAround) then
+		if numHeadlandLanesCreated > 0 and not(turnAround) then
 			if vehicle.cp.overlap ~= 0 then
-				offsetWidth = self:getOffsetWidth(vehicle, numHeadLanes + 1);
+				offsetWidth = self:getOffsetWidth(vehicle, numHeadlandLanesCreated + 1);
 				offsetWidth = (offsetWidth / 2) * (1 - vehicle.cp.overlap);
 				polyPoints = geometry:offsetPoly(polyPoints, -offsetWidth);
 			end;
 			numPoints = #(polyPoints);
-			courseplay:debug(string.format('headland: numHeadLanes=%d, workArea has %s points', numHeadLanes, tostring(numPoints)), 7);
+			courseplay:debug(string.format('headland: numHeadlandLanesCreated=%d, workArea has %s points', numHeadlandLanesCreated, tostring(numPoints)), 7);
 		end;
 
 	end; --END if vehicle.cp.headland.numLanes ~= 0
@@ -547,8 +547,8 @@ function courseplay:generateCourse(vehicle)
 	-------------------------------------------------------------------------------
 	courseplay:debug('(5) ROTATE HEADLAND COURSES', 7);
 	if vehicle.cp.headland.numLanes > 0 then
-		courseplay:debug(string.format('[headlands] rotating headland, number of lanes = %d', numHeadLanes),7);
-		if numHeadLanes > 0 then
+		courseplay:debug(string.format('[headlands] rotating headland, number of lanes = %d', numHeadlandLanesCreated),7);
+		if numHeadlandLanesCreated > 0 then
 			-- -------------------------------------------------------------------------
 			-- (5.1) ROTATE AND LINK HEADLAND LANES
 			if vehicle.cp.headland.orderBefore or turnAround then --each headland lane 's first point is closest to corresponding field begin point or previous lane end point
@@ -614,7 +614,7 @@ function courseplay:generateCourse(vehicle)
 						numPoints = #lane;
 						startPoint = lane[1];
 					end;
-					if i == numHeadLanes and not(turnAround) then -- last headlane link to first fieldWorkCourse point
+					if i == numHeadlandLanesCreated and not(turnAround) then -- last headlane link to first fieldWorkCourse point
 						courseplay:debug(string.format('last direction is %.2f, field start direction is %.2f',lane[numPoints].angle,fieldWorkCourse[1].angle),7);
 						if geometry:getAreAnglesOpposite(lane[numPoints].angle,fieldWorkCourse[1].angle,20,true) then
 							local data = lane[numPoints];
@@ -688,13 +688,13 @@ function courseplay:generateCourse(vehicle)
 				--courseplay:debug(tableShow(lastFieldworkPoint, 'lastFieldworkPoint'), 7); --TODO: is nil - whyyyyy?
 				local lanes = {} ;
 				local prevLane = {};
-				for i = numHeadLanes, 1, -1 do
+				for i = numHeadlandLanesCreated, 1, -1 do
 					local lane = vehicle.cp.headland.lanes[i];
 					local numPoints = #lane;
 					local closest = geometry:getClosestPolyPoint(lane, lastFieldworkPoint.cx, lastFieldworkPoint.cz); --TODO: works, but how if lastFieldWorkPoint is nil???
 					courseplay:debug(string.format('[after] rotating headland lane=%d, closest=%d -> rotate: numPoints-(closest-1)=%d-(%d-1)=%d', i, closest, numPoints, closest, numPoints - (closest-1)), 7);
 					lane = table.rotate(lane, numPoints - (closest - 1));
-					if i < numHeadLanes then -- link lanes
+					if i < numHeadlandLanesCreated then -- link lanes
 						local p3 = lane[1];
 						local p4 = lane[2];
 						local idx = #prevLane;
@@ -746,7 +746,7 @@ function courseplay:generateCourse(vehicle)
 						numPoints = #lane;
 						startPoint = lane[1];
 					end;
-					if i == numHeadLanes and geometry:getAreAnglesClose(geometry:signAngleDeg(lane[1],lane[2]) + 180,lastFieldworkPoint.angle, 5, 'deg') then
+					if i == numHeadlandLanesCreated and geometry:getAreAnglesClose(geometry:signAngleDeg(lane[1],lane[2]) + 180,lastFieldworkPoint.angle, 5, 'deg') then
 						--we will have to make a turn maneuver before entering headland
 						Lane[1].turnEnd = true;
 						fieldWorkCourse[#fieldWorkCourse].turnStart = true;
