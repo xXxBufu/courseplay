@@ -37,7 +37,7 @@ function courseplay:generateCourse(vehicle)
 	if vehicle.cp.fieldEdge.selectedField.fieldNum > 0 then
 		field = courseplay.utils.table.copy(courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].points, true);
 		local remainingPoints = geometry:simplifyPolygon(field, epsilon);
-		local field = geometry:newPolyFromIndices(field, remainingPoints); -- make new polygon
+		field = geometry:newPolyFromIndices(field, remainingPoints); -- make new polygon
 	else
 		field = courseplay.utils.table.copy(vehicle.Waypoints, true);
 	end;
@@ -170,17 +170,17 @@ function courseplay:generateCourse(vehicle)
 		courseplay:debug(string.format('generateCourse(%i):  #vehicle.cp.headland.lanes=%s', debug.getinfo(1).currentline, tostring(numHeadlandLanesCreated)), 7);
 		-- courseplay:debug(tableShow(vehicle.cp.headland.lanes, 'vehicle.cp.headland.lanes', 7), 7); --WORKS
 
-		-- --------------------------------------------------
-		-- (2.4) SETTING FIELD WORK COURSE BASE
-		if numHeadlandLanesCreated > 0 and not(turnAround) then
-			if vehicle.cp.overlap ~= 0 then
-				offsetWidth = self:getOffsetWidth(vehicle, numHeadlandLanesCreated + 1);
-				offsetWidth = (offsetWidth / 2) * (1 - vehicle.cp.overlap);
-				polyPoints = geometry:offsetPoly(polyPoints, -offsetWidth);
-			end;
-			numPoints = #(polyPoints);
-			courseplay:debug(string.format('headland: numHeadlandLanesCreated=%d, workArea has %s points', numHeadlandLanesCreated, tostring(numPoints)), 7);
-		end;
+		-- -- --------------------------------------------------
+		-- -- (2.4) SETTING FIELD WORK COURSE BASE
+		-- if numHeadlandLanesCreated > 0 and not(turnAround) then
+			-- if vehicle.cp.overlap ~= 0 then
+				-- offsetWidth = self:getOffsetWidth(vehicle, numHeadlandLanesCreated + 1);
+				-- offsetWidth = (offsetWidth / 2) * (1 - vehicle.cp.overlap);
+				-- polyPoints = geometry:offsetPoly(polyPoints, -offsetWidth);
+			-- end;
+			-- numPoints = #(polyPoints);
+			-- courseplay:debug(string.format('headland: numHeadlandLanesCreated=%d, workArea has %s points', numHeadlandLanesCreated, tostring(numPoints)), 7);
+		-- end;
 
 	end; --END if vehicle.cp.headland.numLanes ~= 0
 
@@ -202,336 +202,350 @@ function courseplay:generateCourse(vehicle)
 	courseplay:debug(string.format('minX=%s, maxX=%s', tostring(dimensions.minX), tostring(dimensions.maxX)), 7); --WORKS
 	courseplay:debug(string.format('minZ=%s, maxZ=%s', tostring(dimensions.minZ), tostring(dimensions.maxZ)), 7); --WORKS
 	courseplay:debug(string.format('generateCourse(%i): width=%s, height=%s', debug.getinfo(1).currentline, tostring(dimensions.width), tostring(dimensions.height)), 7); --WORKS
+	local startCorner= {};
+	if string.find(crn,"N") then
+		cx = dimensions.maxX;
+	else
+		cx = dimensions.minX;
+	end;
+	if string.find(crn,"E") then
+		cz = dimensions.minZ;
+	else
+		cz = dimensions.maxZ;
+	end;
 
-	local numLanes, pointsPerLane = 0, 0;
-	local curLaneDir = '';
-	local pointDistance = 5;
-	local pipSafety = 0.1;
-	local pathPoints = {};
-
-	if dir == "N" or dir == "S" then --North or South
-		numLanes = math.ceil(dimensions.width / workWidth);
-		pointsPerLane = math.ceil(dimensions.height / pointDistance);
-		if (numLanes * workWidth) < dimensions.width then
-			numLanes = numLanes + 1;
-		end;
-		courseplay:debug(string.format('generateCourse(%i): numLanes=%s, pointsPerLane=%s', debug.getinfo(1).currentline, tostring(numLanes), tostring(pointsPerLane)), 7); --WORKS
-
-		local gotALane = false;
-		for curLane=1, numLanes do
-			--Lane directions
-			if gotALane then
-				if curLaneDir == "N" then
-					curLaneDir = "S";
-				else
-					curLaneDir = "N";
-				end;
-			else
-				curLaneDir = dir;
-			end;
-			courseplay:debug(string.format("curLane = %d, curLaneDir = %s", curLane, curLaneDir), 7); --WORKS
-
-			for a=1, pointsPerLane do
-				local curPoint = {
-					num = a + ((curLane-1) * pointsPerLane),
-					lane = curLane,
-					laneDir = curLaneDir,
-					cx = dimensions.minX + (workWidth * curLane) - (workWidth/2),
-					cz = dimensions.minZ
-				};
-
-				if crn == "NW" or crn == "SW" then
-					if curLaneDir == "S" then
-						curPoint.ridgeMarker = ridgeMarker["left"];
-					else
-						curPoint.ridgeMarker = ridgeMarker["right"];
-					end;
-				elseif crn == "SE" or crn == "NE" then
-					if curLaneDir == "S" then
-						curPoint.ridgeMarker = ridgeMarker["right"];
-					else
-						curPoint.ridgeMarker = ridgeMarker["left"];
-					end;
-				end;
-
-				if crn == "NE" or crn == "SE" then
-					curPoint.cx = dimensions.maxX - (workWidth * curLane) + (workWidth/2);
-				end;
-
-				if curLaneDir == "S" then
-					curPoint.cz = dimensions.minZ + (pointDistance * (a-1));
-
-					if curPoint.cz >= dimensions.maxZ then
-						curPoint.cz = dimensions.maxZ - pipSafety;
-					end;
-				elseif curLaneDir == "N" then
-					curPoint.cz = dimensions.maxZ - (pointDistance * (a-1));
-
-					if curPoint.cz <= dimensions.minZ then
-						curPoint.cz = dimensions.minZ + pipSafety;
-					end;
-				end;
-
-				--last lane
-				curPoint.cx = Utils.clamp(curPoint.cx, dimensions.minX + (workWidth/2), dimensions.maxX - (workWidth/2));
-
-				--is point in field?
-				local _, pointInPoly = geometry:minDistToPline(curPoint, polyPoints);
-				if pointInPoly then
-					courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - in Poly - adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
-					table.insert(pathPoints, curPoint);
-					gotALane = true;
-				else
-					courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - not in Poly - not adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
-				end;
-				_, pointInPoly = geometry:minDistToPline(curPoint, field);
-				if pointInPoly then
-				    table.insert(fieldPoints, curPoint);
-				end;
-
-			end; --END for curPoint in pointsPerLane
-		end; --END for curLane in numLanes
-	--END North or South
-
-	elseif dir == "E" or dir == "W" then --East or West
-		numLanes = math.ceil(dimensions.height / workWidth);
-		pointsPerLane = math.ceil(dimensions.width / pointDistance);
-		if numLanes * workWidth < dimensions.height then
-			numLanes = numLanes + 1;
-		end;
-		courseplay:debug(string.format("generateCourse(%i): numLanes = %s, pointsPerLane = %s", debug.getinfo(1).currentline, tostring(numLanes), tostring(pointsPerLane)), 7); --WORKS
-
-		local gotALane = false;
-		for curLane=1, numLanes do
-			--Lane directions
-			if gotALane then
-				if curLaneDir == "E" then
-					curLaneDir = "W";
-				else
-					curLaneDir = "E";
-				end;
-			else
-				curLaneDir = dir;
-			end;
-
-			courseplay:debug(string.format("curLane = %d, curLaneDir = %s", curLane, curLaneDir), 7); --WORKS
-
-			for a=1, pointsPerLane do
-				local curPoint = {
-					num = a + ((curLane-1) * pointsPerLane),
-					lane = curLane,
-					laneDir = curLaneDir,
-					cx = dimensions.minX,
-					cz = dimensions.minZ + (workWidth * curLane) - (workWidth/2)
-				};
-
-				if crn == "SW" or crn == "SE" then
-					if curLaneDir == "E" then
-						curPoint.ridgeMarker = ridgeMarker["left"];
-					else
-						curPoint.ridgeMarker = ridgeMarker["right"];
-					end;
-				elseif crn == "NE" or crn == "NW" then
-					if curLaneDir == "E" then
-						curPoint.ridgeMarker = ridgeMarker["right"];
-					else
-						curPoint.ridgeMarker = ridgeMarker["left"];
-					end;
-				end;
-
-				if crn == "SW" or crn == "SE" then
-					curPoint.cz = dimensions.maxZ - (workWidth * curLane) + (workWidth/2);
-				end;
-
-				if curLaneDir == "E" then
-					curPoint.cx = dimensions.minX + (pointDistance * (a-1));
-
-					if curPoint.cx >= dimensions.maxX then
-						curPoint.cx = dimensions.maxX - pipSafety;
-					end;
-				elseif curLaneDir == "W" then
-					curPoint.cx = dimensions.maxX - (pointDistance * (a-1));
-
-					if curPoint.cx <= dimensions.minX then
-						curPoint.cx = dimensions.minX + pipSafety;
-					end;
-				end;
-
-				--last lane
-				curPoint.z = Utils.clamp(curPoint.cz, dimensions.minZ + (workWidth/2), dimensions.maxZ - (workWidth/2));
-
-				--is point in field?
-				local _, pointInPoly = geometry:minDistToPline(curPoint, polyPoints);
-				if pointInPoly then
-					courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - in Poly - adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
-					table.insert(pathPoints, curPoint);
-					gotALane = true;
-				else
-					courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - not in Poly - not adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
-				end;
-				_, pointInPoly = geometry:minDistToPline(curPoint, field);
-				if pointInPoly then
-				    table.insert(fieldPoints, curPoint);
-				end;
+	fieldWorkCourse = geometry:genWorkCourse(polyPoints, vehicle, startCorner);
 
 
-			end; --END for curPoint in pointsPerLane
-		end; --END for curLane in numLanes
-	end; --END East or West
+	-- local numLanes, pointsPerLane = 0, 0;
+	-- local curLaneDir = '';
+	-- local pointDistance = 5;
+	-- local pipSafety = 0.1;
+	-- local pathPoints = {};
 
-	---############################################################################
-	-- (4) CHECK PATH LANES FOR VALID START AND END POINTS and FILL fieldWorkCourse
-	-------------------------------------------------------------------------------
-	courseplay:debug('(4) CHECK PATH LANES FOR VALID START AND END POINTS and FILL fieldWorkCourse', 7);
-	local numPoints = #pathPoints;
-	for i=1, numPoints do
-		local cp = pathPoints[i];   --current
-		local np = pathPoints[i+1]; --next
-		local pp = pathPoints[i-1]; --previous
+	-- if dir == "N" or dir == "S" then --North or South
+		-- numLanes = math.ceil(dimensions.width / workWidth);
+		-- pointsPerLane = math.ceil(dimensions.height / pointDistance);
+		-- if (numLanes * workWidth) < dimensions.width then
+			-- numLanes = numLanes + 1;
+		-- end;
+		-- courseplay:debug(string.format('generateCourse(%i): numLanes=%s, pointsPerLane=%s', debug.getinfo(1).currentline, tostring(numLanes), tostring(pointsPerLane)), 7); --WORKS
 
-		if i == 1 then
-			pp = pathPoints[numPoints];
-		end;
-		if i == numPoints then
-			np = pathPoints[1];
-		end;
+		-- local gotALane = false;
+		-- for curLane=1, numLanes do
+			-- --Lane directions
+			-- if gotALane then
+				-- if curLaneDir == "N" then
+					-- curLaneDir = "S";
+				-- else
+					-- curLaneDir = "N";
+				-- end;
+			-- else
+				-- curLaneDir = dir;
+			-- end;
+			-- courseplay:debug(string.format("curLane = %d, curLaneDir = %s", curLane, curLaneDir), 7); --WORKS
 
-		cp.firstInLane = pp.lane ~= cp.lane; --previous point in different lane -> I'm first in lane
-		cp.lastInLane = np.lane ~= cp.lane; --next point in different lane -> I'm last in lane
-		local isLastLane = cp.lane == numLanes;
+			-- for a=1, pointsPerLane do
+				-- local curPoint = {
+					-- num = a + ((curLane-1) * pointsPerLane),
+					-- lane = curLane,
+					-- laneDir = curLaneDir,
+					-- cx = dimensions.minX + (workWidth * curLane) - (workWidth/2),
+					-- cz = dimensions.minZ
+				-- };
+
+				-- if crn == "NW" or crn == "SW" then
+					-- if curLaneDir == "S" then
+						-- curPoint.ridgeMarker = ridgeMarker["left"];
+					-- else
+						-- curPoint.ridgeMarker = ridgeMarker["right"];
+					-- end;
+				-- elseif crn == "SE" or crn == "NE" then
+					-- if curLaneDir == "S" then
+						-- curPoint.ridgeMarker = ridgeMarker["right"];
+					-- else
+						-- curPoint.ridgeMarker = ridgeMarker["left"];
+					-- end;
+				-- end;
+
+				-- if crn == "NE" or crn == "SE" then
+					-- curPoint.cx = dimensions.maxX - (workWidth * curLane) + (workWidth/2);
+				-- end;
+
+				-- if curLaneDir == "S" then
+					-- curPoint.cz = dimensions.minZ + (pointDistance * (a-1));
+
+					-- if curPoint.cz >= dimensions.maxZ then
+						-- curPoint.cz = dimensions.maxZ - pipSafety;
+					-- end;
+				-- elseif curLaneDir == "N" then
+					-- curPoint.cz = dimensions.maxZ - (pointDistance * (a-1));
+
+					-- if curPoint.cz <= dimensions.minZ then
+						-- curPoint.cz = dimensions.minZ + pipSafety;
+					-- end;
+				-- end;
+
+				-- --last lane
+				-- curPoint.cx = Utils.clamp(curPoint.cx, dimensions.minX + (workWidth/2), dimensions.maxX - (workWidth/2));
+
+				-- --is point in field?
+				-- local _, pointInPoly = geometry:minDistToPline(curPoint, polyPoints);
+				-- if pointInPoly then
+					-- courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - in Poly - adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
+					-- table.insert(pathPoints, curPoint);
+					-- gotALane = true;
+				-- else
+					-- courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - not in Poly - not adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
+				-- end;
+				-- _, pointInPoly = geometry:minDistToPline(curPoint, field);
+				-- if pointInPoly then
+				    -- table.insert(fieldPoints, curPoint);
+				-- end;
+
+			-- end; --END for curPoint in pointsPerLane
+		-- end; --END for curLane in numLanes
+	-- --END North or South
+
+	-- elseif dir == "E" or dir == "W" then --East or West
+		-- numLanes = math.ceil(dimensions.height / workWidth);
+		-- pointsPerLane = math.ceil(dimensions.width / pointDistance);
+		-- if numLanes * workWidth < dimensions.height then
+			-- numLanes = numLanes + 1;
+		-- end;
+		-- courseplay:debug(string.format("generateCourse(%i): numLanes = %s, pointsPerLane = %s", debug.getinfo(1).currentline, tostring(numLanes), tostring(pointsPerLane)), 7); --WORKS
+
+		-- local gotALane = false;
+		-- for curLane=1, numLanes do
+			-- --Lane directions
+			-- if gotALane then
+				-- if curLaneDir == "E" then
+					-- curLaneDir = "W";
+				-- else
+					-- curLaneDir = "E";
+				-- end;
+			-- else
+				-- curLaneDir = dir;
+			-- end;
+
+			-- courseplay:debug(string.format("curLane = %d, curLaneDir = %s", curLane, curLaneDir), 7); --WORKS
+
+			-- for a=1, pointsPerLane do
+				-- local curPoint = {
+					-- num = a + ((curLane-1) * pointsPerLane),
+					-- lane = curLane,
+					-- laneDir = curLaneDir,
+					-- cx = dimensions.minX,
+					-- cz = dimensions.minZ + (workWidth * curLane) - (workWidth/2)
+				-- };
+
+				-- if crn == "SW" or crn == "SE" then
+					-- if curLaneDir == "E" then
+						-- curPoint.ridgeMarker = ridgeMarker["left"];
+					-- else
+						-- curPoint.ridgeMarker = ridgeMarker["right"];
+					-- end;
+				-- elseif crn == "NE" or crn == "NW" then
+					-- if curLaneDir == "E" then
+						-- curPoint.ridgeMarker = ridgeMarker["right"];
+					-- else
+						-- curPoint.ridgeMarker = ridgeMarker["left"];
+					-- end;
+				-- end;
+
+				-- if crn == "SW" or crn == "SE" then
+					-- curPoint.cz = dimensions.maxZ - (workWidth * curLane) + (workWidth/2);
+				-- end;
+
+				-- if curLaneDir == "E" then
+					-- curPoint.cx = dimensions.minX + (pointDistance * (a-1));
+
+					-- if curPoint.cx >= dimensions.maxX then
+						-- curPoint.cx = dimensions.maxX - pipSafety;
+					-- end;
+				-- elseif curLaneDir == "W" then
+					-- curPoint.cx = dimensions.maxX - (pointDistance * (a-1));
+
+					-- if curPoint.cx <= dimensions.minX then
+						-- curPoint.cx = dimensions.minX + pipSafety;
+					-- end;
+				-- end;
+
+				-- --last lane
+				-- curPoint.z = Utils.clamp(curPoint.cz, dimensions.minZ + (workWidth/2), dimensions.maxZ - (workWidth/2));
+
+				-- --is point in field?
+				-- local _, pointInPoly = geometry:minDistToPline(curPoint, polyPoints);
+				-- if pointInPoly then
+					-- courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - in Poly - adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
+					-- table.insert(pathPoints, curPoint);
+					-- gotALane = true;
+				-- else
+					-- courseplay:debug(string.format("Point %d (lane %d, point %d) - x=%.1f, z=%.1f - not in Poly - not adding to pathPoints", curPoint.num, curLane, a, curPoint.cx, curPoint.cz), 7);
+				-- end;
+				-- _, pointInPoly = geometry:minDistToPline(curPoint, field);
+				-- if pointInPoly then
+				    -- table.insert(fieldPoints, curPoint);
+				-- end;
 
 
-		--REAL ANGLE: right = 0deg, top = 90deg, left = 180deg, bottom = 270deg
-		--SIGN ANGLE: N=180, E=90, S=0, W=270
-		local angleDeg, signAngleDeg;
-		if cp.firstInLane or i == 1 then
-			angleDeg     = geometry:angleDeg(cp, np);
-			signAngleDeg = geometry:signAngleDeg(cp, np);
-		else
-			angleDeg     = geometry:angleDeg(pp, cp);
-			signAngleDeg = geometry:signAngleDeg(pp, cp);
-		end;
+			-- end; --END for curPoint in pointsPerLane
+		-- end; --END for curLane in numLanes
+	-- end; --END East or West
+
+	-- ---############################################################################
+	-- -- (4) CHECK PATH LANES FOR VALID START AND END POINTS and FILL fieldWorkCourse
+	-- -------------------------------------------------------------------------------
+	-- courseplay:debug('(4) CHECK PATH LANES FOR VALID START AND END POINTS and FILL fieldWorkCourse', 7);
+	-- local numPoints = #pathPoints;
+	-- for i=1, numPoints do
+		-- local cp = pathPoints[i];   --current
+		-- local np = pathPoints[i+1]; --next
+		-- local pp = pathPoints[i-1]; --previous
+
+		-- if i == 1 then
+			-- pp = pathPoints[numPoints];
+		-- end;
+		-- if i == numPoints then
+			-- np = pathPoints[1];
+		-- end;
+
+		-- cp.firstInLane = pp.lane ~= cp.lane; --previous point in different lane -> I'm first in lane
+		-- cp.lastInLane = np.lane ~= cp.lane; --next point in different lane -> I'm last in lane
+		-- local isLastLane = cp.lane == numLanes;
+
+
+		-- --REAL ANGLE: right = 0deg, top = 90deg, left = 180deg, bottom = 270deg
+		-- --SIGN ANGLE: N=180, E=90, S=0, W=270
+		-- local angleDeg, signAngleDeg;
+		-- if cp.firstInLane or i == 1 then
+			-- angleDeg     = geometry:angleDeg(cp, np);
+			-- signAngleDeg = geometry:signAngleDeg(cp, np);
+		-- else
+			-- angleDeg     = geometry:angleDeg(pp, cp);
+			-- signAngleDeg = geometry:signAngleDeg(pp, cp);
+		-- end;
 		
-		if cp.firstInLane or i == 1 or isLastLane then
-			cp.ridgeMarker = 0;
-		end;
+		-- if cp.firstInLane or i == 1 or isLastLane then
+			-- cp.ridgeMarker = 0;
+		-- end;
 
-		local point = {
-			cx = cp.cx,
-			cz = cp.cz,
-			angle = angleDeg,
-			wait = nil, --will be set to true for first and last after all is set and done
-			rev = nil,
-			crossing = nil,
-			lane = cp.lane,
-			laneDir = cp.laneDir,
-			turnStart = courseplay:trueOrNil(cp.lastInLane and cp.lane < numLanes),
-			turnEnd = courseplay:trueOrNil(cp.firstInLane and i > 1),
-			ridgeMarker = cp.ridgeMarker,
-			generated = true
-		};
+		-- local point = {
+			-- cx = cp.cx,
+			-- cz = cp.cz,
+			-- angle = angleDeg,
+			-- wait = nil, --will be set to true for first and last after all is set and done
+			-- rev = nil,
+			-- crossing = nil,
+			-- lane = cp.lane,
+			-- laneDir = cp.laneDir,
+			-- turnStart = courseplay:trueOrNil(cp.lastInLane and cp.lane < numLanes),
+			-- turnEnd = courseplay:trueOrNil(cp.firstInLane and i > 1),
+			-- ridgeMarker = cp.ridgeMarker,
+			-- generated = true
+		-- };
 
-		local newFirstInLane, newLastInLane;
+		-- local newFirstInLane, newLastInLane;
 
-		--TURN MANEUVER ... AND STUFF
-		if cp.firstInLane then
-			newFirstInLane = geometry:findCrossing(np, cp, polyPoints, "PFIP"); -- search the intersection point before cp
+		-- --TURN MANEUVER ... AND STUFF
+		-- if cp.firstInLane then
+			-- newFirstInLane = geometry:findCrossing(np, cp, polyPoints, "PFIP"); -- search the intersection point before cp
 
-			if newFirstInLane ~= nil then
-				--courseplay:debug(string.format("lane %d: newFirstInLane: x=%f, z=%f", cp.lane, newFirstInLane.x, newFirstInLane.z), 7);
+			-- if newFirstInLane ~= nil then
+				-- --courseplay:debug(string.format("lane %d: newFirstInLane: x=%f, z=%f", cp.lane, newFirstInLane.x, newFirstInLane.z), 7);
 
-				newFirstInLane.angle = point.angle;
-				newFirstInLane.wait = point.wait;
-				newFirstInLane.crossing = point.crossing;
-				newFirstInLane.rev = point.rev;
-				newFirstInLane.lane = point.lane;
-				newFirstInLane.laneDir = point.laneDir;
-				newFirstInLane.firstInLane = true;
-				newFirstInLane.turn = point.turn;
-				newFirstInLane.turnStart = nil;
-				newFirstInLane.turnEnd = courseplay:trueOrNil(i > 1);
-				newFirstInLane.ridgeMarker = 0;
-				newFirstInLane.generated = true;
+				-- newFirstInLane.angle = point.angle;
+				-- newFirstInLane.wait = point.wait;
+				-- newFirstInLane.crossing = point.crossing;
+				-- newFirstInLane.rev = point.rev;
+				-- newFirstInLane.lane = point.lane;
+				-- newFirstInLane.laneDir = point.laneDir;
+				-- newFirstInLane.firstInLane = true;
+				-- newFirstInLane.turn = point.turn;
+				-- newFirstInLane.turnStart = nil;
+				-- newFirstInLane.turnEnd = courseplay:trueOrNil(i > 1);
+				-- newFirstInLane.ridgeMarker = 0;
+				-- newFirstInLane.generated = true;
 
-				--reset some vars in old first point
-				point.wait = nil;
-				point.firstInLane = false;
-				point.turn = nil;
-				point.turnStart = nil;
-				point.turnEnd = nil;
-			end;
-		end; --END cp.firstInLane
+				-- --reset some vars in old first point
+				-- point.wait = nil;
+				-- point.firstInLane = false;
+				-- point.turn = nil;
+				-- point.turnStart = nil;
+				-- point.turnEnd = nil;
+			-- end;
+		-- end; --END cp.firstInLane
 
-		if cp.lastInLane then
+		-- if cp.lastInLane then
 
-			--North
-			if cp.laneDir == "N" then
-				if np.cx < cp.cx then point.turn = "left" end;
-				if np.cx > cp.cx then point.turn = "right" end;
+			-- --North
+			-- if cp.laneDir == "N" then
+				-- if np.cx < cp.cx then point.turn = "left" end;
+				-- if np.cx > cp.cx then point.turn = "right" end;
 
-			--East
-			elseif cp.laneDir == "E" then
-				if np.cz < cp.cz then point.turn = "left" end;
-				if np.cz > cp.cz then point.turn = "right" end;
+			-- --East
+			-- elseif cp.laneDir == "E" then
+				-- if np.cz < cp.cz then point.turn = "left" end;
+				-- if np.cz > cp.cz then point.turn = "right" end;
 
-			--South
-			elseif cp.laneDir == "S" then
-				if np.cx < cp.cx then point.turn = "right" end;
-				if np.cx > cp.cx then point.turn = "left" end;
+			-- --South
+			-- elseif cp.laneDir == "S" then
+				-- if np.cx < cp.cx then point.turn = "right" end;
+				-- if np.cx > cp.cx then point.turn = "left" end;
 
-			--West
-			elseif cp.laneDir == "W" then
-				if np.cz < cp.cz then point.turn = "right" end;
-				if np.cz > cp.cz then point.turn = "left" end;
-			end;
-			--courseplay:debug("--------------------------------------------------------------------", 7);
-			--courseplay:debug(string.format("laneDir=%s, point.turn=%s", cp.laneDir, tostring(point.turn)), 7);
-			if i == numPoints then
-				point.turn = nil;
-			end;
+			-- --West
+			-- elseif cp.laneDir == "W" then
+				-- if np.cz < cp.cz then point.turn = "right" end;
+				-- if np.cz > cp.cz then point.turn = "left" end;
+			-- end;
+			-- --courseplay:debug("--------------------------------------------------------------------", 7);
+			-- --courseplay:debug(string.format("laneDir=%s, point.turn=%s", cp.laneDir, tostring(point.turn)), 7);
+			-- if i == numPoints then
+				-- point.turn = nil;
+			-- end;
 
-			angleDeg = geometry:positiveAngleDeg(angleDeg);
+			-- angleDeg = geometry:positiveAngleDeg(angleDeg);
 
-			newLastInLane = geometry:findCrossing(pp, cp, polyPoints, "PFIP");
+			-- newLastInLane = geometry:findCrossing(pp, cp, polyPoints, "PFIP");
 
-			if newLastInLane ~= nil then
-				--courseplay:debug(string.format("newLastInLane: x=%f, z=%f", newLastInLane.x, newLastInLane.z), 7);
-				newLastInLane.angle = point.angle;
-				newLastInLane.wait = point.wait;
-				newLastInLane.crossing = point.crossing;
-				newLastInLane.rev = point.rev;
-				newLastInLane.lane = point.lane;
-				newLastInLane.laneDir = point.laneDir;
-				newLastInLane.lastInLane = true;
-				newLastInLane.turn = point.turn;
-				newLastInLane.turnStart = courseplay:trueOrNil(i < numPoints);
-				newLastInLane.turnEnd = nil;
-				newLastInLane.ridgeMarker = 0;
-				newLastInLane.generated = true;
+			-- if newLastInLane ~= nil then
+				-- --courseplay:debug(string.format("newLastInLane: x=%f, z=%f", newLastInLane.x, newLastInLane.z), 7);
+				-- newLastInLane.angle = point.angle;
+				-- newLastInLane.wait = point.wait;
+				-- newLastInLane.crossing = point.crossing;
+				-- newLastInLane.rev = point.rev;
+				-- newLastInLane.lane = point.lane;
+				-- newLastInLane.laneDir = point.laneDir;
+				-- newLastInLane.lastInLane = true;
+				-- newLastInLane.turn = point.turn;
+				-- newLastInLane.turnStart = courseplay:trueOrNil(i < numPoints);
+				-- newLastInLane.turnEnd = nil;
+				-- newLastInLane.ridgeMarker = 0;
+				-- newLastInLane.generated = true;
 
-				point.wait = nil;
-				point.lastInLane = false;
-				point.turn = nil;
-				point.turnStart = nil;
-				point.turnEnd = nil;
+				-- point.wait = nil;
+				-- point.lastInLane = false;
+				-- point.turn = nil;
+				-- point.turnStart = nil;
+				-- point.turnEnd = nil;
 
-			end;
-		end; --END cp.lastInLane
+			-- end;
+		-- end; --END cp.lastInLane
 
-		if newFirstInLane ~= nil then
-			newFirstInLane.angle = signAngleDeg;
-			table.insert(fieldWorkCourse, newFirstInLane);
-		end;
+		-- if newFirstInLane ~= nil then
+			-- newFirstInLane.angle = signAngleDeg;
+			-- table.insert(fieldWorkCourse, newFirstInLane);
+		-- end;
 
-		point.angle = signAngleDeg;
-		table.insert(fieldWorkCourse, point);
+		-- point.angle = signAngleDeg;
+		-- table.insert(fieldWorkCourse, point);
 
-		if newLastInLane ~= nil then
-			newLastInLane.angle = signAngleDeg;
-			table.insert(fieldWorkCourse, newLastInLane);
-		end;
+		-- if newLastInLane ~= nil then
+			-- newLastInLane.angle = signAngleDeg;
+			-- table.insert(fieldWorkCourse, newLastInLane);
+		-- end;
 
-	end; --END for i in numPoints
+	-- end; --END for i in numPoints
 
 	if vehicle.cp.startingCorner == 0 then -- start on nearest point to vehicle ; TO BE ADDED TO HUD.
 		local cx, _, cz = getWorldTranslation(vehicle.rootNode);
@@ -539,7 +553,7 @@ function courseplay:generateCourse(vehicle)
 		startPoint = vehicle.cp.headland.lanes[startIdx];
 	else
 
-		startPoint = fieldPoints[1];
+		startPoint = fieldWorkCourse[1];
 	end;
 
 	---############################################################################

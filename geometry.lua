@@ -768,9 +768,1610 @@ function courseplay.geometry:untrimmedOffsetPline(pline, offset, vehicle)
 	return offPline;
 end;
 
+--
+-- cpScanner by upsidedown, ported to coursePlay by fck54
+-- test mod for courseplay scanner code
+--
+-- author: upsidedown
+-- initial version: 24.11.2013
+-- start of version for edge simplification: 1.1.2015
+-- parts of the HardOnCollider-project by Matthias Richter on gitHub are used. Original copyright of this project can be found at the end of this file.
+-- Douglas-Peuker code was taken from http://quangnle.wordpress.com/2012/12/30/corona-sdk-curve-fitting-1-implementation-of-ramer-douglas-peucker-algorithm-to-reduce-points-of-a-curve/
+
+function courseplay.geometry:addPolyPoints(poly,x,z,...)
+	if x ~= nil and z ~= nil then
+		table.insert(poly,{cx = x, cz=z})
+		courseplay.geometry:addPolyPoints(poly,...)
+	end;
+end;
+
+function courseplay.geometry:newPolygon(...)
+	local new = {}
+	courseplay.geometry:addPolyPoints(new,...)	
+	return new
+end;
+
+-- here is the master piece ---------------------------------------------------------------------
+function courseplay.geometry:genWorkCourse(points, vehicle, corner)
+	
+	local width = vehicle.cp.workWidth;
+	local turningTime = 35; --s
+	local hoppingTime = 3*90;--s
+	local speed = 15/3.6; --m/s!
+
+	--simplify:
+	local Epsilon = width/2;
+	local remainingPoints = courseplay.geometry:simplifyPolygon(points,Epsilon)
+	local simplePoly = courseplay.geometry:newPolyFromIndices(points,remainingPoints)
+	
+	local isConvex = courseplay.geometry:isConvex(simplePoly)
+	print("isConvex: "..tostring(isConvex))
+	
+	print("area: "..tostring(courseplay.geometry:getArea(simplePoly)))
+	local area = courseplay.geometry:getArea(simplePoly);
+	hoppingTime = hoppingTime*math.sqrt(area/10000); 
+	
+	print("# simplePoly: "..tostring(#simplePoly) )
+	local split = courseplay.geometry:splitConvex(simplePoly)
+	print("split into: "..tostring(#split))
+	
+	print("calling optimization:")
+	local groupPolys, groupAngles = courseplay.geometry:getOptimalCourse(split, speed, width, turningTime,hoppingTime)
+
+	local workLines = {};
+	local variantToUse, dist = 1, math.huge;
+	for variant = 1,4 do -- why using variant 1 to 4 ? 
+		print("calculating courses for variant: "..tostring(variant))
+		local workLine = courseplay.geometry:fillSubFieldCourses(groupPolys,width, groupAngles, variant)
+		-- for sub,workLines in pairs(workLines[variant]) do
+			-- print("checking field leaving at plot "..tostring(sub))
+			-- courseplay.geometry:addInFieldPoints(workLines,simplePoly)
+		-- end;
+		local fisrtPoint = workLine[1];
+		if Utils.vector2Length(corner.cx-firstPoint.cx, corner.cz-firstPoint.cz) < dist then
+			variantToUse = variant;
+		end;
+	end;
+
+	
+	local finalCourse = courseplay.geometry:mergeFinalCourse(workLines,variantToUse);
+	
+	finalCourse = courseplay.geometry:addInFieldPoints(finalCourse,simplePoly)
+	
+	return courseplay.geometry:course2CPwaypoints(finalCourse);
+end;
+
+function courseplay.geometry:copyNoColl(poly)
+	local res = {};
+	
+	local function areCollinear(p, q, r, eps)
+		return math.abs(courseplay.geometry:det(q.cx-p.cx, q.cz-p.cz,  r.cx-p.cx,r.cz-p.cz)) <= (eps or 1e-32)
+	end
+	
+	for k,point in pairs(poly) do
+		table.insert(res,point)
+	end;
+	
+	for k=#poly-1,2,-1 do
+		if areCollinear(res[k+1],res[k],res[k-1],0.001) then
+			table.remove(res,k)
+		end;
+	end;
+	print("reduced polygon from "..tostring(#poly).." to "..tostring(#res).." points")
+	return res;
+end;
+
+function courseplay.geometry:newPolyFromIndices(polyIn,indices)
+	local polyOut = {};
+	for _,index in pairs(indices) do
+		local point = {cx=polyIn[index].cx, cz = polyIn[index].cz};
+		table.insert(polyOut,point)
+	end;
+	polyOut = courseplay.geometry:assertOrientation(polyOut)
+	return polyOut;
+end;
+
+local function shrinkIntersection(res,ind1,delta)
+	local ind2 = ind1+1;
+	if res[ind2] > res[ind1] then
+		res[ind2] = res[ind2]-delta;
+		res[ind1] = res[ind1]+delta;		
+	else
+		res[ind2] = res[ind2]+delta;
+		res[ind1] = res[ind1]-delta;		
+	end;	
+end;
+
+local function getAngle(vec1,vec2)	
+	local L1 = math.sqrt(vec1.cx^2+vec1.cz^2);
+	local L2 = math.sqrt(vec2.cx^2+vec2.cz^2);
+	local cosAlpha = (vec1.cx*vec2.cx + vec1.cz*vec2.cz)/(L1*L2);
+	local alpha = math.acos(cosAlpha)
+	
+	return alpha, cosAlpha;	
+end;
+
+local function norm(x,z)
+	local L = math.sqrt(x^2+z^2);
+	return x/L, z/L
+end;
+
+function courseplay.geometry:shrinkPolygon(poly,paraDis)
+	local new = {};
+	local last_k = #poly;
+	local k = 1;
+	paraDis = 2*paraDis; --whyever, gives right results...
+	while k<=#poly do
+		local next_k = k+1;
+		if k == #poly then
+			next_k = 1;
+		end;
+		
+		local dx1, dz1 = norm(poly[last_k].cx-poly[k].cx,poly[last_k].cz-poly[k].cz);
+		local dx2, dz2 = norm(poly[next_k].cx-poly[k].cx,poly[next_k].cz-poly[k].cz);
+			
+		
+		local v1 = {cx = dx1, cz = dz1}
+		local v2 = {cx = dx2, cz = dz2}
+		
+		local alpha = getAngle(v1,v2)
+		local ccw = courseplay.geometry:ccw(poly[last_k], poly[k], poly[next_k],1.0);
+		
+		
+		local r = 0;
+		local direc= 1.0;
+		if ccw then
+			r = paraDis/math.sin(alpha);
+		else
+			r = paraDis/math.cos(math.pi/2-alpha);
+			direc = -1.0;
+		end;
+		-- direc = -direc;
+		
+		local newX = poly[k].cx + 0.5*direc*(dx1+dx2)*r;
+		local newZ = poly[k].cz + 0.5*direc*(dz1+dz2)*r;
+		
+		new[k] = {cx=newX, cz=newZ};
+		-- print("alpha: "..tostring(alpha*180/math.pi).." "..tostring(ccw).." r="..tostring(r))
+		
+		last_k = k;
+		k = k+1;
+	end;
+	
+	
+	local k = 1;
+	while true do --search for intersections and remove them
+		local found, foundIndex, x, z = courseplay.geometry:searchNextIntersection(new, k)
+		if found then
+			local removeIndices = {};
+			local rem = k+1;
+			while rem~=foundIndex  do
+				table.insert(removeIndices,rem);
+				rem = rem+1;
+				if rem > #new then
+					rem = 1;
+				end;
+			end;
+			table.sort(removeIndices);--we have to remove from the back or we get shifting
+			while #removeIndices>0 do
+				table.remove(new,removeIndices[#removeIndices]);
+				table.remove(removeIndices)			
+			end;
+			if x~= nil and z~= nil then
+				table.insert(new,k+1,{cx=x,cz=z})
+			end;			
+		else		
+			k = k+1;
+		end;
+		if k > #new then
+			break;
+		end;
+	end;
+	if courseplay.geometry:getArea(new) < 0 then
+		print("negative ara in shrinking! ",courseplay.geometry:getArea(new))
+		new = {};
+	end;
+	-- print(tostring(#new).." points, area: "..tostring(courseplay.geometry:getArea(new)))	
+	return new
+end;
+
+function courseplay.geometry:searchNextIntersection(poly, startIndex)
+	local found = false;
+	
+	local startIndex2 = startIndex+1;
+	if startIndex == #poly then
+		startIndex2 = 1;
+	end;
+	
+	local last_k = #poly;
+	local k = 1;
+	while k <= #poly do
+		if k == startIndex then
+			last_k = k;
+			k = k+1;
+		else
+			if courseplay.geometry:segmentsInterset(poly[startIndex],poly[startIndex2], poly[k],poly[last_k]) then
+				-- print("found intersection: "..tostring(startIndex).." "..tostring(k))
+				--calc intersection point:
+				local dx = poly[last_k].cx-poly[k].cx;
+				local dz = poly[last_k].cz-poly[k].cz;
+				local res = courseplay.geometry:intersectionsWithRay({poly[startIndex],poly[startIndex2]},poly[k].cx,poly[k].cz, dx,dz);
+				-- print(tostring(res).." "..tostring(res[1]))
+				local x,z
+				-- for _,value in pairs(res) do
+					-- print(value)
+				-- end;
+				-- print("))))")
+				if #res > 1 then
+					-- for k,value in pairs(res) do
+						-- if not(value >= 0 and value <= 1) then
+							-- -- x = poly[k].cx + value*dx;
+							-- -- z = poly[k].cz + value*dz;
+							-- -- break;
+							-- print("value ",value)
+						-- end;
+					-- end;
+					x = poly[k].cx + res[1]*dx;
+					z = poly[k].cz + res[1]*dz;
+				else
+					print("segment intersection returns ambiguous result")
+				end;
+				return true, k, x, z
+			else
+				last_k = k;
+				k = k+1;
+			end;
+		end;		
+	end;
+	
+	
+	return false, nil
+end;
+
+function courseplay.geometry:attachRoundCourse(waypoints,shrinks,attachStart,doCCW)
+	local wpChains = {};
+	for k,shrink in pairs(shrinks) do
+		local wpChain = {};
+		local last_kk = #shrink;
+		local kk = 1;
+		while kk <= #shrink do
+		
+			local dx = -shrink[last_kk].cx+shrink[kk].cx;
+			local dz = -shrink[last_kk].cz+shrink[kk].cz;
+			local dist = math.sqrt(dx^2 + dz^2);
+			local N = math.floor(dist/5);
+			local step = dist/N;
+			
+			dx = step*dx/dist;
+			dz = step*dz/dist;
+			
+			for kk = 1,N do
+				local bWp = {};
+				bWp.cx = shrink[last_kk].cx + kk*dx;
+				bWp.cz = shrink[last_kk].cz + kk*dz;
+				bWp.speed = 20; --need speed!
+				if doCCW then
+					table.insert(wpChain,1,bWp);
+				else
+					table.insert(wpChain,bWp);
+				end;
+			end;
+			
+			local wp = {};
+			wp.cx = shrink[kk].cx;
+			wp.cz = shrink[kk].cz;
+			wp.speed = 20;
+			if doCCW then
+				table.insert(wpChain,1,wp);
+			else
+				table.insert(wpChain,wp);
+			end;
+		
+			
+			last_kk = kk;
+			kk = kk+1;
+		end;
+		-- if (doCCW and not attachStart) or (not doCCW and attachStart) then
+		if not attachStart then
+			table.insert(wpChains,wpChain);
+		else
+			table.insert(wpChains,1,wpChain);		
+		end;
+	end;
+	--now we have all the points. we only need to distribute them...
+	
+	-- local previousLine = waypoints;
+	local previousLine = {};
+	if attachStart then
+		previousLine[1] = waypoints[2];
+		previousLine[2] = waypoints[1];		
+	else
+		previousLine[1] = waypoints[#waypoints-1];
+		previousLine[2] = waypoints[#waypoints];		
+	end;
+	
+	
+	-- local refIndex1 = 1;
+	-- local refIndex2 = 2;
+	
+	-- if not attachStart then
+		-- refIndex1 = #waypoints;
+		-- refIndex2 = #waypoints-1;
+	-- end;
+	
+	-- local startX = waypoints[refIndex1].cx;
+	-- local startZ = waypoints[refIndex1].cz;
+	local wpAdd = {};
+	for k=#wpChains,1,-1 do
+		local distance2Min = math.huge;
+		local nearestIndex = 0;
+		for kk,point in pairs(wpChains[k]) do
+			local distance2 = (point.cx-previousLine[#previousLine].cx)^2 + (point.cz-previousLine[#previousLine].cz)^2;
+			if distance2<distance2Min then
+				-- if courseplay.geometry:ccw(waypoints[refIndex2],waypoints[refIndex1],point) == doCCW then
+				----- IF COS_alpha in triangle #last-1,#last,point < 0 then ---WILL GIVE SMOOTHER TRANSITIONS
+					distance2Min = distance2;
+					nearestIndex = kk;
+				-- end;
+			end;
+		end;
+		for cnt = 1,nearestIndex-1,1 do --shift nearest point to front
+			table.insert(wpChains[k],wpChains[k][1])
+			table.remove(wpChains[k],1)
+		end;
+		for cnt=1,#wpChains[k] do
+			table.insert(wpAdd,wpChains[k][cnt])
+		end;
+		previousLine = wpChains[k];
+	end;
+	
+	for k, point in pairs(wpAdd) do
+		if attachStart then
+			table.insert(waypoints,k,point)
+		else
+			table.insert(waypoints,point)
+		end;
+	end;
+		
+	waypoints[1].wait = true;
+	waypoints[#waypoints].wait = true;	
+	
+	return wpAdd;
+end;
+
+function courseplay.geometry:course2CPwaypoints(finalCourse)
+	local wayPoints = {};
+	local lastWorkStart = false;
+	local lastTurning = false;
+	
+	local wp = {};
+	local numPoints = #finalCourse;
+
+	for k,point in pairs(finalCourse) do
+		wp.cx = point.cx;
+		wp.cz = point.cz;
+		wp.ridgeMarker = 0;
+		wp.generated = true;
+		
+		if point.workstart then
+			lastWorkStart = true;
+			wp.angle = self:signAngleDeg(point,finalCourse[k+1]);
+		elseif lastWorkStart then
+			lastWorkStart = false;
+			local dx = -finalCourse[k-1].cx+finalCourse[k].cx;
+			local dz = -finalCourse[k-1].cz+finalCourse[k].cz;
+			local dist = math.sqrt(dx^2 + dz^2);
+			local N = math.floor(dist/5);
+			local step = dist/N;
+			
+			dx = step*dx/dist;
+			dz = step*dz/dist;
+			
+			for kk = 0,N do
+				local bWp = {};
+				bWp.cx = finalCourse[k-1].cx + kk*dx;
+				bWp.cz = finalCourse[k-1].cz + kk*dz;
+				bWp.turnEnd = false;
+				if kk == 0 and k > 1 then
+					bWp.turnEnd = true;
+				end;
+				bWp.angle = wp.angle;
+				bWp.cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, bWp.cx,0,bWp.cz);
+				bWp.wait = false;
+				bWp.rev = false;
+				bWp.crossing = false;
+				bWp.generated = true;
+				if k < numPoints and kk == N then
+					if finalCourse[k+1].workstart then
+						bWp.turnStart = true
+						if courseplay.geometry:ccw(finalCourse[k-1], finalCourse[k], finalCourse[k+1]) then
+							bWp.turn = "left";
+						else
+							bWp.turn = "right";
+						end;				
+					end;
+				end;
+ 				table.insert(wayPoints,bWp);
+			end;
+		else --needed?!
+			lastWorkStart = false;
+		end;
+		
+	end;
+	
+	 -- .wait = true
+	 -- wayPoints[1].wait = true;
+	 -- wayPoints[#wayPoints].wait = true;
+	 
+	return wayPoints;
+end;
+
+function courseplay.geometry:mergeFinalCourse(workLines,variant)
+	print("assembling final course...")
+	local final = {};
+	-- workLines[variant][group][1].cx
+	local Ngroups = #workLines[variant];
+	local function merge(a,b) --merges b into a. destroys original data
+		-- local new = {};
+		while #b>0 do
+			table.insert(a,b[1])
+			table.remove(b,1)
+		end;
+	end;
+	
+	local available = {}
+	for k=1,Ngroups do
+		available[k]=true;
+	end;
+	
+	local currentGroup = 0;
+	local currentGroupSize = 0;
+	for group=1,Ngroups do --start with largest group
+		local Npoints = #workLines[1][group];
+		if Npoints>currentGroupSize then
+			currentGroupSize = Npoints;
+			currentGroup = group;
+		end;
+	end;
+	
+	merge(final,workLines[variant][currentGroup])
+	available[currentGroup] = false;
+	
+	local coursesLeft = Ngroups-1;
+	while coursesLeft>0 do
+		--find nearest neighbor:
+		local distance2Found = math.huge
+		local groupFound = 0;
+		local variantFound = 0;
+		local lastX = final[#final].cx;
+		local lastZ = final[#final].cz;
+		
+		coursesLeft = 0;
+		for group,isLeft in pairs(available) do
+			if isLeft then
+				coursesLeft = coursesLeft+1;
+				for variant = 1,4 do
+					local testX = workLines[variant][group][1].cx;
+					local testZ = workLines[variant][group][1].cz;
+					local dis2 = (lastX-testX)^2 + (lastZ-testZ)^2;
+					if dis2 < distance2Found then
+						distance2Found = dis2
+						groupFound = group;
+						variantFound = variant;
+					end;					
+				end;				
+			end;
+		end;
+		
+		print("nearest group found: "..tostring(groupFound).." variant: "..tostring(variantFound))
+		workLines[variantFound][groupFound][1].doLineCheck = true;			
+		merge(final,workLines[variantFound][groupFound])
+		available[groupFound] = false;
+		coursesLeft = coursesLeft-1; --thats the one we just found..
+	end;
+	
+	print("final course has "..tostring(#final).." points")
+	
+	return final
+end;
+
+function courseplay.geometry:fillSubFieldCourses(groupPolys,width, groupAngles, variant)
+	variant = Utils.getNoNil(variant,1);
+	local sideFactor = 1;
+	local upFactor = 1;
+	if variant >2 then
+		upFactor = -1;
+	end;
+	if variant%2 == 0 then
+		sideFactor = -1;
+	end;
+	print("filling subField with upFactor "..tostring(upFactor).." and sideFactor "..tostring(sideFactor))
+	local Ngroups = #groupPolys;
+	local workLinesAssembled = {};
+	-- local groupPoly
+	for group = 1,Ngroups do
+				
+		local groupPoly = groupPolys[group];
+				
+		local yRot = groupAngles[group];
+		local dx, dz = Utils.getDirectionFromYRotation(yRot);
+		-- dx, dz = upFactor*dx, upFactor*dz; 
+		local area,centroid, maxRadius = courseplay.geometry:getAreaCentroidMaxcircle(groupPoly)
+		local workingLines = {}
+		-- local invert = false;
+		for sideShift = -sideFactor*maxRadius,sideFactor*maxRadius,sideFactor*width do
+			local pointX = centroid.x - sideShift*dz;
+			local pointZ = centroid.z + sideShift*dx;
+			local res = courseplay.geometry:intersectionsWithRay(groupPoly,pointX,pointZ, dx,dz);
+			if #res > 0 then
+				for kk = 1,#res,2 do
+					local ind1 = kk;
+					local ind2 = kk+1;
+					-- shrinkIntersection(res,ind1,0.1);
+					if upFactor<0 then
+						ind1, ind2 = ind2, ind1;
+					end;
+					local x1 = pointX + dx*res[ind1];
+					local z1 = pointZ + dz*res[ind1];
+					local x2 = pointX + dx*res[ind2];
+					local z2 = pointZ + dz*res[ind2];
+					local newPoint = {};
+					newPoint[1] = {cx=x1, cz=z1};
+					newPoint[2] = {cx=x2, cz=z2};
+					newPoint.multiplier = #res/2;
+					newPoint.multiplierIndex = (kk+1)/2;
+					-- newPoint.invert = invert;
+					-- newPoint.isMulti = #res>2;
+					-- invert = not invert;					
+					table.insert(workingLines,newPoint);
+				end;
+			end;
+		end;
+		
+	
+		local index = 1;
+		while #workingLines>0 do
+			if workingLines[index].multiplier == 1 then
+				index = index+1;
+			else
+				local Nblock = 1;
+				if index < #workingLines then				
+					while workingLines[index+Nblock].multiplier > 1 do
+						Nblock = Nblock+1;
+						if index+Nblock > #workingLines then
+							Nblock = Nblock-1; --really? check it!
+							break;
+						end;
+					end;
+				end;
+				print("block with "..tostring(Nblock).." points found")
+				
+				local direction = 1.0;
+				if index > 1 then
+					local lastPoint = workingLines[index-1];
+					local point = workingLines[index];
+					local distance1 = (point[1].cx-lastPoint[2].cx)^2 + (point[1].cz-lastPoint[2].cz)^2;
+					local distance2 = (point[2].cx-lastPoint[2].cx)^2 + (point[2].cz-lastPoint[2].cz)^2;
+					if distance2 < distance1 then
+						direction = -1;
+					end;
+				end;
+				-- print("sorting direction: "..tostring(direction))
+				for jj = index,index+Nblock-2 do --it has been soo long, it has to be a bubble sort ;)
+					for jjj = jj+1,index+Nblock-1 do
+						if direction*workingLines[jj].multiplierIndex > direction*workingLines[jjj].multiplierIndex then --swap
+							workingLines[jj], workingLines[jjj] = workingLines[jjj], workingLines[jj];
+						end;
+					end;
+				end;
+				
+				for jj = index,index+Nblock-1 do
+					-- print(tostring(jj).." "..tostring(workingLines[jj].multiplier).." "..tostring(workingLines[jj].multiplierIndex))
+					workingLines[jj].multiplier = 1;
+					workingLines[jj].doLineCheck = true;
+				end;
+				
+				
+				
+				index = index + Nblock;
+			end;
+			
+			if index > #workingLines then
+				break;
+			end;
+		end;
+		
+		
+		
+		local workLineAssembled = {};
+		local lastMPI = 0;
+		for index,line in pairs(workingLines) do
+			if line.multiplier == 1 then
+				local distance1 = 0;
+				local distance2	= 1;
+				if index > 1 then
+					local lastPoint = workLineAssembled[#workLineAssembled];
+					distance1 = (line[1].cx-lastPoint.cx)^2 + (line[1].cz-lastPoint.cz)^2;
+					distance2 = (line[2].cx-lastPoint.cx)^2 + (line[2].cz-lastPoint.cz)^2;
+				end;
+				if line.doLineCheck or lastMPI~=0 then
+					if line.doLineCheck then
+						if lastMPI~=line.multiplierIndex then
+							lastMPI = line.multiplierIndex;
+						else
+							line.doLineCheck = false;
+						end;
+					else --need to catch 1st point after:
+						line.doLineCheck = true;
+						lastMPI = 0;
+					end;
+				-- else
+					-- lastMPI = 0; --probably redundant
+				end;
+				
+				if distance1 < distance2 then
+					table.insert(workLineAssembled,{cx = line[1].cx, cz = line[1].cz, workstart=true,  doLineCheck=line.doLineCheck, multiplierIndex=line.multiplierIndex})	--sort this HERE (morgen...)			
+					table.insert(workLineAssembled,{cx = line[2].cx, cz = line[2].cz, workstart=false, doLineCheck=false, multiplierIndex=line.multiplierIndex})
+				else
+					table.insert(workLineAssembled,{cx = line[2].cx, cz = line[2].cz, workstart=true,  doLineCheck=line.doLineCheck, multiplierIndex=line.multiplierIndex})
+					table.insert(workLineAssembled,{cx = line[1].cx, cz = line[1].cz, workstart=false, doLineCheck=false, multiplierIndex=line.multiplierIndex})				
+				end;
+			else
+				
+			end;
+			
+		end;
+		table.insert(workLinesAssembled,workLineAssembled)
+		-- print("work line:")
+		-- for key,line in pairs(workLineAssembled) do
+			-- print("group: "..tostring(group).." line: "..tostring(key).." workstart: "..tostring(line.workstart).." doLineCheck: "..tostring(line.doLineCheck).." multiplierIndex: "..tostring(line.multiplierIndex))
+		-- end;
+		
+		
+	end;
+	
+	
+	
+	return workLinesAssembled;
+end;
+
+function courseplay.geometry:getOptimalCourse(split,speed, width, turningTime, hoppingTime)
+	local areas_lookup = {};
+	local centroid_lookup = {};
+	local maxRadius_lookup = {};
+	
+	for subField,poly in pairs(split) do
+		print(tostring(subField).." "..tostring(#poly))
+		local area,centroid, maxRadius = courseplay.geometry:getAreaCentroidMaxcircle(poly)
+		areas_lookup[subField] = area;
+		centroid_lookup[subField] = centroid;
+		maxRadius_lookup[subField] = maxRadius;
+	end;
+	local edge_lookup = {};
+	local edge_orientation_lookup = {};
+	for i = 1,#split do
+		edge_lookup[i] = {};
+		edge_orientation_lookup[i] = {};
+		for k = i,#split,1 do
+			if edge_lookup[k] == nil then
+				edge_lookup[k] = {};
+				edge_orientation_lookup[k] = {};
+			end;
+			if k == i then
+				edge_lookup[i][i] = 0;
+				edge_orientation_lookup[i][i] = 0;
+			else
+				local distance, yRot = courseplay.geometry:getSharedEdgeLength(split[i],split[k])
+				edge_lookup[i][k] = distance;
+				edge_lookup[k][i] = distance;
+				edge_orientation_lookup[i][k] = yRot;
+				edge_orientation_lookup[k][i] = yRot;
+			end;
+		end;
+	end;
+	------------------
+	
+	local rotYvec = {}
+	for rot = 0,math.pi-0.0001,math.pi/45 do     --this is where angle quantization is taking place!
+	-- for rot = 0,math.pi-0.0001,math.pi/450 do
+	-- for rot = 0,math.pi-0.0001,math.pi/4 do
+		table.insert(rotYvec,rot)
+	end;
+	
+	for subField,poly in pairs(split) do --add angles of edges and their ortgononals
+		local last_k = #poly;
+		local k = 1;
+		while k <= #poly do
+			local dx = poly[k].cx - poly[last_k].cx;
+			local dz = poly[k].cz - poly[last_k].cz;
+			local yRot = Utils.getYRotationFromDirection(dx, dz);
+			table.insert(rotYvec,yRot);
+			table.insert(rotYvec,yRot+math.pi/2);
+			
+			last_k = k;
+			k = k+1;
+		end;		
+	end;
+	
+	-- print("angles used for optimization:")
+	-- for key,value in pairs(rotYvec) do
+		-- print(tostring(key).." "..tostring(value*180/math.pi))
+	-- end;
+	
+	
+	local cost_lookup = {};
+	local optAngle_lookup = {};
+	
+	for subField,poly in pairs(split) do
+		-- local area,centroid, maxRadius = courseplay.geometry:getAreaCentroidMaxcircle(poly)
+		local centroid = centroid_lookup[subField];
+		local maxRadius = maxRadius_lookup[subField];
+		
+		cost_lookup[subField] = {}
+		optAngle_lookup[subField] = {}
+		
+		
+		
+		local optValue = math.huge;
+		for k,rotY in pairs(rotYvec) do
+			local cost = courseplay.geometry:getSubCourseCost(poly,rotY,centroid,maxRadius,speed, width, turningTime);
+			-- print(tostring(subField).." ".." "..tostring(rotY*180/math.pi).." "..tostring(cost))
+			cost_lookup[subField][k] = cost;
+			-- print(tostring(subField).." "..tostring(rotY*180/math.pi).." "..tostring(cost))
+			
+			if cost < optValue then
+				optValue = cost;
+				optAngle_lookup[subField].optAngle = rotY;
+				optAngle_lookup[subField].optCost = cost;
+			end;
+		end;
+	end;
+	
+	----------------------------
+	------ this is all lookup stuff so far. optimization starts here:
+	
+	local groupListByField = {};
+	local groupListByGroup = {};
+	local currentGroup = 0;
+	local groupAngles = {};
+	local groupCosts = {};
+	
+	
+	for i = 1,#split do
+		if groupListByField[i] == nil or groupListByField[i] == currentGroup then
+			if groupListByField[i] == nil then
+				currentGroup = currentGroup+1;
+				groupListByField[i] = currentGroup;
+				groupAngles[currentGroup] = optAngle_lookup[i].optAngle;
+				groupCosts[currentGroup] = optAngle_lookup[i].optCost;
+				groupListByGroup[currentGroup] = {};
+				table.insert(groupListByGroup[currentGroup],i);
+				print("subField "..tostring(i).." starts new group "..tostring(currentGroup))
+				print("angle set to :"..tostring(groupAngles[currentGroup]*180/math.pi))
+			end;
+		
+			for k = 1,#split do
+				if k~=i then
+					if groupListByField[k] == nil then --k is still available
+						local L = edge_lookup[i][k];
+						if L > 0 then --k is a neighbor of i
+							-- local minCostGroup = optAngle_lookup[i].optCost + optAngle_lookup[k].optCost + hoppingTime; --dont use optAngle_lookup[i].optCost, but take lookup from group!!
+							local minCostGroup = groupCosts[currentGroup] + optAngle_lookup[k].optCost + hoppingTime; --dont use optAngle_lookup[i].optCost, but take lookup from group!!
+							print(tostring(i).." "..tostring(k).." "..tostring(L).." "..tostring(minCostGroup))
+							
+							local yRotEdge = edge_orientation_lookup[i][k];
+							local yRotEdge1 = math.sin(yRotEdge);
+							local yRotEdge2 = math.cos(yRotEdge);
+							
+
+							
+							local minValueFound = math.huge;
+							local angle12 = 0; --this is the index, not the value
+							for a,yrot in pairs(rotYvec) do
+								-- local cost = cost_lookup[i][a] + cost_lookup[k][a];
+								local cost = cost_lookup[k][a];
+								for _,ii in pairs(groupListByGroup[currentGroup]) do
+									cost = cost + cost_lookup[ii][a];
+								end;
+								
+								local cosAlpha = yRotEdge1*math.sin(yrot) + yRotEdge2*math.cos(yrot);
+								local sinAlpha = math.sin(math.acos(cosAlpha));
+								cost = cost - 2*math.abs(sinAlpha)*L/width*turningTime;
+								
+								if cost < minValueFound then
+									minValueFound = cost;
+									angle12 = a;
+								end;								
+							end;
+
+							-- minValueFound = minValueFound - 2*L/width*turningTime;  this depends on angle!!! STILL MISSING
+							if minValueFound < minCostGroup then
+								groupListByField[k] = currentGroup;
+								groupAngles[currentGroup] = rotYvec[angle12];								
+								groupCosts[currentGroup] = minValueFound;
+								table.insert(groupListByGroup[currentGroup],k);
+																
+								print("putting subField "..tostring(k).." into group "..tostring(currentGroup))
+								print("new value: "..tostring(minValueFound).." was found superior to "..tostring(minCostGroup))
+								print("angle set to :"..tostring(groupAngles[currentGroup]*180/math.pi))
+								
+							end;							
+						end;
+					end;
+				end;
+			end;
+		end;
+	end;
+	
+	print("merging fields into groups")
+	local groupPolys = {}
+	for group = 1, #groupListByGroup do
+		local groupPoly = split[groupListByGroup[group][1]];
+		for k = 2,#groupListByGroup[group] do
+			groupPoly = courseplay.geometry:mergedWith(groupPoly,split[groupListByGroup[group][k]])
+		end;
+		groupPolys[group] = groupPoly;
+	end;
+	
+	
+	local maxGroups = 20; --this is an IMPORTANT control parameter...
+	
+	
+	while true do   --merge groups
+		local blocked = {}
+		print("thinking about merging groups...")
+		local reDo = true;
+		while reDo do
+			reDo = false;
+			-- local insertPoint = 0;
+			local mergeGroups = {};
+			for k=1,#groupPolys-1 do
+				for kk = k+1,#groupPolys do
+					-- find common edge
+					-- print(tostring(k).." "..tostring(kk).." "..tostring(#groupPolys))
+					
+					local edgeFound = false;
+					local L, edgeAngle = courseplay.geometry:getSharedEdgeLength(groupPolys[k],groupPolys[kk]);
+					if Utils.getNoNil(L,0) > 0 then
+						edgeFound = true;					
+						-- break;
+					end;
+					-- for _,subFieldGroup1 in pairs(groupListByGroup[k]) do				
+						-- for _,subFieldGroup2 in pairs(groupListByGroup[kk]) do
+							-- print(subFieldGroup1," ",subFieldGroup2)
+							-- -- print(tostring(edge_lookup[subFieldGroup1][subFieldGroup2]))
+							-- local L= courseplay.geometry:getSharedEdgeLength(split[subFieldGroup1],split[subFieldGroup2]);
+							-- print(tostring(L));
+							-- if Utils.getNoNil(L,0) > 0 then
+								-- edgeFound = true;
+								-- -- insertPoint = searchIndex;
+								-- break;
+							-- end;
+						-- end;
+									
+					if edgeFound then
+						print("groups "..tostring(k).." and "..tostring(kk).." have a common edge")
+						
+						local recalcGroup = kk;
+						local angle = groupAngles[k];
+						local oldAngle = groupAngles[kk];
+						if groupCosts[k] < groupCosts[kk] then
+							recalcGroup = k;
+							angle = groupAngles[kk];
+							oldAngle = groupAngles[k];
+						end;
+						
+						--find index of angle						
+						local a = 0;
+						for k,rotY in pairs(rotYvec) do
+							if rotY == angle then
+								a = k;
+								break;
+							end;
+						end;
+						
+						if groupAngles[k] ==  groupAngles[kk] then
+							print("same angle! -> merging")
+							mergeGroups[k]=kk;
+							reDo = true;
+							break;
+						else
+							local oldCost = groupCosts[recalcGroup];
+							local newCost = 0;
+							
+							for _,subField in pairs(groupListByGroup[recalcGroup]) do
+								-- angle
+								newCost = newCost + cost_lookup[subField][a];
+							end;
+							
+							local edgeComp = -L*((math.cos(edgeAngle-angle))^2-(math.cos(edgeAngle-oldAngle))^2)/width*turningTime
+							print("edge compensation: "..tostring(edgeComp))
+							print("hoppingTime: "..tostring(hoppingTime))
+							newCost = newCost - edgeComp - hoppingTime;
+							
+							print("oldcost: "..tostring(oldCost).."  newCost: "..tostring(newCost))
+							-- if true and oldCost - newCost < hoppingTime then
+							if newCost - oldCost < 0 then
+								print("merging! due to cost")
+								mergeGroups[k]=kk;
+								reDo = true;
+								
+								break;
+							else
+								print("no deal!")
+							end;
+						end;
+					end;
+					
+				end;
+				if reDo then
+					break;
+				end;
+			end;
+			
+			if reDo then
+				for group1, group2 in pairs(mergeGroups) do
+					
+					-- for _,field in pairs(groupListByGroup[group2]) do
+						-- table.insert(groupListByGroup[group1],insertPoint+1,field);
+					-- end;
+					print("merging group "..tostring(group1).." and group "..tostring(group2))
+					local newMerge = courseplay.geometry:mergedWith(groupPolys[group1],groupPolys[group2])
+					table.remove(groupPolys,group2)
+					groupPolys[group1] = newMerge;
+					
+					table.remove(groupAngles,group2)				
+				end;
+			end;
+		end;
+		if #groupPolys <= maxGroups then
+			break;
+		else
+			print("#groupPolys > maxGroups ("..tostring(#groupPolys)..">"..tostring(maxGroups))
+			hoppingTime = hoppingTime*1.1;
+			print("setting hoppingTime to "..tostring(hoppingTime))
+		end;
+	end;	
+	
+	
+	print("done")
+	return groupPolys, groupAngles								
+					
+end;
+
+function courseplay.geometry:addInFieldPoints(course,outline)
+	print("checking course with "..tostring(#course).." points");
+	for k = 1,#course-1 do
+		local point1 = course[k]
+		local point2 = course[k+1]
+		-- if point1.workstart then
+			-- -- print("workpoint")
+			-- -- courseplay.geometry:isLineLeavingField(point1,point2,outline)
+		-- else
+		if point2.doLineCheck then
+			print("checking point "..tostring(k))
+			local distance2 = (point1.cx+point2.cx)^2 + (point1.cz+point2.cz)^2;
+			-- print(distance2)
+			-- print(courseplay.geometry:isLineLeavingField(point1,point2,outline))
+			
+			if distance2 > 200 and courseplay.geometry:isLineLeavingField(point1,point2,outline) then --value 200 is placeholder for 2.5 working width (squared). do not crop if shortcut is small
+				print("correcting corner cutting or indention at point "..tostring(k))
+				
+				
+				local k1 = courseplay.geometry:findNearestPointIndex(point1,outline)
+				local k2 = courseplay.geometry:findNearestPointIndex(point2,outline)
+				print("outline start point2: "..tostring(k1).." "..tostring(k2))
+				if k1~= nil and k2~= nil then
+					if k1 == k2 then --single point, just add
+						print("single point correction is sufficient, inserting outline point "..tostring(k1))					
+						table.insert(course,k+1,outline[k1]);
+					else
+						print("searching between "..tostring(k1).." and "..tostring(k2))
+						local step = 1;
+						-- if k2 < k1 then 
+							-- step = -1; 
+						-- end;
+						local dirVec1 = {};
+						local dirVec2 = {};
+						local indexSearch = k1;
+						
+						while indexSearch ~= k2 do						
+							table.insert(dirVec1,indexSearch);
+							indexSearch = indexSearch + step;
+							if indexSearch > #outline then
+								indexSearch = 1;
+							elseif indexSearch < 1 then
+								indexSearch = #outline;
+							end;
+						end;
+						table.insert(dirVec1,k2);
+						step = -1;
+						indexSearch = k1;					
+						while indexSearch ~= k2 do						
+							table.insert(dirVec2,indexSearch);
+							indexSearch = indexSearch + step;
+							if indexSearch > #outline then
+								indexSearch = 1;
+							elseif indexSearch < 1 then
+								indexSearch = #outline;
+							end;
+						end;
+						table.insert(dirVec2,k2);
+						print("dirVecs: "..tostring(#dirVec1).."   "..tostring(#dirVec2))
+						if #dirVec1 > #dirVec2 then
+							dirVec1 = dirVec2;
+						end;
+						
+						if true then --lets see if we can not shorten even further:
+							print("trying to shorten route extension:")
+							while true do
+								if #dirVec1>1 then
+									if not courseplay.geometry:isLineLeavingField(point1,outline[dirVec1[2]],outline) then
+										print("removing 1st point")
+										table.remove(dirVec1,1);										
+									else
+										break;
+									end;
+								else --down to 1 point and we already have decided we need the round tour. finished
+									break;
+								end;
+							end;
+
+							while true do
+								if #dirVec1>1 then
+									if not courseplay.geometry:isLineLeavingField(point2,outline[dirVec1[#dirVec1-1]],outline) then
+										print("removing last point")
+										table.remove(dirVec1,#dirVec1);										
+									else
+										break;
+									end;
+								else --down to 1 point and we already have decided we need the round tour. finished
+									break;
+								end;
+							end;							
+						end;
+						
+						for kk = #dirVec1,1,-1 do
+						-- for kk = 1,#dirVec1 do
+							print(kk," ",dirVec1[kk])
+							table.insert(course,k+1,outline[dirVec1[kk]]);
+						end;
+					end;
+				else
+					print("addInFieldPoints: could not find outline points! This is mathematically impossible, so there must be some problem")
+				end;
+				print("finished corner cutting or indention at point "..tostring(k))
+			end;
+		end;
+		
+	end;
+	return course;
+end;
+
+function courseplay.geometry:findNearestPointIndex(point,outline)
+	local x = point.cx;
+	local z = point.cz;
+	
+	local minOk = math.huge;
+	local kOpt
+	for k = 1, #outline do
+		if not courseplay.geometry:isLineLeavingField(point,outline[k],outline) then
+			local distance2 = (x-outline[k].cx)^2 + (z-outline[k].cz)^2
+			-- minOk = math.min(minOk,distance2);
+			if distance2 < minOk then
+				kOpt = k;
+				minOk = distance2;
+			end;
+		else
+			-- print("index "..tostring(k).." is not directly reachable from start point")
+		end;
+	end;
+	return kOpt;
+end;
 
 
--- ####################################################################################################
+--courseplay.geometry:contains(v,x,y)
+function courseplay.geometry:isLineLeavingField(point1,point2,outline)
+	local dx = point2.cx-point1.cx;
+	local dz = point2.cz-point1.cz;	
+	
+	local L = math.sqrt(dx^2+dz^2);
+	dx = dx/L;
+	dz = dz/L;
+	local res,cosAngle = courseplay.geometry:intersectionsWithRay(outline,point1.cx,point1.cz, dx,dz,true);
+		
+	local score = 0;
+	for k=0,1,0.1 do
+		local xTest = point1.cx + k*L*dx;
+		local zTest = point1.cz + k*L*dz;		
+		if not courseplay.geometry:contains(outline,xTest,zTest) then
+			-- print("test")
+			local radius = 0.5;
+			if not courseplay.geometry:contains(outline,xTest+radius*dz,zTest-radius*dx) and not courseplay.geometry:contains(outline,xTest-radius*dz,zTest+radius*dx) then --back to 'topfschlagen'...
+				-- print("out of field found at k="..tostring(k))
+				score = score + 1;
+				-- return true;
+			end;
+		end;
+	end;
+	
+	-- if score > 1 then
+		-- print("isLineLeavingField score: "..tostring(score))
+	-- end;
+	if score > 6 then
+		-- print("score: "..tostring(score))
+		return true;
+	end;
+		
+	for key,value in pairs(res) do
+		if math.abs(cosAngle[key]) < 0.98 then
+			if value > 2 and value  < L-2 then
+				-- print("isLineLeavingField intersectionsWithRay value: "..tostring(value).."/"..tostring(L))
+				return true
+			end
+		end;
+	end;
+	
+	return false;
+	
+	
+	
+	
+	
+	-- so is the very naive (and pissed off) version:
+	-- -- for k=0.02,.98,0.1 do
+		-- -- local xTest = point1.cx + k*L*dx;
+		-- -- local zTest = point1.cz + k*L*dz;		
+		-- -- if not courseplay.geometry:contains(outline,xTest,zTest) then
+			-- -- print("test")
+			-- -- if not courseplay.geometry:contains(outline,xTest+2*dz,zTest-2*dx) and not courseplay.geometry:contains(outline,xTest-2*dz,zTest+2*dx) then --back to 'topfschlagen'...
+				-- -- print("out of field found at k="..tostring(k))
+				-- -- return true;
+			-- -- end;
+		-- -- end;
+	-- -- end;
+	-- -- return false;
+	-- this is neither elegant nor is it guarantied to be true, but it should work better than all the other stuff below
+	
+	
+	-- local res,cosAngle = courseplay.geometry:intersectionsWithRay(outline,point1.cx,point1.cz, dx,dz,true);
+	-- print("a",#res)
+	-- for key,value in pairs(res) do
+		-- print(tostring(key).." "..tostring(value).." "..tostring(cosAngle[key]))
+	-- end;
+	
+	-- for k=#res,1,-1 do --kick out shit
+		-- local value = res[k];
+		-- -- if value < -0.01 or value > 1.01 then 
+		-- if value < 0.01 or value > 0.99 then 
+			-- table.remove(res,k)
+			-- table.remove(cosAngle,k)
+		-- elseif math.abs(cosAngle[k]) > 0.98 then
+			-- table.remove(res,k)
+			-- table.remove(cosAngle,k)
+		-- end;
+	-- end;
+	-- print("b",#res)
+	-- if #res == 0 then
+		-- return false;
+	-- elseif #res%2 ~= 0 or #res > 2 then
+		-- print("leaving point found, #res: "..tostring(#res))
+		-- for key,value in pairs(res) do
+			-- print(tostring(key).." "..tostring(value))
+		-- end;
+		-- return true;
+	-- end;
+	
+	-- local isLeaving = false;
+	-- -- for k=1,#res,2 do --,value in pairs(res) do
+		-- -- local value = res[k];
+		
+	-- local lambda = (res[1]+res[2])/2;
+	-- local xTest = point1.cx + lambda*dx;
+	-- local zTest = point1.cz + lambda*dz;
+	
+	-- isLeaving = not courseplay.geometry:contains(outline,xTest,zTest)
+	
+	-- if isLeaving then
+		-- print("leaving point found: killed by courseplay.geometry:contains()")
+	-- end;
+		
+	-- -- end;	
+	-- return isLeaving;
+end;
+
+function courseplay.geometry:contains(v,x,y)	
+	-- test if an edge cuts the ray
+	local function cut_ray(p,q)
+		return ((p.cz > y and q.cz < y) or (p.cz < y and q.cz > y)) -- possible cut
+				and (x - p.cx < (y - p.cz) * (q.cx - p.cx) / (q.cz - p.cz)) -- x < cut.cx
+	end
+	-- test if the ray crosses boundary from interior to exterior.
+	-- this is needed due to edge cases, when the ray passes through
+	-- polygon corners
+	local   function cross_boundary(p,q)
+				return (p.cz == y and p.cx > x and q.cz < y)
+						or (q.cz == y and q.cx > x and p.cz < y)
+			end
+
+	local in_polygon = false
+	local p,q = v[#v],v[#v]
+	for i = 1, #v do
+		p,q = q,v[i]
+		if cut_ray(p,q) or cross_boundary(p,q) then
+			in_polygon = not in_polygon
+		end
+	end
+	return in_polygon
+end
+
+
+
+function courseplay.geometry:getSubCourseCost(poly,yRot,centroid,maxRadius,speed, width, turningTime)
+	local cost = 0;
+	local dx, dz = Utils.getDirectionFromYRotation(yRot);
+	
+	for sideShift = -maxRadius,maxRadius,width do
+		local pointX = centroid.x - sideShift*dz;
+		local pointZ = centroid.z + sideShift*dx;
+		local res, cosAngle = courseplay.geometry:intersectionsWithRay(poly,pointX,pointZ, dx,dz,true);
+		if #res > 0 then
+			if #res~=2 then --we could handle this, but we dont want to at the moment
+				print("subfield for getSubCourseCost is NOT CONVEX!")				
+			end;
+			-- print("courseCost: cosA1 "..tostring(cosAngle[1]).." ".." cosA2 "..tostring(cosAngle[2]))
+			local distance = math.abs(res[1]-res[2]);
+			local incidenceFac = 1 + 7.5*(cosAngle[1]^2+cosAngle[2]^2); --factor 7.5 here is arbitrary and can (should?) be adjusted
+			cost = cost + distance/speed + incidenceFac*turningTime;
+		
+		end;
+	end;
+	
+	return cost;
+end;
+
+-- here starts the real algorithm library:
+
+-- test wether a and b lie on the same side of the line c->d
+function courseplay.geometry:onSameSide(a,b, c,d)
+	local px, py = d.cx-c.cx, d.cz-c.cz
+	local l = courseplay.geometry:det(px,py, a.cx-c.cx, a.cz-c.cz)
+	local m = courseplay.geometry:det(px,py, b.cx-c.cx, b.cz-c.cz)
+	return l*m >= 0
+end
+
+function courseplay.geometry:pointInTriangle(p, a,b,c)
+	return courseplay.geometry:onSameSide(p,a, b,c) and courseplay.geometry:onSameSide(p,b, a,c) and courseplay.geometry:onSameSide(p,c, a,b)
+end
+
+function courseplay.geometry:segmentsInterset(a,b, p,q)
+	return not (courseplay.geometry:onSameSide(a,b, p,q) or courseplay.geometry:onSameSide(p,q, a,b))
+end;
+
+-- test whether any point in vertices (but pqr) lies in the triangle pqr
+-- note: vertices is *set*, not a list!
+function courseplay.geometry:anyPointInTriangle(vertices, p,q,r)
+	for v in pairs(vertices) do
+		if v ~= p and v ~= q and v ~= r and courseplay.geometry:pointInTriangle(v, p,q,r) then
+			return true
+		end
+	end
+	return false
+end
+-- test is the triangle pqr is an "ear" of the polygon
+-- note: vertices is *set*, not a list!
+function courseplay.geometry:isEar(p,q,r, vertices)
+	return courseplay.geometry:ccw(p,q,r) and not courseplay.geometry:anyPointInTriangle(vertices, p,q,r)
+end
+
+
+
+function courseplay.geometry:getSharedEdgeLength(poly,other)
+	local p,q = courseplay.geometry:getSharedEdge(poly,other)
+	if p == nil or q == nil then --no shared edge
+		return 0;
+	end;
+	
+	local length = 0;
+	
+	local point1 = poly[p];
+	local index2 = p+1;
+	if p == #poly then
+		index2 = 1;
+	end;
+	local point2 = poly[index2];
+	
+	local distance = (point1.cx-point2.cx)^2 + (point1.cz-point2.cz)^2;
+	distance = math.sqrt(distance);
+	
+	local yRot = Utils.getYRotationFromDirection(point1.cx-point2.cx, point1.cz-point2.cz);
+	return distance, yRot;
+end;
+
+
+-- returns starting/ending indices of shared edge, i.e. if p and q share the
+-- edge with indices p1,p2 of p and q1,q2 of q, the return value is p1,q2
+function courseplay.geometry:getSharedEdge(p,q)
+	local pindex = setmetatable({}, {__index = function(t,k)
+		local s = {}
+		t[k] = s
+		return s
+	end})
+	-- record indices of vertices in p by their coordinates
+	for i = 1,#p do
+		pindex[p[i].cx][p[i].cz] = i
+	end
+	-- iterate over all edges in q. if both endpoints of that
+	-- edge are in p as well, return the indices of the starting
+	-- vertex
+	local i,k = #q,1
+	for k = 1,#q do
+		local v,w = q[i], q[k]
+		if pindex[v.cx][v.cz] and pindex[w.cx][w.cz] then
+			return pindex[w.cx][w.cz], k
+		end
+		i = k
+	end	
+end
+
+
+-- return merged polygon if possible or nil otherwise
+function courseplay.geometry:mergedWith(poly,other)
+	local p,q = courseplay.geometry:getSharedEdge(poly,other)
+	assert(p and q, "Polygons do not share an edge")
+	local ret = {}
+	for i = 1,p-1 do
+		ret[#ret+1] = poly[i].cx
+		ret[#ret+1] = poly[i].cz
+		end
+	for i = 0,#other-2 do
+		i = ((i-1 + q) % #other) + 1
+		ret[#ret+1] = other[i].cx
+		ret[#ret+1] = other[i].cz
+	end
+	for i = p+1,#poly do
+		ret[#ret+1] = poly[i].cx
+		ret[#ret+1] = poly[i].cz
+	end
+	return courseplay.geometry:newPolygon(unpack(ret))
+end
+
+-- split polygon into convex polygons.
+-- note that this won't be the optimal split in most cases, as
+-- finding the optimal split is a really hard problem.
+-- the method is to first triangulate and then greedily merge
+-- the triangles.
+function courseplay.geometry:splitConvex(poly)
+	-- edge case: polygon is a triangle or already convex
+	if #poly <= 3 or courseplay.geometry:isConvex(poly) then return {poly} end
+	
+	local convex = courseplay.geometry:triangulate(poly)
+	local i = 1
+	repeat
+		local p = convex[i]
+		local k = i + 1
+		while k <= #convex do
+			local success, merged = pcall(function() return courseplay.geometry:mergedWith(p,convex[k]) end)
+			-- if not success then --pcall masks other errors!
+				-- print(merged)
+			-- end;
+
+			if success and courseplay.geometry:isConvex(merged) then
+				convex[i] = merged
+				p = convex[i]
+				table.remove(convex, k)
+			else
+				k = k + 1
+			end
+		end
+		i = i + 1
+	until i >= #convex
+	return convex
+end
+
+
+
+-- triangulation by the method of kong
+function courseplay.geometry:triangulate(poly)
+	if #poly == 3 then return {poly} end
+	
+	local vertices = poly
+	local next_idx, prev_idx = {}, {}
+	
+	
+	for i = 1,#vertices do
+		next_idx[i], prev_idx[i] = i+1,i-1
+	end
+	next_idx[#next_idx], prev_idx[1] = 1, #prev_idx
+	
+	local concave = {}
+	for i, v in ipairs(vertices) do
+		if not courseplay.geometry:ccw(vertices[prev_idx[i]], v, vertices[next_idx[i]]) then
+			concave[v] = true
+		end
+	end
+	local triangles = {}
+	local n_vert, current, skipped, next, prev = #vertices, 1, 0
+	while n_vert > 3 do
+		next, prev = next_idx[current], prev_idx[current]
+		local p,q,r = vertices[prev], vertices[current], vertices[next]
+		if courseplay.geometry:isEar(p,q,r, concave) then
+			triangles[#triangles+1] = courseplay.geometry:newPolygon(p.cx,p.cz, q.cx,q.cz, r.cx,r.cz)
+			next_idx[prev], prev_idx[next] = next, prev
+			concave[q] = nil
+			n_vert, skipped = n_vert - 1, 0
+		else
+			skipped = skipped + 1
+			
+			assert(skipped <= n_vert, "Cannot triangulate polygon")
+		end
+		current = next
+	end
+	next, prev = next_idx[current], prev_idx[current]
+	local p,q,r = vertices[prev], vertices[current], vertices[next]
+	triangles[#triangles+1] = courseplay.geometry:newPolygon(p.cx,p.cz, q.cx,q.cz, r.cx,r.cz)
+	
+	return triangles
+end
+
+function courseplay.geometry:assertOrientation(poly)
+	if courseplay.geometry:getArea(poly) < 0 then
+		-- print("reversing order of polygon")
+		local newPoly = {};
+		for k = #poly,1,-1 do
+			table.insert(newPoly,poly[k]);
+		end;
+		return newPoly;
+	else
+		return poly;
+	end;
+end;
+
+function courseplay.geometry:det(x1,y1,x2,y2)
+	return x1*y2 - y1*x2;
+end;
+
+function courseplay.geometry:getArea(vertices)
+	local p,q = vertices[#vertices], vertices[1]
+	local det = courseplay.geometry:det(p.cx,p.cz, q.cx,q.cz) -- also used below
+	local area = det
+	for i = 2,#vertices do
+		p,q = q,vertices[i]
+		area = area + courseplay.geometry:det(p.cx,p.cz, q.cx,q.cz)
+	end
+	area = area / 2
+	return area
+end;
+
+function courseplay.geometry:isConvex(v)
+	if courseplay.geometry:isConvexDir(v,1.0) then		
+		return true
+	elseif courseplay.geometry:isConvexDir(v,-1.0) then
+		print("isConvexDir minus true!! polygon is probably turning in wrong direction")
+		return true
+	end;
+	return false;
+end;
+
+function courseplay.geometry:isConvexDir(v,dir)
+	if #v == 3 then return true end
+	
+	if not courseplay.geometry:ccw(v[#v], v[1], v[2],dir) then
+		return false
+	end
+	for i = 2,#v-1 do
+		if not courseplay.geometry:ccw(v[i-1], v[i], v[i+1],dir) then
+			return false
+		end
+	end
+	if not courseplay.geometry:ccw(v[#v-1], v[#v], v[1],dir) then
+		return false
+	end
+	return true
+end
+
+-- returns true if three points make a counter clockwise turn
+function courseplay.geometry:ccw(p, q, r, dir)
+	dir = Utils.getNoNil(dir,1.0);
+	local x1 = q.cx-p.cx;
+	local y1 = q.cz-p.cz;
+	local x2 = r.cx-p.cx;
+	local y2 = r.cz-p.cz;
+	return dir*(x1*y2 - y1*x2) >= 0;
+	-- det(x1,y1, x2,y2)
+	-- return vector.det(q.x-p.x, q.y-p.y, r.x-p.x, r.y-p.y) >= 0
+end;
+
+function courseplay.geometry:intersectionsWithRay(poly,x,y, dx,dy,returnCosAngle)
+	local nx,ny = dy, -dx; --vector.perpendicular(dx,dy)
+	local wx,xy,det
+	local ts = {} -- ray parameters of each intersection
+	local q1,q2 = nil, poly[#poly]
+	local cosAngle = {};
+	
+	for i = 1, #poly do
+		q1,q2 = q2,poly[i]
+		wx,wy = q2.cx - q1.cx, q2.cz - q1.cz
+		det = courseplay.geometry:det(dx,dy, wx,wy)
+		
+		if det ~= 0 then
+			-- there is an intersection point. check if it lies on both
+			-- the ray and the segment.
+			local rx,ry = q2.cx - x, q2.cz - y
+			local l = courseplay.geometry:det(rx,ry, wx,wy) / det
+			local m = courseplay.geometry:det(dx,dy, rx,ry) / det
+			if m >= 0 and m <= 1 then
+				-- we cannot jump out early here (i.e. when l > tmin) because
+				-- the polygon might be concave
+				ts[#ts+1] = l;
+				if returnCosAngle then
+					local ld = math.sqrt(dx^2+dy^2);
+					local lw = math.sqrt(wx^2+wy^2);
+					local ca = (wx*dx+wy*dy)/(lw*ld)
+					table.insert(cosAngle,ca);
+				end;
+			end
+		else --no this does not catch the parallel routes to border			
+			-- lines parralel or incident. get distance of line to
+			-- anchor point. if they are incident, check if an endpoint
+			-- lies on the ray
+			local dist =  (q1.cx-x)*nx + (q1.cz-y)*ny               --courseplay.geometry:dot(q1.cx-x,q1.cz-y, nx,ny)
+			if dist == 0 then
+				local l =  dx*(q1.cx-x) + dy*(q1.cz-y)         --courseplay.geometry:dot(dx,dy, q1.cx-x,q1.cz-y)
+				local m =  dx*(q2.cx-x) + dy*(q2.cz-y)         --courseplay.geometry:dot(dx,dy, q2.cx-x,q2.cz-y)
+				if l >= m then
+					ts[#ts+1] = l
+				else
+					ts[#ts+1] = m
+				end
+				if returnCosAngle then
+					local ld = math.sqrt(dx^2+dy^2);
+					local lw = math.sqrt(wx^2+wy^2);
+					local ca = (wx*dx+wy*dy)/(lw*ld)
+					table.insert(cosAngle,ca);
+				end;
+			end
+		end
+	end
+	if returnCosAngle then
+		return ts, cosAngle
+	else
+		return ts
+	end;
+end
+
+-- compute polygon area and centroid
+function courseplay.geometry:getAreaCentroidMaxcircle(vertices)
+	local area, centroid, maxRadius;
+	
+	
+	local p,q = vertices[#vertices], vertices[1]
+	local det = courseplay.geometry:det(p.cx,p.cz, q.cx,q.cz) -- also used below
+	area = det
+	for i = 2,#vertices do
+		p,q = q,vertices[i]
+		area = area + courseplay.geometry:det(p.cx,p.cz, q.cx,q.cz)
+	end
+	area = area / 2
+	p,q = vertices[#vertices], vertices[1]
+	local centroid = {x = (p.cx+q.cx)*det, z = (p.cz+q.cz)*det}
+	for i = 2,#vertices do
+		p,q = q,vertices[i]
+		det = courseplay.geometry:det(p.cx,p.cz, q.cx,q.cz)
+		centroid.x = centroid.x + (p.cx+q.cx) * det
+		centroid.z = centroid.z + (p.cz+q.cz) * det
+	end
+	centroid.x = centroid.x / (6 * area)
+	centroid.z= centroid.z / (6 * area)
+	-- get outcircle
+	maxRadius = 0
+	for i = 1,#vertices do
+		maxRadius = math.max(maxRadius,	math.sqrt((vertices[i].cx - centroid.x)^2 + (vertices[i].cz - centroid.z)^2));		
+	end
+	
+	return area, centroid, maxRadius;	
+end;
+
 -- copyright statement from HardOnCollider-project:
 --[[
 Copyright (c) 2011 Matthias Richter
