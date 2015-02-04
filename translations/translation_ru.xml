@@ -70,16 +70,12 @@
 		<text name="COURSEPLAY_SPEED_TURN" 								 text="Маневры:" />
 		<text name="COURSEPLAY_SPEED_FIELD" 							 text="На поле:" />
 		<text name="COURSEPLAY_SPEED_MAX" 								 text="В пути:" />
-		<text name="COURSEPLAY_SPEED_REVERSING" 						 text="Разгрузка (BGA):" /> <!-- TODO: "Reversing speed" -->
+		<text name="COURSEPLAY_SPEED_REVERSING" 						 text="Задняя:" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE" 							 text="Режим:" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE_RECORDING" 				 text="по настройкам" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE_MAX" 						 text="скоростной" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE_AUTOMATIC" 				 text="автоматически (до %s)" />
 		<text name="COURSEPLAY_NO_COURSE_LOADED" 						 text="Маршрут: отсутствует" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_1" 						 text="старт и финиш" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_2" 						 text="без перекрестков" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_3" 						 text="показать все" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_4" 						 text="не показывать" />
 		<text name="COURSEPLAY_WARNING_LIGHTS" 							 text="Сигнальные огни:" />
 		<text name="COURSEPLAY_WARNING_LIGHTS_MODE_0" 					 text="отключено" />
 		<text name="COURSEPLAY_WARNING_LIGHTS_MODE_1" 					 text="в дороге - маячок" />
@@ -101,6 +97,7 @@
 		<text name="COURSEPLAY_DRIVE_NEXT_TO_COMBINE" 					 text="Еду рядом с комбайном" />
 		<text name="COURSEPLAY_DRIVE_TO_COMBINE" 						 text="Маневрирую для погрузки" />
 		<text name="COURSEPLAY_COMBINE_WANTS_ME_TO_STOP" 				 text="Комбайну нужна разгрузка" />
+		<text name="COURSEPLAY_WAITING_TILL_WAITING_POSITION_IS_FREE" 	 text="Перекур, пусть пока комбайн отъедет" />
 		<text name="COURSEPLAY_TURNING_TO_COORDS" 						 text="Возвращение к %d %d" />
 		<text name="COURSEPLAY_DRIVE_TO_WAYPOINT" 						 text="Еду на временную стоянку" />
 		<text name="COURSEPLAY_WAITING_FOR_FILL_LEVEL" 					 text="Жду заполнения бункера" />
@@ -149,6 +146,8 @@
 		<text name="COURSEPLAY_START" 									 text="Старт" />
 		<text name="COURSEPLAY_FINISH" 									 text="Финиш" />
 		<text name="COURSEPLAY_NO_VALID_COURSE" 						 text="Не рабочий маршрут" />
+		
+		<!-- shovel stuff -->
 		<text name="COURSEPLAY_SHOVEL_NOT_FOUND" 						 text="Ковш не обнаружен" />
 		<text name="COURSEPLAY_SHOVEL_POSITIONS" 						 text="ПОЗИЦИИ КОВША" />
 		<text name="COURSEPLAY_SHOVEL_POSITIONS_MISSING" 				 text="Позиции ковша не установлены" />
@@ -156,7 +155,16 @@
 		<text name="COURSEPLAY_SHOVEL_TRANSPORT_POSITION" 				 text="Транспортировка" />
 		<text name="COURSEPLAY_SHOVEL_PRE_UNLOADING_POSITION" 			 text="Предразгрузка" />
 		<text name="COURSEPLAY_SHOVEL_UNLOADING_POSITION" 				 text="Разгрузка" />
+		<text name="COURSEPLAY_SHOVEL_SAVE_LOADING_POSITION" 			 text="Сохранить позицию" />
+		<text name="COURSEPLAY_SHOVEL_SAVE_TRANSPORT_POSITION" 			 text="Сохранить позицию" />
+		<text name="COURSEPLAY_SHOVEL_SAVE_PRE_UNLOADING_POSITION" 		 text="Сохранить позицию" />
+		<text name="COURSEPLAY_SHOVEL_SAVE_UNLOADING_POSITION" 			 text="Сохранить позицию" />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_LOADING_POSITION" 		 text="Показать позицию" />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_TRANSPORT_POSITION" 		 text="Показать позицию" />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_PRE_UNLOADING_POSITION" 	 text="Показать позицию" />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_UNLOADING_POSITION" 		 text="Показать позицию" />
 		<text name="COURSEPLAY_SHOVEL_STOP_AND_GO" 						 text="Готово, поехали" />
+		
 		<text name="COURSEPLAY_START_AT_POINT" 							 text="Способ запуска:" />
 		<text name="COURSEPLAY_NEAREST_POINT" 							 text="с ближайшей точки" />
 		<text name="COURSEPLAY_FIRST_POINT" 							 text="со стартовой точки" />
@@ -202,6 +210,7 @@
 		<text name="COURSEPLAY_RECORDING_TURN_END" 						 text="поворот" />
 		<text name="COURSEPLAY_RECORDING_REVERSE_START" 				 text="включить задний ход" />
 		<text name="COURSEPLAY_RECORDING_REVERSE_STOP" 					 text="отключить задний ход" />
+		<text name="COURSEPLAY_RECORDING_ADD_SPLIT_POINTS"				 text="Add split points" /> <!-- TODO: TRANSLATION! (during recording adds multiple points between last point and current position -->
 		<text name="COURSEPLAY_INGAMEMAP_ICONS_SHOWTEXT" 				 text="Показать инфо на карте:" />
 		<text name="COURSEPLAY_ALWAYS_USE_4WD" 							 text="Всегда 4х4" />
 		<text name="COURSEPLAY_YES_NO_FIELDSCAN" 						 text="Включить автосканирование полей?" />
@@ -220,6 +229,8 @@
 		<text name="COURSEPLAY_START_STOP" 								 text="Courseplay: старт/стоп маршрута" />
 		<text name="COURSEPLAY_CANCELWAIT" 								 text="Courseplay: остановка в следующей точке" />
 		<text name="COURSEPLAY_DRIVENOW" 								 text="Courseplay: старт маршрута" />
+		<text name="COURSEPLAY_NEXTMODE" 								 text="Courseplay: следующий тип работы" />
+		<text name="COURSEPLAY_PREVMODE" 								 text="Courseplay: предыдущий тип работы" />
 		<text name="COURSEPLAY_MOUSEACTION_PRIMARY" 					 text="Courseplay: 1 функция мыши" />
 		<text name="COURSEPLAY_MOUSEACTION_SECONDARY" 					 text="Courseplay: 2 функция мыши" />
 		<text name="COURSEPLAY_MOUSEARROW_SHOW" 						 text="показать курсор" />
@@ -228,5 +239,8 @@
 		<text name="COURSEPLAY_APPEND_COURSE" 						 	 text="Добавить последним" />
 		<text name="COURSEPLAY_MOVE_TO_FOLDER" 						 	 text="Переместить в папку" />
 		<text name="COURSEPLAY_DELETE_COURSE" 						 	 text="Удалить" />
+		<!-- TRANSLATION MISSING --><text name="COURSEPLAY_VISUALWAYPOINTS_STARTEND"				 text="Show/hide start and end points" />
+		<!-- TRANSLATION MISSING --><text name="COURSEPLAY_VISUALWAYPOINTS_ALL"						 text="Show/hide all points" />
+		<!-- TRANSLATION MISSING --><text name="COURSEPLAY_VISUALWAYPOINTS_CROSSING"				 text="Show/hide crossing points" />
 	</texts>
 </l10n>

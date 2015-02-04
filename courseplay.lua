@@ -136,7 +136,7 @@ local function setGlobalData()
 	courseplay.MODE_COMBINE_SELF_UNLOADING = 7;
 	courseplay.MODE_LIQUIDMANURE_TRANSPORT = 8;
 	courseplay.MODE_SHOVEL_FILL_AND_EMPTY = 9;
-	courseplay.numAiModes = 9;
+	courseplay.NUM_MODES = 9;
 	------------------------------------------------------------
 
 
@@ -151,6 +151,13 @@ local function setGlobalData()
 	courseplay.WARNING_LIGHTS_BEACON_HAZARD_ON_STREET = 2;
 	courseplay.WARNING_LIGHTS_BEACON_ALWAYS = 3;
 
+	-- 2D/debug lines display options
+	courseplay.COURSE_2D_DISPLAY_OFF	 = 0;
+	courseplay.COURSE_2D_DISPLAY_2DONLY	 = 1;
+	courseplay.COURSE_2D_DISPLAY_DBGONLY = 2;
+	courseplay.COURSE_2D_DISPLAY_BOTH	 = 3;
+
+	-- number separators
 	local langNumData = {
 		br = { '.', ',' },
 		cs = { ',', '.' },

@@ -905,10 +905,44 @@ function courseplay:generateCourse(vehicle)
 	courseplay:setFieldEdgePath(vehicle, nil, 0);
 	courseplay:validateCourseGenerationData(vehicle);
 	courseplay:validateCanSwitchMode(vehicle);
+<<<<<<< HEAD
 	courseplay:debug(string.format("generateCourse() finished: %d lanes, %d headland", numLanes, #(vehicle.cp.headland.lanes)), 7);
+=======
+
 	-- SETUP 2D COURSE DRAW DATA
 	vehicle.cp.course2dUpdateDrawData = true;
 
+	courseplay:debug(string.format("generateCourse() finished: %d lanes, %d headland %s", numLanes, numHeadlandLanesCreated, numHeadlandLanesCreated == 1 and 'lane' or 'lanes'), 7);
+end;
+
+
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+------------------------------------------------------------------------
+-- ############# HELPER FUNCTIONS
+function courseplay.generation:getPolyDimensions(polyXValues, polyZValues)
+	local dimensions = {
+		minX = math.min(unpack(polyXValues));
+		maxX = math.max(unpack(polyXValues));
+		minZ = math.min(unpack(polyZValues));
+		maxZ = math.max(unpack(polyZValues));
+	};
+	dimensions.width = dimensions.maxX - dimensions.minX;
+	dimensions.height = dimensions.maxZ - dimensions.minZ;
+
+	return dimensions;
+end;
+
+function courseplay:invertAngleDeg(ang)
+	if ang > 0 then
+		return ang - 180;
+	else
+		return ang + 180;
+	end;
+end;
+function courseplay:positiveAngleDeg(ang)
+	return ang % 360;
+>>>>>>> master
 end;
 
 

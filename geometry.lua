@@ -827,7 +827,7 @@ function courseplay.geometry:genWorkCourse(points, vehicle, corner)
 			-- print("checking field leaving at plot "..tostring(sub))
 			-- courseplay.geometry:addInFieldPoints(workLines,simplePoly)
 		-- end;
-		local fisrtPoint = workLine[1];
+		local firstPoint = workLine[1];
 		if Utils.vector2Length(corner.cx-firstPoint.cx, corner.cz-firstPoint.cz) < dist then
 			variantToUse = variant;
 		end;

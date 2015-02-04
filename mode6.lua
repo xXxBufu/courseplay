@@ -170,6 +170,11 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, fillLevelPc
 				end;
 
 				-- automatic unload
+				if vehicle.cp.delayFolding and courseplay:timerIsThrough(vehicle, 'foldBaleLoader', false) then
+					vehicle.cp.unloadOrder = true
+					vehicle.cp.delayFolding = nil
+				end
+				
 				if (not workArea and vehicle.Waypoints[vehicle.cp.previousWaypointIndex].wait and (vehicle.cp.wait or fillLevelPct == 0)) or vehicle.cp.unloadOrder then
 					specialTool, allowedToDrive = courseplay:handleSpecialTools(vehicle,workTool,false,false,false,allowedToDrive,nil,true);
 					if not specialTool then
@@ -183,6 +188,7 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, fillLevelPc
 								if not courseplay:getCustomTimerExists(vehicle, 'foldBaleLoader') then
 									-- print(('%s: foldBaleLoader timer not running -> set timer 2 seconds'):format(nameNum(workTool)));
 									courseplay:setCustomTimer(vehicle, 'foldBaleLoader', 2);
+									vehicle.cp.delayFolding = true;
 								elseif courseplay:timerIsThrough(vehicle, 'foldBaleLoader', false) then
 									-- print(('%s: timer through -> set state BaleLoader.CHANGE_SINK -> reset timer'):format(nameNum(workTool)));
 									g_server:broadcastEvent(BaleLoaderStateEvent:new(workTool, BaleLoader.CHANGE_SINK), true, nil, workTool);
@@ -214,7 +220,7 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, fillLevelPc
 			-- other worktools, tippers, e.g. forage wagon
 			else
 				if workArea and fillLevelPct ~= 100 and ((vehicle.cp.abortWork == nil) or (vehicle.cp.abortWork ~= nil and vehicle.cp.previousWaypointIndex == vehicle.cp.abortWork) or (vehicle.cp.runOnceStartCourse)) and vehicle.cp.turnStage == 0  then
-								--courseplay:handleSpecialTools(vehicle,workTool,unfold,lower,turnOn,allowedToDrive,cover,unload)
+					--courseplay:handleSpecialTools(vehicle,workTool,unfold,lower,turnOn,allowedToDrive,cover,unload)
 					specialTool, allowedToDrive = courseplay:handleSpecialTools(vehicle,workTool,true,true,true,allowedToDrive,nil,nil)
 					if allowedToDrive then
 						if not specialTool then
@@ -525,7 +531,9 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, fillLevelPc
 						courseplay:debug(string.format('%s: fold order (foldDir=%d)', nameNum(tool), -tool.cp.realUnfoldDirection), 17);
 						tool:setFoldDirection(-tool.cp.realUnfoldDirection);
 					end;
-					tool:setPipeState(1)
+				end
+				if tool.cp.isCombine and not tool.cp.wantsCourseplayer and tool.fillLevel > 0.1 and #(tool.courseplayers) == 0 then
+					tool.cp.wantsCourseplayer = true
 				end
 			end
 
@@ -541,11 +549,11 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, fillLevelPc
 			end
 			if tool.cp.waitingForTrailerToUnload then
 				local mayIDrive = false;
-				if tool.cp.isCombine or courseplay:isAttachedCombine(workTool) then
+				if tool.cp.isCombine or (courseplay:isAttachedCombine(workTool) and not courseplay:isSpecialChopper(workTool)) then
 					if tool.cp.isCheckedIn == nil or (pipeState == 0 and tool.fillLevel == 0) then
 						tool.cp.waitingForTrailerToUnload = false
 					end
-				elseif tool.cp.isChopper then
+				elseif tool.cp.isChopper or courseplay:isSpecialChopper(workTool) then
 					-- resume driving
 					local ch, gr = Fillable.FILLTYPE_CHAFF, Fillable.FILLTYPE_GRASS_WINDROW;
 					if (tool.pipeParticleSystems and ((tool.pipeParticleSystems[ch] and tool.pipeParticleSystems[ch].isEmitting) or (tool.pipeParticleSystems[gr] and tool.pipeParticleSystems[gr].isEmitting))) or pipeState > 0 then

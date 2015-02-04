@@ -15,15 +15,15 @@
 		<text name="COURSEPLAY_UNLOADING_DRIVER_REQUESTED" 				 text="请求卸载" />
 		<text name="COURSEPLAY_START_COURSE" 							 text="启动任务" />
 		<text name="COURSEPLAY_STOP_COURSE" 							 text="暂停任务" />
-		<text name="COURSEPLAY_MODE_1" 									 text="类型：普通运输（装载与卸载）" />
-		<text name="COURSEPLAY_MODE_2" 									 text="类型：联合收割（接收与卸载）" />
-		<text name="COURSEPLAY_MODE_3" 									 text="类型：中转运输（联合收割和普通运输）" />
-		<text name="COURSEPLAY_MODE_4" 									 text="类型：施肥和播种" />
-		<text name="COURSEPLAY_MODE_5" 									 text="类型：转移(从起点到终点)" />
-		<text name="COURSEPLAY_MODE_6" 									 text="类型：田间作业" />
-		<text name="COURSEPLAY_MODE_7" 									 text="类型：收割机自助卸载" />
-		<text name="COURSEPLAY_MODE_8" 									 text="类型：水/肥/油 流动补充" />
-		<text name="COURSEPLAY_MODE_9" 									 text="类型：铲车工作模式" />
+		<text name="COURSEPLAY_MODE_1" 									 text="模式1：普通运输（装载与卸载）" />
+		<text name="COURSEPLAY_MODE_2" 									 text="模式2：联合收割（接收与卸载）" />
+		<text name="COURSEPLAY_MODE_3" 									 text="模式3：中转运输（联合收割）" />
+		<text name="COURSEPLAY_MODE_4" 									 text="模式4：田间作业（施肥和播种）" />
+		<text name="COURSEPLAY_MODE_5" 									 text="模式5：转移(从起点到终点)" />
+		<text name="COURSEPLAY_MODE_6" 									 text="模式6：田间作业（收割和收集）" />
+		<text name="COURSEPLAY_MODE_7" 									 text="模式7：收割机自助卸载" />
+		<text name="COURSEPLAY_MODE_8" 									 text="模式8：流动补充" />
+		<text name="COURSEPLAY_MODE_9" 									 text="模式9：铲车模式" />
 		<text name="COURSEPLAY_CONTINUE" 								 text="继续" />
 		<text name="COURSEPLAY_CLEAR_COURSE" 							 text="重置任务" />
 		<text name="COURSEPLAY_DRIVE_NOW" 								 text="立即出发" />
@@ -48,7 +48,7 @@
 		<text name="COURSEPLAY_NEEDS_REFILLING" 						 text=": 工具需要装载。" />
 		<text name="COURSEPLAY_UNLOADING_BALES" 						 text="卸载。" />
 		<text name="COURSEPLAY_IS_IN_TRAFFIC" 							 text="卡住了!" />
-		<text name="COURSEPLAY_TIPTRIGGER_REACHED" 						 text="已达到触发区" />
+		<text name="COURSEPLAY_TIPTRIGGER_REACHED" 						 text="已进入触发区" />
 		<text name="COURSEPLAY_LOADING_AMOUNT" 							 text="装载: %d of %d" />
 		<text name="COURSEPLAY_WAYPOINT_MODE" 							 text="路径显示的模式：" />
 		<text name="COURSEPLAY_PATHFINDING" 							 text="禁止碾压生长的农作物:" />
@@ -70,16 +70,12 @@
 		<text name="COURSEPLAY_SPEED_TURN" 								 text="转弯或触发区速度:" />
 		<text name="COURSEPLAY_SPEED_FIELD" 							 text="田间速度:" />
 		<text name="COURSEPLAY_SPEED_MAX" 								 text="道路速度:" />
-		<text name="COURSEPLAY_SPEED_REVERSING" 						 text="在卸载区的速度(青贮池):" /> <!-- TODO: "Reversing speed" -->
+		<text name="COURSEPLAY_SPEED_REVERSING" 						 text="倒车速度:" /> 
 		<text name="COURSEPLAY_MAX_SPEED_MODE" 							 text="速度控制:" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE_RECORDING" 				 text="执行录制速度" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE_MAX" 						 text="手动调整" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE_AUTOMATIC" 				 text="自动(根据任务) (最大. %s)" /> 
 		<text name="COURSEPLAY_NO_COURSE_LOADED" 						 text="任务：没有加载任务" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_1" 						 text="显示起点和终点" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_2" 						 text="不显示其它任务点" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_3" 						 text="显示所有路径点" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_4" 						 text="都不显示" />
 		<text name="COURSEPLAY_WARNING_LIGHTS" 							 text="信标灯:" />
 		<text name="COURSEPLAY_WARNING_LIGHTS_MODE_0" 					 text="从不打开信标灯" />
 		<text name="COURSEPLAY_WARNING_LIGHTS_MODE_1" 					 text="在道路上打开信标灯" />
@@ -101,13 +97,14 @@
 		<text name="COURSEPLAY_DRIVE_NEXT_TO_COMBINE" 					 text="车辆已接近联合收割机" />
 		<text name="COURSEPLAY_DRIVE_TO_COMBINE" 						 text="车辆已连接收割机" />
 		<text name="COURSEPLAY_COMBINE_WANTS_ME_TO_STOP" 				 text="收割机要求车辆先停下来" />
+		<text name="COURSEPLAY_WAITING_TILL_WAITING_POSITION_IS_FREE" 	 text="等待空闲位置" /> 
 		<text name="COURSEPLAY_TURNING_TO_COORDS" 						 text="转向到 %d %d 点" />
 		<text name="COURSEPLAY_DRIVE_TO_WAYPOINT" 						 text="前往 %d %d 坐标点" />
 		<text name="COURSEPLAY_WAITING_FOR_FILL_LEVEL" 					 text="等待收割机容量到达设定值" />
 		<text name="COURSEPLAY_NO_COMBINE_IN_REACH" 					 text="附近没有收割机" />
 		<text name="COURSEPLAY_WAITING_FOR_COMBINE_TURNED" 				 text="等待收割机完成转弯" />
 		<text name="COURSEPLAY_WAITING_FOR_WAYPOINT" 					 text="等待新的路径点" />
-		<text name="COURSEPLAY_FOLLOWING_TRACTOR" 						 text="以下的拖拉机" />
+		<text name="COURSEPLAY_FOLLOWING_TRACTOR" 						 text="等待中的车辆" />
 		<text name="COURSEPLAY_SHOULD_BE_REFUELED" 						 text="油料不足,尽快补充." />
 		<text name="COURSEPLAY_MUST_BE_REFUELED" 						 text="油料严重不足,必须补充." />
 		<text name="COURSEPLAY_IS_BEING_REFUELED" 						 text="正在加油" />
@@ -149,6 +146,8 @@
 		<text name="COURSEPLAY_START" 									 text="开始" />
 		<text name="COURSEPLAY_FINISH" 									 text="完成" />
 		<text name="COURSEPLAY_NO_VALID_COURSE" 						 text="无效任务" />
+
+		<!-- shovel stuff -->
 		<text name="COURSEPLAY_SHOVEL_NOT_FOUND" 						 text="找不到铲斗" />
 		<text name="COURSEPLAY_SHOVEL_POSITIONS" 						 text="铲斗位置" />
 		<text name="COURSEPLAY_SHOVEL_POSITIONS_MISSING" 				 text="缺少铲斗位置" />
@@ -156,7 +155,16 @@
 		<text name="COURSEPLAY_SHOVEL_TRANSPORT_POSITION" 				 text="铲斗运输位置" />
 		<text name="COURSEPLAY_SHOVEL_PRE_UNLOADING_POSITION" 			 text="铲斗预卸载位置" />
 		<text name="COURSEPLAY_SHOVEL_UNLOADING_POSITION" 				 text="铲斗卸载位置" />
+		<text name="COURSEPLAY_SHOVEL_SAVE_LOADING_POSITION" 			 text="保存装载位置" />
+		<text name="COURSEPLAY_SHOVEL_SAVE_TRANSPORT_POSITION" 			 text="保存运输位置" />
+		<text name="COURSEPLAY_SHOVEL_SAVE_PRE_UNLOADING_POSITION" 		 text="保存预卸载位置" />
+		<text name="COURSEPLAY_SHOVEL_SAVE_UNLOADING_POSITION" 			 text="保存卸载位置" />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_LOADING_POSITION" 		 text="移动到装载位置" />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_TRANSPORT_POSITION" 		 text="移动到运输位置" />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_PRE_UNLOADING_POSITION" 	 text="移动到预卸载位置" />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_UNLOADING_POSITION" 		 text="移动到卸载位置" />
 		<text name="COURSEPLAY_SHOVEL_STOP_AND_GO" 						 text="停止并装载" />
+
 		<text name="COURSEPLAY_START_AT_POINT" 							 text="执行任务的点" />
 		<text name="COURSEPLAY_NEAREST_POINT" 							 text="最近的点" />
 		<text name="COURSEPLAY_FIRST_POINT" 							 text="起始点" />
@@ -202,6 +210,7 @@
 		<text name="COURSEPLAY_RECORDING_TURN_END" 						 text="结束折返" />
 		<text name="COURSEPLAY_RECORDING_REVERSE_START" 				 text="倒车模式" />
 		<text name="COURSEPLAY_RECORDING_REVERSE_STOP" 					 text="前进模式" />
+		<text name="COURSEPLAY_RECORDING_ADD_SPLIT_POINTS"				 text="增加路径点" />
 		<text name="COURSEPLAY_INGAMEMAP_ICONS_SHOWTEXT" 				 text="地图图标:显示任务车辆信息" />
 		<text name="COURSEPLAY_ALWAYS_USE_4WD" 							 text="打开4WD模式" />
 		<text name="COURSEPLAY_YES_NO_FIELDSCAN" 						 text="需要自动测量土地范围路径么？" />
@@ -210,6 +219,10 @@
 		<text name="COURSEPLAY_SEEDUSAGECALCULATOR_FIELD" 				 text="土地编号: %d号(%s %s)" />
 		<text name="COURSEPLAY_SEEDUSAGECALCULATOR_SEEDTYPE" 			 text="种子类型: %s" />
 		<text name="COURSEPLAY_SEEDUSAGECALCULATOR_USAGE" 				 text="用量: %s %s (%s)" />
+		<!-- TRANSLATION MISSING --><text name="COURSEPLAY_VISUALWAYPOINTS_STARTEND"				 text="Show/hide start and end points" />
+		<!-- TRANSLATION MISSING --><text name="COURSEPLAY_VISUALWAYPOINTS_ALL"						 text="Show/hide all points" />
+		<!-- TRANSLATION MISSING --><text name="COURSEPLAY_VISUALWAYPOINTS_CROSSING"				 text="Show/hide crossing points" />
+
 		<text name="COURSEPLAY_HUD_OPEN" 								 text="打开CP界面" />
 		<text name="COURSEPLAY_HUD_CLOSE" 								 text="关闭CP界面" />
 		<text name="COURSEPLAY_FUNCTIONS" 								 text="CP功能" />
@@ -219,6 +232,8 @@
 		<text name="COURSEPLAY_START_STOP" 								 text="Courseplay：开始/停止 任务" />
 		<text name="COURSEPLAY_CANCELWAIT" 								 text="Courseplay：停在最后路点或等待点" />
 		<text name="COURSEPLAY_DRIVENOW" 								 text="Courseplay：开车" />
+		<text name="COURSEPLAY_NEXTMODE" 								 text="Courseplay: 下一个任务模式" />
+		<text name="COURSEPLAY_PREVMODE" 								 text="Courseplay: 上一个任务模式" />
 		<text name="COURSEPLAY_MOUSEACTION_PRIMARY" 					 text="Courseplay：鼠标操作" />
 		<text name="COURSEPLAY_MOUSEACTION_SECONDARY" 					 text="Courseplay：辅助鼠标操作" />
 		<text name="COURSEPLAY_MOUSEARROW_SHOW" 						 text="显示鼠标" />

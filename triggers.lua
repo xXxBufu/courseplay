@@ -45,89 +45,99 @@ function courseplay:cpOnTrafficCollisionTrigger(triggerId, otherId, onEnter, onL
 				g_currentMission.nodeToVehicle[otherId] = pathVehicle
 				vehicle = pathVehicle
 			end;	
-						
-			local isInOtherTrigger = false --is this ID in one of the other triggers?
+			-------
+			--is this ID in one of the other triggers?
+			local isInOtherTrigger = false 
 			for i=1,4 do
 				if i ~= TriggerNumber and self.cp.collidingObjects[i][otherId] then
 					isInOtherTrigger = true
 				end
 			end
 			courseplay:debug(string.format("%s:%s Trigger%d: triggered collision with %d ", nameNum(self),debugMessage,TriggerNumber,otherId), 3);
+			--is it a traffic light ?
 			local trafficLightDistance = 0 
-			
 			if collisionVehicle ~= nil and collisionVehicle.rootNode == nil then
 				local x,y,z = getWorldTranslation(self.cp.collidingVehicleId)
 				_,_, trafficLightDistance = worldToLocal (self.cp.DirectionNode, x,y,z)
 			end
-			if vehicle ~= nil and vehicle.rootNode == nil then --check traffic lights: stop or go?
+			----
+			--check traffic lights: stop or go?
+			if vehicle ~= nil and vehicle.rootNode == nil then 
 				local _,transY,_ = getTranslation(otherId);
 				if transY < 0 then
 					OtherIdisCloser = false
 					courseplay:debug(tostring(otherId)..": trafficLight: transY = "..tostring(transY)..", so it's green or Off-> go on",3)
 				end
 			end
-			local fixDistance = 0 -- if ID.rootNode is nil set, distance fix to 25m needed for traffic lights
+			---
+			-- if Id.rootNode is nil, set distance fix to trigger * 5m needed for traffic lights
+			local fixDistance = 0 
 			if onEnter and vehicle ~= nil and vehicle.rootNode == nil then
 				fixDistance = TriggerNumber * 5
 				courseplay:debug(string.format("%s:	setting fix distance", nameNum(self)), 3);
 			end
-						
+			----
+				
 			if not isInOtherTrigger then
-				--checking distance to saved and current ID
-				if onEnter and self.cp.collidingVehicleId ~= nil 
-						   and ((collisionVehicle ~= nil and collisionVehicle.rootNode ~= nil) or trafficLightDistance ~= 0 )
-						   and ((vehicle ~= nil  and vehicle.rootNode ~= nil) or fixDistance ~= 0) then
-					local distanceToOtherId = math.huge
-					if fixDistance == 0 then
-						distanceToOtherId= courseplay:distanceToObject(self, vehicle)
-					else
-						distanceToOtherId = fixDistance
+				
+				if onEnter then
+					--checking distance to saved and current ID
+					if self.cp.collidingVehicleId ~= nil 
+							   and ((collisionVehicle ~= nil and collisionVehicle.rootNode ~= nil) or trafficLightDistance ~= 0 )
+							   and ((vehicle ~= nil  and vehicle.rootNode ~= nil) or fixDistance ~= 0) then
+						local distanceToOtherId = math.huge
+						if fixDistance == 0 then
+							distanceToOtherId= courseplay:distanceToObject(self, vehicle)
+						else
+							distanceToOtherId = fixDistance
+						end
+						local distanceToCollisionVehicle = math.huge
+						if trafficLightDistance == 0 then
+							distanceToCollisionVehicle = courseplay:distanceToObject(self, collisionVehicle)
+						else
+							distanceToCollisionVehicle = math.abs(trafficLightDistance)
+						end
+						
+						courseplay:debug(nameNum(self)..": 	onEnter, checking Distances: new: "..tostring(distanceToOtherId).." vs. current: "..tostring(distanceToCollisionVehicle),3);
+						if distanceToCollisionVehicle <= distanceToOtherId then
+							OtherIdisCloser = false
+							courseplay:debug(string.format('%s: 	target is not closer than existing target -> do not change "self.cp.collidingVehicleId"', nameNum(self)), 3);
+						else
+							courseplay:debug(string.format('%s: 	target is closer than existing target -> change "self.cp.collidingVehicleId"', nameNum(self)), 3);
+						end
 					end
-					local distanceToCollisionVehicle = math.huge
-					if trafficLightDistance == 0 then
-						distanceToCollisionVehicle = courseplay:distanceToObject(self, collisionVehicle)
-					else
-						distanceToCollisionVehicle = math.abs(trafficLightDistance)
-					end
-					
-					courseplay:debug(nameNum(self)..": 	onEnter, checking Distances: new: "..tostring(distanceToOtherId).." vs. current: "..tostring(distanceToCollisionVehicle),3);
-					if distanceToCollisionVehicle <= distanceToOtherId then
-						OtherIdisCloser = false
-						courseplay:debug(string.format('%s: 	target is not closer than existing target -> do not change "self.cp.collidingVehicleId"', nameNum(self)), 3);
-					else
-						courseplay:debug(string.format('%s: 	target is closer than existing target -> change "self.cp.collidingVehicleId"', nameNum(self)), 3);
-					end
-				end
-				--checking CollisionIgnoreList
-				if onEnter and vehicle ~= nil and OtherIdisCloser then
-					courseplay:debug(string.format("%s: 	onEnter, checking CollisionIgnoreList", nameNum(self)), 3);
-					if CpManager.trafficCollisionIgnoreList[otherId] then
+					----
+					--checking CollisionIgnoreList
+					if vehicle ~= nil and OtherIdisCloser then
+						courseplay:debug(string.format("%s: 	onEnter, checking CollisionIgnoreList", nameNum(self)), 3);
+						if CpManager.trafficCollisionIgnoreList[otherId] then
 							courseplay:debug(string.format("%s:		%q is on global list", nameNum(self), tostring(vehicle.name)), 3);
 							vehicleOnList = true
-					else
-						for a,b in pairs (self.cpTrafficCollisionIgnoreList) do
-							local veh1 = g_currentMission.nodeToVehicle[a];
-							local veh1Name = ""
-							if veh1 ~= nil and veh1.name then
-								veh1Name = veh1.name;
-							elseif veh1 ~= nil and not veh1.name then
-								veh1Name = "noName"					
-							else
-								veh1Name = "noVehicle"
-							end
-							local veh2Name = vehicle.name;
-							if not veh2Name and vehicle.cp then 
-								veh2Name = vehicle.cp.xmlFileName; 
-							end;
-							courseplay:debug(string.format("%s:		%s vs %q", nameNum(self), tostring(veh1Name), tostring(veh2Name)), 3);
-							if g_currentMission.nodeToVehicle[a].id == vehicle.id then
-								courseplay:debug(string.format("%s:		%q is on local list", nameNum(self), tostring(veh2Name)), 3);
-								vehicleOnList = true
-								break
+						elseif self.trafficCollisionIgnoreList[otherId] then
+							courseplay:debug(string.format("%s:		%q is on local list", nameNum(self), tostring(otherId)), 3);	
+							vehicleOnList = true
+						else
+							for a,b in pairs (self.cpTrafficCollisionIgnoreList) do
+								local veh1 = g_currentMission.nodeToVehicle[a];
+								if veh1 ~= nil then
+									local veh1Name = ""
+									veh1Name = veh1.name;
+									local veh2Name = vehicle.name;
+									if not veh2Name and vehicle.cp then 
+										veh2Name = vehicle.cp.xmlFileName; 
+									end;
+									courseplay:debug(string.format("%s:		%s vs %q", nameNum(self), tostring(veh1Name), tostring(veh2Name)), 3);
+									if veh1.id == vehicle.id then
+										courseplay:debug(string.format("%s:		%q is on local list", nameNum(self), tostring(veh2Name)), 3);
+										vehicleOnList = true
+										break
+									end
+								end
 							end
 						end
 					end
-				end
+					----
+				end	
 			else
 				if onEnter then
 					OtherIdisCloser = false
@@ -163,7 +173,7 @@ function courseplay:cpOnTrafficCollisionTrigger(triggerId, otherId, onEnter, onL
 					--courseplay:debug(string.format('%s: 	no registration:onEnter:%s, OtherIdisCloser:%s, registered: %s ,isInOtherTrigger: %s', nameNum(self),tostring(onEnter),tostring(OtherIdisCloser),tostring(self.cp.collidingObjects.all[otherId]),tostring(isInOtherTrigger)), 3);
 				end;
 			elseif not isInOtherTrigger then
-				courseplay:debug(string.format('%s: 	Vehicle is nil - do nothing', nameNum(self)), 3);
+				courseplay:debug(string.format('%s: 	Vehicle is nil or on ignoreList  -> do nothing', nameNum(self)), 3);
 			end
 			
 			if  onEnter then
@@ -406,6 +416,7 @@ function courseplay:updateAllTriggers()
 		liquidManureFillTriggers = {};
 		sowingMachineFillTriggers = {};
 		sprayerFillTriggers = {};
+		waterReceivers = {};
 		waterTrailerFillTriggers = {};
 		weightStations = {};
 		allNonUpdateables = {};
@@ -417,10 +428,12 @@ function courseplay:updateAllTriggers()
 	courseplay.triggers.liquidManureFillTriggersCount = 0;
 	courseplay.triggers.sowingMachineFillTriggersCount = 0;
 	courseplay.triggers.sprayerFillTriggersCount = 0;
+	courseplay.triggers.waterReceiversCount = 0;
 	courseplay.triggers.waterTrailerFillTriggersCount = 0;
 	courseplay.triggers.weightStationsCount = 0;
 	courseplay.triggers.allNonUpdateablesCount = 0;
 	courseplay.triggers.allCount = 0;
+
 
 	-- UPDATE
 	-- nonUpdateable objects
@@ -447,14 +460,13 @@ function courseplay:updateAllTriggers()
 					elseif trigger.fillType and trigger.fillType == Fillable.FILLTYPE_FERTILIZER then
 						trigger.isSprayerFillTrigger = true;
 						courseplay:cpAddTrigger(triggerId, trigger, 'sprayer', 'nonUpdateable');
-						courseplay:debug('\t\tadd sprayerFillTrigger', 1);
+						courseplay:debug('\t\tadd SprayerFillTrigger', 1);
 
-					--[[ WaterTrailerFillTriggers
+					-- WaterTrailerFillTriggers
 					elseif trigger.isa and trigger:isa(WaterTrailerFillTrigger) then
 						trigger.isWaterTrailerFillTrigger = true;
 						courseplay:cpAddTrigger(triggerId, trigger, 'water', 'nonUpdateable');
 						courseplay:debug('\t\tadd waterTrailerFillTrigger', 1);
-					--]]
 					end;
 				end;
 			end;
@@ -479,26 +491,62 @@ function courseplay:updateAllTriggers()
 	end;
 
 	-- onCreate objects
+	local WaterMod;
+	if g_currentMission.missionInfo.customEnvironment then
+		WaterMod = getfenv(0)[g_currentMission.missionInfo.customEnvironment].WaterMod;
+	end;
 	if g_currentMission.onCreateLoadedObjects ~= nil then
 		courseplay:debug('\tcheck onCreateLoadedObjects', 1);
-		for k, trigger in pairs(g_currentMission.onCreateLoadedObjects) do
-			local triggerId = trigger.triggerId;
+		for k, object in pairs(g_currentMission.onCreateLoadedObjects) do
+			-- BGA: liquidManureSiloTrigger
+			if object.isa and object:isa(Bga) and object.liquidManureSiloTrigger then
+				local trigger = object.liquidManureSiloTrigger;
+				trigger.isLiquidManureFillTrigger = true;
+				trigger.isBGAliquidManureFillTrigger = true;
+				courseplay:cpAddTrigger(trigger.triggerId, trigger, 'liquidManure', 'nonUpdateable');
+				courseplay:debug(('\t\tadd liquidManureFillTrigger (id %d) [BGA]'):format(trigger.triggerId), 1);
+
+			-- Cows husbandry: liquidManureSiloTrigger
+			elseif object.isa and object:isa(AnimalHusbandry) and object.liquidManureTrigger then
+				local trigger = object.liquidManureTrigger;
+				trigger.isLiquidManureFillTrigger = true;
+				trigger.isCowsLiquidManureFillTrigger = true;
+				courseplay:cpAddTrigger(trigger.triggerId, trigger, 'liquidManure', 'nonUpdateable');
+				courseplay:debug(('\t\tadd liquidManureFillTrigger (id %d) [cows]'):format(trigger.triggerId), 1);
+
 			-- ManureLager
-			if triggerId ~= nil then
-				if trigger.ManureLagerDirtyFlag or Utils.endsWith(trigger.className, 'ManureLager') then
-					trigger.isManureLager = true;
-					trigger.isLiquidManureFillTrigger = true;
-					courseplay:cpAddTrigger(triggerId, trigger, 'liquidManure', 'nonUpdateable');
+			elseif object.triggerId ~= nil then
+				if object.isManureLager or object.ManureLagerDirtyFlag or Utils.endsWith(object.className, 'ManureLager') then
+					object.isManureLager = true;
+					object.isLiquidManureFillTrigger = true;
+					courseplay:cpAddTrigger(object.triggerId, object, 'liquidManure', 'nonUpdateable');
 					courseplay:debug('\t\tadd ManureLager [mod]', 1);
 				end;
 
 			-- Pigs [marhu]
-			elseif trigger.numSchweine ~= nil and trigger.liquidManureSiloTrigger ~= nil and trigger.liquidManureSiloTrigger.triggerId ~= nil then
-				triggerId = trigger.liquidManureSiloTrigger.triggerId;
-				trigger.isSchweinemastLiquidManureTrigger = true;
-				trigger.isLiquidManureFillTrigger = true;
-				courseplay:cpAddTrigger(triggerId, trigger, 'liquidManure', 'nonUpdateable');
-				courseplay:debug('\t\tadd pigs liquidManureFillTrigger [mod]', 1);
+			elseif object.SchweineZuchtDirtyFlag or object.numSchweine ~= nil then
+				if object.liquidManureSiloTrigger ~= nil and object.liquidManureSiloTrigger.triggerId ~= nil then
+					local trigger = object.liquidManureSiloTrigger;
+					local triggerId = trigger.triggerId;
+					trigger.isSchweinemastLiquidManureTrigger = true;
+					trigger.isLiquidManureFillTrigger = true;
+					courseplay:cpAddTrigger(triggerId, object, 'liquidManure', 'nonUpdateable');
+					courseplay:debug('\t\tadd pigs liquidManureFillTrigger [mod]', 1);
+				end;
+
+				if object.isSchweinezuchtWater or (object.WaterTrailers and object.WaterTrailerActivatable) then
+					local triggerId = object.nodeId;
+					object.isSchweinezuchtWater = true;
+					courseplay:cpAddTrigger(triggerId, object, 'waterReceiver', 'onCreateLoadedObjects');
+					courseplay:debug('\t\tadd Schweinezucht water receiver trigger [mod]', 1);
+				end;
+
+			-- WaterMod [marhu] (*receives* water from trailer)
+			elseif object.isWaterMod or (WaterMod and object.isa and object:isa(WaterMod) and object.WaterTrailerTrigger) then
+				local triggerId = object.WaterTrailerTrigger;
+				object.isWaterMod = true;
+				courseplay:cpAddTrigger(triggerId, object, 'waterReceiver', 'onCreateLoadedObjects');
+				courseplay:debug('\t\tadd WaterMod receiver trigger [mod]', 1);
 			end;
 		end;
 	end;
@@ -573,6 +621,13 @@ function courseplay:updateAllTriggers()
 					local triggerId = trigger.manureTrigger
 					courseplay:cpAddTrigger(triggerId, trigger, 'liquidManure', 'nonUpdateable');
 					courseplay:debug('\t\tadd ManureLager [placeable] [mod]', 1);
+
+				-- Greenhouse (water tank) (placeable) (*receives* water from trailer)
+				elseif trigger.isGreenhouse or trigger.waterTrailerActivatable then
+					trigger.isGreenhouse = true;
+					local triggerId = trigger.waterTankTriggerNode;
+					courseplay:cpAddTrigger(triggerId, trigger, 'waterReceiver', 'onCreateLoadedObjects');
+					courseplay:debug('\t\tadd greenhouse water trigger [placeable]', 1);
 				end;
 			end;
 		end
@@ -608,11 +663,10 @@ function courseplay:updateAllTriggers()
 					end;
 					courseplay:debug(('\t\tadd tipTrigger (id %d), isPlaceableHeapTrigger=%s'):format(triggerId, tostring(trigger.isPlaceableHeapTrigger)), 1);
 					courseplay:cpAddTrigger(triggerId, trigger, 'tipTrigger');
-				--[[elseif trigger.type == 'waterfilltrigger' then
+				elseif trigger.type == 'waterfilltrigger' then
 					trigger.isWaterTrailerFillTrigger = true;
 					courseplay:cpAddTrigger(triggerId, trigger, 'water', 'nonUpdateable');
 					courseplay:debug(('\t\tadd waterTrailerFillTrigger (id %d)'):format(triggerId), 1);
-				]]
 				end;
 			end;
 		end;
@@ -622,36 +676,8 @@ function courseplay:updateAllTriggers()
 	if g_currentMission.tipTriggers ~= nil then
 		courseplay:debug('\tcheck tipTriggers', 1);
 		for k, trigger in pairs(g_currentMission.tipTriggers) do
-			-- LiquidManureSiloTriggers [BGA]
-			if trigger.bga and trigger.bga.liquidManureSiloTrigger then
-				local t = trigger.bga.liquidManureSiloTrigger;
-				local triggerId = t.triggerId;
-				t.isLiquidManureFillTrigger = true;
-				t.isBGAliquidManureFillTrigger = true;
-				courseplay:cpAddTrigger(triggerId, t, 'liquidManure', 'nonUpdateable');
-				courseplay:debug(('\t\tadd liquidManureFillTrigger (id %d) [BGA]'):format(triggerId), 1);
-
-			-- LiquidManureSiloTriggers [Cows]
-			elseif trigger.animalHusbandry and trigger.animalHusbandry.liquidManureTrigger then
-				local t = trigger.animalHusbandry.liquidManureTrigger;
-				local triggerId = t.triggerId;
-				t.isLiquidManureFillTrigger = true;
-				t.isCowsLiquidManureFillTrigger = true;
-				courseplay:cpAddTrigger(triggerId, t, 'liquidManure', 'nonUpdateable');
-				courseplay:debug(('\t\tadd liquidManureFillTrigger (id %d) [cows]'):format(triggerId), 1);
-
-				-- check corresponding feeding tipTriggers
-				if t.fillLevelObject and t.fillLevelObject.tipTriggers then
-					for i,subTrigger in pairs(t.fillLevelObject.tipTriggers) do
-						local triggerId = subTrigger.triggerId;
-						if triggerId and subTrigger.acceptedFillTypes then
-							courseplay:cpAddTrigger(triggerId, subTrigger, 'tipTrigger');
-							courseplay:debug(('\t\tadd feeding trough tipTrigger (id %d) [cows]'):format(triggerId), 1);
-						end;
-					end;
-				end;
 			-- Regular and Extended tipTriggers
-			elseif courseplay:isValidTipTrigger(trigger) then
+			if courseplay:isValidTipTrigger(trigger) then
 				local triggerId = trigger.triggerId;
 				-- Extended tipTriggers (AlternativeTipTrigger)
 				if trigger.isExtendedTrigger then
@@ -659,12 +685,22 @@ function courseplay:updateAllTriggers()
 				end;
 				if triggerId ~= nil then
 					courseplay:cpAddTrigger(triggerId, trigger, 'tipTrigger');
-					courseplay:debug(('\t\tadd tipTrigger (id %d), isAlternativeTipTrigger=%s'):format(triggerId, tostring(trigger.isAlternativeTipTrigger)), 1);
+					local name = tostring(getName(triggerId));
+					local className = tostring(trigger.className);
+					if trigger.isa and trigger:isa(FeedingTroughTipTrigger) then
+						courseplay:debug(('\t\tadd tipTrigger: id=%d, name=%q, className=%q, is FeedingTroughTipTrigger'):format(triggerId, name, className), 1);
+					elseif trigger.isa and trigger:isa(BgaTipTrigger) then
+						courseplay:debug(('\t\tadd tipTrigger: id=%d, name=%q, className=%q, is BgaTipTrigger'):format(triggerId, name, className), 1);
+					elseif trigger.bunkerSilo then
+						courseplay:debug(('\t\tadd tipTrigger: id=%d, name=%q, className=%q, is BunkerSiloTipTrigger, #movingPlanes=%d'):format(triggerId, name, className, #trigger.bunkerSilo.movingPlanes), 1);
+					else
+						courseplay:debug(('\t\tadd tipTrigger: id=%d, name=%q, className=%q, isAlternativeTipTrigger=%s'):format(triggerId, name, className, tostring(trigger.isAlternativeTipTrigger)), 1);
+					end;
 				end;
 			end;
 		end
 	end;
-	
+
 	if courseplay.liquidManureOverloaders ~= nil then
 		for rootNode, vehicle in pairs(courseplay.liquidManureOverloaders) do
 			local trigger = vehicle.unloadTrigger
@@ -721,6 +757,9 @@ function courseplay:cpAddTrigger(triggerId, trigger, triggerType, groupType)
 	elseif triggerType == 'weightStation' then
 		t.weightStations[triggerId] = trigger;
 		t.weightStationsCount = t.weightStationsCount + 1;
+	elseif triggerType == 'waterReceiver' then
+		t.waterReceivers[triggerId] = trigger;
+		t.waterReceiversCount = t.waterReceiversCount + 1;
 	end;
 end;
 
