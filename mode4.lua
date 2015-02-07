@@ -19,7 +19,7 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fillLevelPct, 
 	end;
 	
 	--go with field speed	
-	if fieldArea or self.cp.waypointIndex == self.cp.startWork then
+	if fieldArea or self.cp.waypointIndex == self.cp.startWork or self.cp.waypointIndex == self.cp.stopWork +1 then
 		workSpeed = 1;
 	end
 	
@@ -61,7 +61,8 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fillLevelPct, 
 					end;
 				end;
 			end;
-			courseplay:setWaypointIndex(self, self.cp.stopWork - 4);
+			--courseplay:setWaypointIndex(self, self.cp.stopWork - 4);
+			courseplay:setWaypointIndex(self, self.cp.stopWork +1);
 			--courseplay:debug(string.format("Abort: %d StopWork: %d",self.cp.abortWork,self.cp.stopWork), 12)
 		elseif not self.cp.hasUnloadingRefillingCourse then
 			allowedToDrive = false;
@@ -89,11 +90,11 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fillLevelPct, 
 		workTool = self.cp.workTools[i];
 		local isFolding, isFolded, isUnfolded = courseplay:isFolding(workTool);
 		local needsLowering = false
-		
+
 		if workTool.attacherJoint ~= nil then
 			needsLowering = workTool.attacherJoint.needsLowering
 		end
-		
+
 		--speedlimits
 		local speedLimitActive = false
 		if workTool.doCheckSpeedLimit and workTool:doCheckSpeedLimit() then
@@ -101,7 +102,6 @@ function courseplay:handle_mode4(self, allowedToDrive, workSpeed, fillLevelPct, 
 			speedLimitActive = true
 		end
 
-		
 		-- stop while folding
 		if courseplay:isFoldable(workTool) then
 			if isFolding and self.cp.turnStage == 0 then

@@ -124,6 +124,12 @@ function courseplay:registerAtCombine(callerVehicle, combine)
 				local pipeIsInFruit = (combine.cp.pipeSide == 1 and fruitSide == "left") or (combine.cp.pipeSide == -1 and fruitSide == "right")
 				if pipeIsInFruit then
 					courseplay:debug(nameNum(callerVehicle)..": path finding active and pipe(pipeSide "..tostring(combine.cp.pipeSide)..") is in fruit -> don't register tractor",4)
+					for k, reachableCombine in pairs(callerVehicle.cp.reachableCombines) do
+						if reachableCombine == combine then
+							courseplay:debug(nameNum(callerVehicle).."removing combine from reachable combines list",4)
+							callerVehicle.cp.reachableCombines[k] = nil
+						end
+					end
 					return false
 				else
 					courseplay:debug(nameNum(callerVehicle)..": path finding active and pipe(pipeSide "..tostring(combine.cp.pipeSide)..") is not in fruit -> register tractor",4)
@@ -423,6 +429,8 @@ function courseplay:getSpecialCombineOffset(combine)
 		return 4.8;
 	elseif combine.cp.isGrimmeRootster604 then
 		return -4.3;
+	elseif combine.cp.isGrimmeSE260 then
+		return 4.2;
 	elseif combine.cp.isPoettingerMex5 then
 		combine.cp.offset = 5.9;
 		return 5.9;

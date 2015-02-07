@@ -345,6 +345,9 @@ function courseplay:start(self)
 
 	courseplay:validateCanSwitchMode(self);
 
+	-- deactivate load/add/delete course buttons
+	courseplay.buttons:setActiveEnabled(self, 'page2');
+
 	-- add ingameMap icon
 	if CpManager.ingameMapIconActive then
 		courseplay:createMapHotspot(self);
@@ -399,6 +402,9 @@ function courseplay:getCanUseCpMode(vehicle)
 		elseif mode == 8 then
 			if vehicle.cp.workTools[1] == nil then
 				courseplay:setInfoText(vehicle, 'COURSEPLAY_WRONG_TRAILER');
+				return false;
+			elseif vehicle.cp.workTools[1].cp.isWaterTrailer and courseplay.triggers.waterReceiversCount == 0 then
+				courseplay:setInfoText(vehicle, 'There are no water triggers on this map'); -- TODO i18n
 				return false;
 			end;
 		end;
@@ -584,6 +590,9 @@ function courseplay:stop(self)
 
 	--validation: can switch mode?
 	courseplay:validateCanSwitchMode(self);
+
+	-- reactivate load/add/delete course buttons
+	courseplay.buttons:setActiveEnabled(self, 'page2');
 end
 
 
