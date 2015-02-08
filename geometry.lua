@@ -833,8 +833,10 @@ end;
 function courseplay.geometry:genWorkCourse(points, vehicle, startPoint)
 	
 	local width = vehicle.cp.workWidth;
-	local turningTime = 35; --s
-	local hoppingTime = 3*90;--s
+	local workDirection = vehicle.cp.startingDirection or courseplay:currentVehAngle(vehicle); --passed in degre
+	local startPoint = vehicle.cp.startingPoint or startPoint;
+	local turningTime = 35 * (2 - vehicle.cp.directionVariance); --s
+	local hoppingTime = 3*90 * (2 - vehicle.cp.directionVariance); --s‏
 	local speed = 15/3.6; --m/s!
 
 	--simplify:
@@ -852,8 +854,8 @@ function courseplay.geometry:genWorkCourse(points, vehicle, startPoint)
 	local split = {};
 
 	local doAutoCourse = false;
-	courseplay:debug('Vehicle angle is ' .. tostring(courseplay:currentVehAngle(vehicle)),7)
-	local manualAngle = math.rad(courseplay:currentVehAngle(vehicle)); -- Using vehicle direction for testing ... 
+	courseplay:debug('Vehicle angle is ' .. tostring(workDirection),7)
+	local manualAngle = math.rad(workDirection); -- Using vehicle direction for testing ... 
 	
 
 	if doAutoCourse then
