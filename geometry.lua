@@ -835,8 +835,8 @@ function courseplay.geometry:genWorkCourse(points, vehicle, startPoint)
 	local width = vehicle.cp.workWidth;
 	local workDirection = vehicle.cp.startingDirection or courseplay:currentVehAngle(vehicle); --passed in degre
 	local startPoint = vehicle.cp.startingPoint or startPoint;
-	local turningTime = 35 * (2 - vehicle.cp.directionVariance); --s
-	local hoppingTime = 3*90 * (2 - vehicle.cp.directionVariance); --s‏
+	local turningTime = 35 * (2 - Utils.getNoNil(vehicle.cp.directionVariance,1)); --s
+	local hoppingTime = 3*90 * (2 - Utils.getNoNil(vehicle.cp.directionVariance,1)); --s‏
 	local speed = 15/3.6; --m/s!
 
 	--simplify:
