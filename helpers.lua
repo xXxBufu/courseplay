@@ -1,4 +1,4 @@
-﻿local abs, ceil, floor, huge, max, min, pi, sqrt = math.abs, math.ceil, math.floor, math.huge, math.max, math.min, math.pi, math.sqrt;
+﻿local abs, ceil, floor, huge, max, min, sqrt = math.abs, math.ceil, math.floor, math.huge, math.max, math.min, math.sqrt;
 
 function courseplay:isEven(n)
    return tonumber(n) % 2 == 0;
@@ -919,7 +919,7 @@ function courseplay:getWorldDirection(fromX, fromY, fromZ, toX, toY, toZ)
 end;
 
 function courseplay.utils:setOverlayUVsSymmetric(overlay, col, line, numCols, numLines)
-	if overlay.overlayId and overlay.currentUVs == nil or overlay.currentUVs ~= { col, line, numCols, numLines } then
+	if overlay.overlayId and (overlay.currentUVs == nil or overlay.currentUVs ~= { col, line, numCols, numLines }) then
 		local bottomY = 1 - line / numLines;
 		local topY = bottomY + 1 / numLines;
 		local leftX = (col - 1) / numCols;
@@ -930,7 +930,7 @@ function courseplay.utils:setOverlayUVsSymmetric(overlay, col, line, numCols, nu
 end;
 
 function courseplay.utils:setOverlayUVsPx(overlay, UVs, textureSizeX, textureSizeY)
-	if overlay.overlayId and overlay.currentUVs == nil or overlay.currentUVs ~= UVs then
+	if overlay.overlayId and (overlay.currentUVs == nil or overlay.currentUVs ~= UVs) then
 		local leftX, bottomY, rightX, topY = unpack(UVs);
 
 		local fromTop = false;
@@ -968,6 +968,14 @@ function courseplay.utils:getColorFromPct(pct, colorMap, step)
 
 	local alpha = (pct - lower) / step;
 	return Utils.vector3ArrayLerp(colorMap[lower], colorMap[upper], alpha);
+end;
+
+function courseplay.utils:rgbToNormal(r, g, b, a)
+	if a then
+		return { r/255, g/255, b/255, a };
+	end;
+
+	return { r/255, g/255, b/255 };
 end;
 
 -- 2D course
@@ -1013,9 +1021,9 @@ function courseplay.utils:removeCollinearPoints(poly, epsilon)
 	return res;
 end;
 
-function courseplay.utils:worldCoordsTo2D(vehicle, worldX, worldZ)
-	local x =     (worldX - vehicle.cp.course2dDimensions.xMin) / vehicle.cp.course2dDimensions.span;
-	local y = 1 - (worldZ - vehicle.cp.course2dDimensions.yMin) / vehicle.cp.course2dDimensions.span;
+function courseplay.utils:worldCoordsTo2D(worldX, worldZ, dimensions)
+	local x =     (worldX - dimensions.xMin) / dimensions.span;
+	local y = 1 - (worldZ - dimensions.yMin) / dimensions.span;
 	x, y = self:scalePlotField2D(x, y);
 	-- x = courseplay.hud:getFullPx(x, 'x');
 	-- y = courseplay.hud:getFullPx(y, 'y');
@@ -1061,6 +1069,7 @@ function courseplay.utils:move2dCoursePlotField(vehicle, mouseX, mouseY)
 		for k,veh in pairs(g_currentMission.steerables) do
 			if veh.hasCourseplaySpec then
 				veh.cp.course2dUpdateDrawData = true;
+				veh.cp.courseGenerationPreview.updateDrawData = true;
 			end;
 		end;
 	end;
@@ -1088,8 +1097,8 @@ function courseplay:setupCourse2dData(vehicle)
 	local height = pxSize / g_screenHeight;
 
 	local bgPadding = 0.05 * bBox.span;
-	local bgX1, bgY1 = courseplay.utils:worldCoordsTo2D(vehicle, bBox.xMin - bgPadding, bBox.yMin - bgPadding);
-	local bgX2, bgY2 = courseplay.utils:worldCoordsTo2D(vehicle, bBox.xMax + bgPadding, bBox.yMax + bgPadding);
+	local bgX1, bgY1 = courseplay.utils:worldCoordsTo2D(bBox.xMin - bgPadding, bBox.yMin - bgPadding, vehicle.cp.course2dDimensions);
+	local bgX2, bgY2 = courseplay.utils:worldCoordsTo2D(bBox.xMax + bgPadding, bBox.yMax + bgPadding, vehicle.cp.course2dDimensions);
 	local bgW, bgH = bgX2 - bgX1, abs(bgY2 - bgY1);
 
 	vehicle.cp.course2dBackground = {
@@ -1124,8 +1133,8 @@ function courseplay:setupCourse2dData(vehicle)
 	for i,wp in ipairs(reducedWaypoints) do
 		np = i < numReducedPoints and reducedWaypoints[i + 1] or reducedWaypoints[1];
 
-		startX, startY = courseplay.utils:worldCoordsTo2D(vehicle, wp.cx, wp.cz);
-		endX, endY	   = courseplay.utils:worldCoordsTo2D(vehicle, np.cx, np.cz);
+		startX, startY = courseplay.utils:worldCoordsTo2D(wp.cx, wp.cz, vehicle.cp.course2dDimensions);
+		endX, endY	   = courseplay.utils:worldCoordsTo2D(np.cx, np.cz, vehicle.cp.course2dDimensions);
 
 		dx2D = endX - startX;
 		dy2D = (endY - startY) / g_screenAspectRatio;
@@ -1133,7 +1142,7 @@ function courseplay:setupCourse2dData(vehicle)
 
 		dx = np.cx - wp.cx;
 		dz = np.cz - wp.cz;
-		rotation = Utils.getYRotationFromDirection(dx, dz) - pi * 0.5;
+		rotation = Utils.getYRotationFromDirection(dx, dz) - math.pi * 0.5;
 
 		r, g, b = courseplay.utils:getColorFromPct(100 * wp.origIndex / vehicle.cp.numWaypoints, CpManager.course2dColorTable, CpManager.course2dColorPctStep);
 
@@ -1200,7 +1209,7 @@ function courseplay:drawCourse2D(vehicle, doLoop)
 	if worldX ~= vehicle.cp.course2dTranslationX or worldZ ~= vehicle.cp.course2dTranslationZ then
 		vehicle.cp.course2dTranslationX = worldX;
 		vehicle.cp.course2dTranslationZ = worldZ;
-		vehicle.cp.course2dTranslationX2D, vehicle.cp.course2dTranslationZ2D = courseplay.utils:worldCoordsTo2D(vehicle, worldX, worldZ);
+		vehicle.cp.course2dTranslationX2D, vehicle.cp.course2dTranslationZ2D = courseplay.utils:worldCoordsTo2D(worldX, worldZ, vehicle.cp.course2dDimensions);
 		ovl:setPosition(vehicle.cp.course2dTranslationX2D - ovl.width * 0.5, vehicle.cp.course2dTranslationZ2D - ovl.height * 0.5);
 	end;
 
@@ -1214,17 +1223,9 @@ function courseplay:drawCourse2D(vehicle, doLoop)
 	if dx ~= vehicle.cp.course2dDirectionX or dz ~= vehicle.cp.course2dDirectionZ then
 		vehicle.cp.course2dDirectionX = dx;
 		vehicle.cp.course2dDirectionZ = dz;
-		local rotation = Utils.getYRotationFromDirection(dx, dz) - pi * 0.5;
+		local rotation = Utils.getYRotationFromDirection(dx, dz) - math.pi * 0.5;
 		ovl:setRotation(rotation, ovl.width * 0.5, ovl.height * 0.5);
 	end;
 
 	ovl:render();
-end;
-
-function courseplay.utils:rgbToNormal(r, g, b, a)
-	if a then
-		return { r/255, g/255, b/255, a };
-	end;
-
-	return { r/255, g/255, b/255 };
 end;

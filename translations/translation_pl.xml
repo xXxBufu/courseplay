@@ -139,6 +139,7 @@
 		<text name="COURSEPLAY_DIRECTION_2"					text="Wschód" />
 		<text name="COURSEPLAY_DIRECTION_3"					text="Południe" />
 		<text name="COURSEPLAY_DIRECTION_4"					text="Zachód" />
+		<text name="COURSEPLAY_DIRECTION_DEG" 							 text="%d°" />
 		<text name="COURSEPLAY_HEADLAND"					text="Uwrocia" />
 		<text name="COURSEPLAY_ACTIVATED"					text="aktywuj" />
 		<text name="COURSEPLAY_DEACTIVATED"					text="dezaktywuj" />

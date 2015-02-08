@@ -135,6 +135,7 @@
 		<text name="COURSEPLAY_DIRECTION_2" 							 text="Восток" />
 		<text name="COURSEPLAY_DIRECTION_3" 							 text="Юг" />
 		<text name="COURSEPLAY_DIRECTION_4" 							 text="Запад" />
+		<text name="COURSEPLAY_DIRECTION_DEG" 							 text="%d°" />
 		<text name="COURSEPLAY_HEADLAND" 								 text="Обработка краев:" />
 		<text name="COURSEPLAY_ACTIVATED" 								 text="да" />
 		<text name="COURSEPLAY_DEACTIVATED" 							 text="нет" />

@@ -376,11 +376,13 @@ function courseplay:load(xmlFile)
 	self.cp.selectedDriverNumber = 0;
 
 	--Course generation
-	self.cp.startingCorner = 0;
-	self.cp.hasStartingCorner = false;
+	self.cp.startingPointCoordsManual = nil;
 	self.cp.startingDirection = 0;
-	self.cp.hasStartingDirection = false;
+	self.cp.startingDirectionIsAuto = false;
+	self.cp.directionVariance = 1; -- 0 thru 2
+
 	self.cp.returnToFirstPoint = false;
+
 	self.cp.hasGeneratedCourse = false;
 	self.cp.hasValidCourseGenerationData = false;
 	self.cp.ridgeMarkersAutomatic = true;
@@ -418,6 +420,18 @@ function courseplay:load(xmlFile)
 		};
 		douglasPeuckerEpsilon = 2.0;
 	};
+	self.cp.courseGenerationPreview = {
+		borderPoints = nil; -- table
+		updateDrawData = true;
+		show = false;
+	};
+	if g_statisticView.mapImage and g_statisticView.mapImage.overlay.filename then
+		self.cp.courseGenerationPreview.pdaMapOverlay = Overlay:new('cpPdaMap', g_statisticView.mapImage.overlay.filename, 0, 0, 1, 1);
+		-- self.cp.courseGenerationPreview.pdaMapOverlay:setColor(1, 1, 1, CpManager.course2dPdaMapOpacity);
+	end;
+	self.cp.courseGenerationPreview.startingPointOverlay = Overlay:new('cpSP', Utils.getFilename('img/hud.png', courseplay.path), 0, 0, courseplay.hud.buttonSize.middle.w, courseplay.hud.buttonSize.middle.h);
+	courseplay.utils:setOverlayUVsPx(self.cp.courseGenerationPreview.startingPointOverlay, { 660,482, 778,364 }, courseplay.hud.baseTextureSize.x, courseplay.hud.baseTextureSize.y);
+
 
 	-- WOOD CUTTING: increase max cut length
 	if CpManager.isDeveloper then
@@ -622,6 +636,10 @@ function courseplay:draw()
 
 	if self.cp.drawCourseMode == courseplay.COURSE_2D_DISPLAY_2DONLY or self.cp.drawCourseMode == courseplay.COURSE_2D_DISPLAY_BOTH then
 		courseplay:drawCourse2D(self, false);
+	end;
+
+	if self.cp.hud.currentPage == courseplay.hud.PAGE_COURSE_GENERATION and self.cp.courseGenerationPreview.show and self.cp.fieldEdge.selectedField.fieldNum > 0 then
+		courseplay:drawCourseGenerationPreview(self);
 	end;
 end; --END draw()
 
@@ -944,9 +962,14 @@ function courseplay:delete()
 			end;
 			self.cp.signs = nil;
 		end;
+
 		if self.cp.course2dPdaMapOverlay then
 			self.cp.course2dPdaMapOverlay:delete();
 		end;
+		if self.cp.courseGenerationPreview.pdaMapOverlay then
+			self.cp.courseGenerationPreview.pdaMapOverlay:delete();
+		end;
+		self.cp.courseGenerationPreview.startingPointOverlay:delete();
 	end;
 end;
 

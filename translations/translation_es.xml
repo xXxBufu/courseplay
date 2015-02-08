@@ -135,6 +135,7 @@
 		<text name="COURSEPLAY_DIRECTION_2" 							 text="Este" />
 		<text name="COURSEPLAY_DIRECTION_3" 							 text="Sur" />
 		<text name="COURSEPLAY_DIRECTION_4" 							 text="Oeste" />
+		<text name="COURSEPLAY_DIRECTION_DEG" 							 text="%d°" />
 		<text name="COURSEPLAY_HEADLAND" 								 text="Cabecera" />
 		<text name="COURSEPLAY_ACTIVATED" 								 text="activado" />
 		<text name="COURSEPLAY_DEACTIVATED" 							 text="desactivado" />

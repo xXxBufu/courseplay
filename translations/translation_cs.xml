@@ -135,6 +135,7 @@
 		<text name="COURSEPLAY_DIRECTION_2" 							 text="东" />
 		<text name="COURSEPLAY_DIRECTION_3" 							 text="南" />
 		<text name="COURSEPLAY_DIRECTION_4" 							 text="西" />
+		<text name="COURSEPLAY_DIRECTION_DEG" 							 text="%d°" />
 		<text name="COURSEPLAY_HEADLAND" 								 text="路径的显示模式" />
 		<text name="COURSEPLAY_ACTIVATED" 								 text="开启" />
 		<text name="COURSEPLAY_DEACTIVATED" 							 text="关闭" />

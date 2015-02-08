@@ -1,5 +1,5 @@
 local curFile = 'settings.lua';
-local abs, ceil, max, min = math.abs, math.ceil, math.max, math.min;
+local abs, atan2, ceil, deg, max, min = math.abs, math.atan2, math.ceil, math.deg, math.max, math.min;
 
 function courseplay:openCloseHud(vehicle, open)
 	courseplay:setMouseCursor(vehicle, open);
@@ -912,55 +912,67 @@ function courseplay:toggleDebugChannel(self, channel, force)
 	end;
 end;
 
---Course generation
-function courseplay:switchStartingCorner(vehicle)
-	vehicle.cp.startingCorner = vehicle.cp.startingCorner + 1;
-	if vehicle.cp.startingCorner > 4 then
-		vehicle.cp.startingCorner = 1;
-	end;
-	vehicle.cp.hasStartingCorner = true;
-	vehicle.cp.hasStartingDirection = false;
-	vehicle.cp.startingDirection = 0;
+-- ################################################################################
+-- COURSE GENERATION
+function courseplay:changeStartingDirection(vehicle, changeBy)
+	vehicle.cp.startingDirection = (vehicle.cp.startingDirection + changeBy) % 360;
+	vehicle.cp.startingDirectionIsAuto = false;
 
 	courseplay:validateCourseGenerationData(vehicle);
 end;
 
-function courseplay:changeStartingDirection(vehicle)
-	-- corners: 1 = SW, 2 = NW, 3 = NE, 4 = SE
-	-- directions: 1 = North, 2 = East, 3 = South, 4 = West
+function courseplay:setStartingDirection(vehicle, dir)
+	-- N, E, S, W
+	if dir >= 0 then
+		vehicle.cp.startingDirection = dir;
+		vehicle.cp.startingDirectionIsAuto = false;
 
-	local validDirections = {};
-	if vehicle.cp.hasStartingCorner then
-		if vehicle.cp.startingCorner == 1 then --SW
-			validDirections[1] = 1; --N
-			validDirections[2] = 2; --E
-		elseif vehicle.cp.startingCorner == 2 then --NW
-			validDirections[1] = 2; --E
-			validDirections[2] = 3; --S
-		elseif vehicle.cp.startingCorner == 3 then --NE
-			validDirections[1] = 3; --S
-			validDirections[2] = 4; --W
-		elseif vehicle.cp.startingCorner == 4 then --SE
-			validDirections[1] = 4; --W
-			validDirections[2] = 1; --N
-		end;
+	-- from vehicle
+	elseif dir == -1 then
+		local dx, _, dz = localDirectionToWorld(vehicle.cp.DirectionNode or vehicle.rootNode, 0, 0, 1);
+		local degrees = deg(atan2(dz, dx)) + 90.0;
+		vehicle.cp.startingDirection = courseplay:round(degrees) % 360;
+		vehicle.cp.startingDirectionIsAuto = false;
 
-		--would be easier with i=i+1, but more stored variables would be needed
-		if vehicle.cp.startingDirection == 0 then
-			vehicle.cp.startingDirection = validDirections[1];
-		elseif vehicle.cp.startingDirection == validDirections[1] then
-			vehicle.cp.startingDirection = validDirections[2];
-		elseif vehicle.cp.startingDirection == validDirections[2] then
-			vehicle.cp.startingDirection = validDirections[1];
-		end;
-		vehicle.cp.hasStartingDirection = true;
+	-- automatic direction
+	elseif dir == -2 then
+		vehicle.cp.startingDirection = 0;
+		vehicle.cp.startingDirectionIsAuto = true;
 	end;
+
+	courseplay:validateCourseGenerationData(vehicle);
+end;
+
+function courseplay:setCourseGenerationStartingPointCoords(vehicle, x2D, y2D)
+	courseplay:debug(('setCourseGenerationStartingPointCoords(x=%.4f, y=%.4f)'):format(x2D, y2D), 7);
+
+	local xAlpha = (x2D - vehicle.cp.courseGenerationPreview.background.x) / vehicle.cp.courseGenerationPreview.background.width;
+	local yAlpha = (y2D - vehicle.cp.courseGenerationPreview.background.y) / vehicle.cp.courseGenerationPreview.background.height;
+	courseplay:debug(('    xAlpha=%.4f, yAlpha=%.4f'):format(xAlpha, yAlpha), 7);
+
+	local bg = vehicle.cp.courseGenerationPreview.background;
+	local worldX = Utils.lerp(bg.worldX1, bg.worldX2, xAlpha);
+	local worldZ = Utils.lerp(bg.worldZ1, bg.worldZ2, yAlpha);
+	courseplay:debug(('    worldX1=%.4f, worldZ1=%.4f'):format(bg.worldX1, bg.worldZ1), 7);
+	courseplay:debug(('    worldX2=%.4f, worldZ2=%.4f'):format(bg.worldX2, bg.worldZ2), 7);
+	courseplay:debug(('    --> worldX=%.4f, worldZ=%.4f'):format(worldX, worldZ), 7);
+
+	vehicle.cp.startingPointCoordsManual = { cx = worldX, cz = worldZ };
+
+	local ovl = vehicle.cp.courseGenerationPreview.startingPointOverlay;
+	ovl:setPosition(x2D - ovl.width * 0.5, y2D - ovl.height * 0.5);
+	courseplay:debug(('    set overlay position to x %.4f, y %.4f'):format(ovl.x, ovl.y), 7);
+
 
 	courseplay:validateCourseGenerationData(vehicle);
 end;
 
 function courseplay:toggleReturnToFirstPoint(vehicle)
 	vehicle.cp.returnToFirstPoint = not vehicle.cp.returnToFirstPoint;
+end;
+
+function courseplay:changeDirectionVariance(vehicle, changeBy)
+	vehicle.cp.directionVariance = Utils.clamp(vehicle.cp.directionVariance + changeBy, 0, 2);
 end;
 
 function courseplay:changeHeadlandNumLanes(vehicle, changeBy)
@@ -994,8 +1006,7 @@ function courseplay:validateCourseGenerationData(vehicle)
 
 	if (vehicle.cp.fieldEdge.selectedField.fieldNum > 0 or not vehicle.cp.hasGeneratedCourse)
 	and hasEnoughWaypoints
-	and vehicle.cp.hasStartingCorner == true 
-	and vehicle.cp.hasStartingDirection == true 
+	and vehicle.cp.startingPointCoordsManual ~= nil
 	and (vehicle.cp.numCourses == nil or (vehicle.cp.numCourses ~= nil and vehicle.cp.numCourses == 1) or vehicle.cp.fieldEdge.selectedField.fieldNum > 0) 
 	then
 		vehicle.cp.hasValidCourseGenerationData = true;
@@ -1005,7 +1016,7 @@ function courseplay:validateCourseGenerationData(vehicle)
 	courseplay.buttons:setActiveEnabled(vehicle, 'generateCourse');
 
 	if courseplay.debugChannels[7] then
-		courseplay:debug(string.format("%s: hasGeneratedCourse=%s, hasEnoughWaypoints=%s, hasStartingCorner=%s, hasStartingDirection=%s, numCourses=%s, fieldEdge.selectedField.fieldNum=%s ==> hasValidCourseGenerationData=%s", nameNum(vehicle), tostring(vehicle.cp.hasGeneratedCourse), tostring(hasEnoughWaypoints), tostring(vehicle.cp.hasStartingCorner), tostring(vehicle.cp.hasStartingDirection), tostring(vehicle.cp.numCourses), tostring(vehicle.cp.fieldEdge.selectedField.fieldNum), tostring(vehicle.cp.hasValidCourseGenerationData)), 7);
+		courseplay:debug(string.format("%s: hasGeneratedCourse=%s, hasEnoughWaypoints=%s, startingPointCoordsManual=%s, startingDirectionIsAuto=%s, numCourses=%s, fieldEdge.selectedField.fieldNum=%s ==> hasValidCourseGenerationData=%s", nameNum(vehicle), tostring(vehicle.cp.hasGeneratedCourse), tostring(hasEnoughWaypoints), tostring(vehicle.cp.startingPointCoordsManual), tostring(vehicle.cp.startingDirectionIsAuto), tostring(vehicle.cp.numCourses), tostring(vehicle.cp.fieldEdge.selectedField.fieldNum), tostring(vehicle.cp.hasValidCourseGenerationData)), 7);
 	end;
 end;
 
@@ -1180,7 +1191,8 @@ function courseplay:createFieldEdgeButtons(vehicle)
 			w = courseplay.hud.contentMaxWidth,
 			h = courseplay.hud.lineHeight
 		};
-		vehicle.cp.suc.toggleHudButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'calculator' }, 'toggleSucHud', nil, courseplay.hud.buttonPosX[4], courseplay.hud.linesButtonPosY[1], w, h, 1, nil, false, false, true);
+		-- vehicle.cp.suc.toggleHudButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'calculator' }, 'toggleSucHud', nil, courseplay.hud.buttonPosX[4], courseplay.hud.linesButtonPosY[1], w, h, 1, nil, false, false, true);
+		vehicle.cp.hud.courseGenerationPreviewButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'eye' }, 'toggleCourseGenerationPreview', nil, courseplay.hud.buttonPosX[4], courseplay.hud.linesButtonPosY[1], w, h, 1, nil, false);
 		vehicle.cp.hud.showSelectedFieldEdgePathButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'eye' }, 'toggleSelectedFieldEdgePathShow', nil, courseplay.hud.buttonPosX[3], courseplay.hud.linesButtonPosY[1], w, h, 1, nil, false);
 		courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navUp' }, 'setFieldEdgePath',  1, courseplay.hud.buttonPosX[1], courseplay.hud.linesButtonPosY[1], w, h, 1,  5, false);
 		courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navDown' }, 'setFieldEdgePath', -1, courseplay.hud.buttonPosX[2], courseplay.hud.linesButtonPosY[1], w, h, 1, -5, false);
@@ -1191,30 +1203,22 @@ end;
 
 function courseplay:setFieldEdgePath(vehicle, changeDir, force)
 	local newFieldNum = force or vehicle.cp.fieldEdge.selectedField.fieldNum + changeDir;
-	if newFieldNum == 0 then
-		vehicle.cp.fieldEdge.selectedField.fieldNum = newFieldNum;
-		if vehicle.cp.suc.active then
-			courseplay:toggleSucHud(vehicle);
-		end;
-		return;
-	end;
 
 	while courseplay.fields.fieldData[newFieldNum] == nil do
 		if newFieldNum == 0 then
 			vehicle.cp.fieldEdge.selectedField.fieldNum = newFieldNum;
+			vehicle.cp.courseGenerationPreview.updateDrawData = true;
 			if vehicle.cp.suc.active then
 				courseplay:toggleSucHud(vehicle);
 			end;
+			courseplay:validateCourseGenerationData(vehicle);
 			return;
 		end;
 		newFieldNum = Utils.clamp(newFieldNum + changeDir, 0, courseplay.fields.numAvailableFields);
 	end;
 
 	vehicle.cp.fieldEdge.selectedField.fieldNum = newFieldNum;
-
-	if newFieldNum == 0 and vehicle.cp.suc.active then
-		courseplay:toggleSucHud(vehicle);
-	end;
+	vehicle.cp.courseGenerationPreview.updateDrawData = true;
 
 	--courseplay:toggleSelectedFieldEdgePathShow(vehicle, false);
 	if vehicle.cp.fieldEdge.customField.show then
@@ -1225,8 +1229,12 @@ end;
 
 function courseplay:toggleSelectedFieldEdgePathShow(vehicle, force)
 	vehicle.cp.fieldEdge.selectedField.show = Utils.getNoNil(force, not vehicle.cp.fieldEdge.selectedField.show);
-	--print(string.format("%s: selectedField.show=%s", nameNum(vehicle), tostring(vehicle.cp.fieldEdge.selectedField.show)));
-	courseplay.buttons:setActiveEnabled(vehicle, "selectedFieldShow");
+	courseplay.buttons:setActiveEnabled(vehicle, 'selectedFieldShow');
+end;
+
+function courseplay:toggleCourseGenerationPreview(vehicle, force)
+	vehicle.cp.courseGenerationPreview.show = Utils.getNoNil(force, not vehicle.cp.courseGenerationPreview.show);
+	courseplay.buttons:setActiveEnabled(vehicle, 'selectedFieldShow');
 end;
 
 --CUSTOM SINGLE FIELD EDGE PATH
@@ -1279,6 +1287,9 @@ function courseplay:addCustomSingleFieldEdgeToList(vehicle)
 		name = string.format("%s %d (%s)", courseplay:loc('COURSEPLAY_FIELD'), vehicle.cp.fieldEdge.customField.fieldNum, courseplay:loc('COURSEPLAY_USER'));
 		isCustom = true;
 	};
+	local simplePolyIndices = courseplay.geometry:simplifyPolygon(data.points, 2);
+	data.simplePoly = courseplay.geometry:newPolyFromIndices(data.points, simplePolyIndices);
+
 	local area, _, dimensions = courseplay.geometry:getPolygonData(data.points, nil, nil, true);
 	data.areaSqm = area;
 	data.areaHa = area / 10000;
@@ -1307,25 +1318,30 @@ function courseplay:showFieldEdgePath(vehicle, pathType)
 		points = vehicle.cp.fieldEdge.customField.points;
 		numPoints = vehicle.cp.fieldEdge.customField.numPoints;
 	elseif pathType == "selectedField" then
-		points = courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].points;
-		numPoints = courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].numPoints;
+		-- points = courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].points;
+		-- numPoints = courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].numPoints;
+		points = courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].simplePoly;
+		numPoints = #points;
 	end;
 
 	if numPoints > 0 then
 		local pointHeight = 3;
+		local nextPoint, r, g, b;
 		for i,point in pairs(points) do
 			if i < numPoints then
-				local nextPoint = points[i + 1];
-				drawDebugLine(point.cx,point.cy+pointHeight,point.cz, 0,0,1, nextPoint.cx,nextPoint.cy+pointHeight,nextPoint.cz, 0,0,1);
-
+				nextPoint = points[i + 1];
 				if i == 1 then
-					drawDebugPoint(point.cx, point.cy + pointHeight, point.cz, 0,1,0,1);
+					r,g,b = 0,1,0;
 				else
-					drawDebugPoint(point.cx, point.cy + pointHeight, point.cz, 1,1,0,1);
+					r,g,b = 1,1,0;
 				end;
 			else
-				drawDebugPoint(point.cx, point.cy + pointHeight, point.cz, 1,0,0,1);
+				nextPoint = points[1];
+				r,g,b = 1,0,0;
 			end;
+
+			drawDebugPoint(point.cx, point.cy + pointHeight, point.cz, r,g,b,1);
+			drawDebugLine(point.cx,point.cy+pointHeight,point.cz, 0,0,1, nextPoint.cx,nextPoint.cy+pointHeight,nextPoint.cz, 0,0,1);
 		end;
 	end;
 end;

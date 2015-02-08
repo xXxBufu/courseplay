@@ -139,6 +139,7 @@
 		<text name="COURSEPLAY_DIRECTION_2" 							 text="Leste" />
 		<text name="COURSEPLAY_DIRECTION_3" 							 text="Sul" />
 		<text name="COURSEPLAY_DIRECTION_4" 							 text="Oeste" />
+		<text name="COURSEPLAY_DIRECTION_DEG" 							 text="%d°" />
 		<text name="COURSEPLAY_HEADLAND" 								 text="Cabeceira" />
 		<text name="COURSEPLAY_ACTIVATED" 								 text="ativado" />
 		<text name="COURSEPLAY_DEACTIVATED" 							 text="desativado" />

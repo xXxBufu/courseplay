@@ -156,6 +156,16 @@ function courseplay:mouseEvent(posX, posY, isDown, isUp, mouseButton)
 			courseplay.utils:update2dCourseBackgroundPos(self, posX, posY);
 		end;
 	end;
+
+
+	-- ##################################################
+	-- COURSE GENERATION PREVIEW: SETTING STARTING POINT
+	if self.cp.hud.currentPage == courseplay.hud.PAGE_COURSE_GENERATION and self.cp.courseGenerationPreview.show and self.cp.fieldEdge.selectedField.fieldNum > 0 then
+		local plot = CpManager.course2dPlotField;
+		if isUp and mouseButton == courseplay.inputBindings.mouse.primaryButtonId and self.cp.mouseCursorActive and self.isEntered and courseplay:mouseIsInArea(posX, posY, plot.x, plot.x + plot.width, plot.y, plot.y + plot.height) then
+			courseplay:setCourseGenerationStartingPointCoords(self, posX, posY);
+		end;
+	end;
 end; --END mouseEvent()
 
 function courseplay:mouseIsInArea(mouseX, mouseY, areaX1, areaX2, areaY1, areaY2)

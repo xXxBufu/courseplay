@@ -139,6 +139,7 @@
 		<text name="COURSEPLAY_DIRECTION_2" 						 text="Est" />
 		<text name="COURSEPLAY_DIRECTION_3" 						 text="Sud" />
 		<text name="COURSEPLAY_DIRECTION_4" 						 text="Ouest" />
+		<text name="COURSEPLAY_DIRECTION_DEG" 							 text="%d°" />
 		<text name="COURSEPLAY_HEADLAND" 						 text="Fourrière:" />
 		<text name="COURSEPLAY_ACTIVATED" 						 text="activé" />
 		<text name="COURSEPLAY_DEACTIVATED" 						 text="désactivé" />

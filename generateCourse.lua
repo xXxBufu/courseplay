@@ -51,7 +51,11 @@ function courseplay:generateCourse(vehicle)
 	-- (1) SET UP CORNERS AND DIRECTIONS --
 	--------------------------------------------------------------------
 	courseplay:debug('(1) SET UP CORNERS AND DIRECTIONS', 7);
-	local crn, dir, ridgeMarker = courseplay.generation:getStartCornerDir(vehicle);
+	local ridgeMarker = {
+		none = 0,
+		left = 1,
+		right = 2
+	};
 	local orderCW = vehicle.cp.headland.userDirClockwise;
 	local numLanes = vehicle.cp.headland.numLanes;
 	local turnAround = vehicle.cp.headland.turnAround or numLanes > 49;
@@ -184,19 +188,6 @@ function courseplay:generateCourse(vehicle)
 	courseplay:debug(string.format('minZ=%s, maxZ=%s', tostring(dimensions.minZ), tostring(dimensions.maxZ)), 7); --WORKS
 	courseplay:debug(string.format('generateCourse(%i): width=%s, height=%s', debug.getinfo(1).currentline, tostring(dimensions.width), tostring(dimensions.height)), 7); --WORKS
 	
-	local startPoint = {};
-	if string.find(crn,"N") then
-		startPoint.cz = dimensions.minZ;
-	else
-		startPoint.cz = dimensions.maxZ;
-	end;
-	if string.find(crn,"E") then
-		startPoint.cx = dimensions.maxX;
-	else
-		startPoint.cx = dimensions.minX;
-	end;
-	
-
 	if not turnAround then
 		fieldWorkCourse = geometry:genWorkCourse(polyPoints, vehicle, startPoint);
 	end;
@@ -403,11 +394,11 @@ function courseplay:generateCourse(vehicle)
 	end;
 	local returnToStart = {};
 	if vehicle.cp.returnToFirstPoint then
-		vehicle.maxnumber = #(vehicle.Waypoints);
-		vehicle.Waypoints[vehicle.maxnumber].wait = false;
+		vehicle.cp.numWaypoints = #(vehicle.Waypoints);
+		vehicle.Waypoints[vehicle.cp.numWaypoints].wait = false;
 
-		local p1 = vehicle.Waypoints[vehicle.maxnumber-1];
-		local p2 = vehicle.Waypoints[vehicle.maxnumber];
+		local p1 = vehicle.Waypoints[vehicle.cp.numWaypoints-1];
+		local p2 = vehicle.Waypoints[vehicle.cp.numWaypoints];
 		local p3 = vehicle.Waypoints[2];
 		local p4 = vehicle.Waypoints[1];
 		local dist = Utils.vector2Length(p2.cx-p3.cx,p2.cz-p3.cz);
@@ -477,18 +468,18 @@ function courseplay:generateCourse(vehicle)
 	-- (7) FINAL COURSE DATA
 	-------------------------------------------------------------------------------
 	courseplay:debug('(7) FINAL COURSE DATA', 7);
-	vehicle.maxnumber = #(vehicle.Waypoints)
-	if vehicle.maxnumber == 0 then
+	vehicle.cp.numWaypoints = #(vehicle.Waypoints)
+	if vehicle.cp.numWaypoints == 0 then
 		courseplay:debug('ERROR: #vehicle.Waypoints == 0 -> cancel and return', 7);
 		return;
 	end;
 
-	vehicle.recordnumber = 1;
+	vehicle.cp.waypointIndex = 1;
 	vehicle.cp.canDrive = true;
 	vehicle.Waypoints[1].wait = true;
 	vehicle.Waypoints[1].crossing = true;
-	vehicle.Waypoints[vehicle.maxnumber].wait = true;
-	vehicle.Waypoints[vehicle.maxnumber].crossing = true;
+	vehicle.Waypoints[vehicle.cp.numWaypoints].wait = true;
+	vehicle.Waypoints[vehicle.cp.numWaypoints].crossing = true;
 	vehicle.cp.numCourses = 1;
 	courseplay.signs:updateWaypointSigns(vehicle);
 
@@ -501,37 +492,18 @@ function courseplay:generateCourse(vehicle)
 	courseplay:setFieldEdgePath(vehicle, nil, 0);
 	courseplay:validateCourseGenerationData(vehicle);
 	courseplay:validateCanSwitchMode(vehicle);
-	courseplay:debug(string.format("generateCourse() finished: %d lanes, %d headland", numLanes, #(vehicle.cp.headland.lanes) or 0), 7);
+	courseplay:debug(string.format("generateCourse() finished: %d lanes, %d headland", numLanes, vehicle.cp.headland.lanes and #vehicle.cp.headland.lanes or 0), 7);
+
 	-- SETUP 2D COURSE DRAW DATA
 	vehicle.cp.course2dUpdateDrawData = true;
 
+	-- TURN OFF GENERATION PREVIEW
+	-- [TODO]
 end;
 
 
 
 -- ####################################################################################################
-function courseplay.generation:getStartCornerDir(vehicle)
-	local corners = {
-		[1] = 'SW',
-		[2] = 'NW',
-		[3] = 'NE',
-		[4] = 'SE'
-	};
-	local directions = {
-		[1] = 'N',
-		[2] = 'E',
-		[3] = 'S',
-		[4] = 'W'
-	};
-	local ridgeMarker = {
-		none = 0,
-		left = 1,
-		right = 2
-	};
-
-	return corners[vehicle.cp.startingCorner], directions[vehicle.cp.startingDirection], ridgeMarker;
-end;
-
 
 
 function courseplay.generation:getOffsetWidth(vehicle, laneNum)

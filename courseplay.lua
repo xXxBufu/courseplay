@@ -57,6 +57,7 @@ local function initialize()
 		'button', 
 		'bypass',
 		'combines', 
+		'courseGenerationPreview', 
 		'courseplay_event', 
 		'course_management',
 		'debug', 

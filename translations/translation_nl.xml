@@ -135,6 +135,7 @@
 		<text name="COURSEPLAY_DIRECTION_2" 							 text="Oost" />
 		<text name="COURSEPLAY_DIRECTION_3" 							 text="Zuid" />
 		<text name="COURSEPLAY_DIRECTION_4" 							 text="West" />
+		<text name="COURSEPLAY_DIRECTION_DEG" 							 text="%d°" />
 		<text name="COURSEPLAY_HEADLAND" 								 text="Buitenrand" />
 		<text name="COURSEPLAY_ACTIVATED" 								 text="geactiveerd" />
 		<text name="COURSEPLAY_DEACTIVATED" 							 text="gedeactiveerd" />

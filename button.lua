@@ -385,8 +385,6 @@ function courseplay.button:render()
 					end;
 				elseif fn == "changeWorkWidth" and prm < 0 then
 					show = vehicle.cp.workWidth > 0.1;
-				elseif fn == "changeStartingDirection" then
-					show = vehicle.cp.hasStartingCorner;
 				elseif fn == 'toggleHeadlandDirection' or fn == 'toggleHeadlandOrder' then
 					show = vehicle.cp.headland.numLanes > 0;
 				elseif fn == 'changeHeadlandNumLanes' then
@@ -796,6 +794,9 @@ function courseplay.buttons:setActiveEnabled(vehicle, section)
 		vehicle.cp.hud.generateCourseButton:setDisabled(not vehicle.cp.hasValidCourseGenerationData);
 		if vehicle.cp.hud.showSelectedFieldEdgePathButton then
 			vehicle.cp.hud.showSelectedFieldEdgePathButton:setActive(vehicle.cp.fieldEdge.selectedField.show);
+		end;
+		if vehicle.cp.hud.courseGenerationPreviewButton then
+			vehicle.cp.hud.courseGenerationPreviewButton:setActive(vehicle.cp.courseGenerationPreview.show);
 		end;
 		if vehicle.cp.suc.toggleHudButton then
 			vehicle.cp.suc.toggleHudButton:setActive(vehicle.cp.suc.active);

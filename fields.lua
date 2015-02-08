@@ -282,6 +282,8 @@ function courseplay.fields:setSingleFieldEdgePath(initObject, initX, initZ, scan
 								dimensions = dimensions;
 								name = string.format('%s %d', courseplay:loc('COURSEPLAY_FIELD'), fieldNum);
 							};
+							local simplePolyIndices = courseplay.geometry:simplifyPolygon(edgePoints, 2);
+							self.fieldData[fieldNum].simplePoly = courseplay.geometry:newPolyFromIndices(edgePoints, simplePolyIndices);
 
 							self.fieldData[fieldNum].fieldAreaText = courseplay:loc('COURSEPLAY_SEEDUSAGECALCULATOR_FIELD'):format(fieldNum, self:formatNumber(self.fieldData[fieldNum].areaHa, 2), g_i18n:getText('area_unit_short'));
 							self.fieldData[fieldNum].seedUsage, self.fieldData[fieldNum].seedPrice, self.fieldData[fieldNum].seedDataText = self:getFruitData(area);
@@ -407,6 +409,9 @@ function courseplay.fields:loadAllCustomFields()
 								end;
 							end;
 						end;
+						local simplePolyIndices = courseplay.geometry:simplifyPolygon(fieldData.points, 2);
+						fieldData.simplePoly = courseplay.geometry:newPolyFromIndices(fieldData.points, simplePolyIndices);
+
 						local area, _, dimensions = geometry:getPolygonData(fieldData.points, nil, nil, true);
 						fieldData.areaSqm = area;
 						fieldData.areaHa = area / 10000;

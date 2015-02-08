@@ -139,6 +139,7 @@
 		<text name="COURSEPLAY_DIRECTION_2" 							 text="East" />
 		<text name="COURSEPLAY_DIRECTION_3" 							 text="South" />
 		<text name="COURSEPLAY_DIRECTION_4" 							 text="West" />
+		<text name="COURSEPLAY_DIRECTION_DEG" 							 text="%d°" />
 		<text name="COURSEPLAY_HEADLAND" 								 text="Headland" />
 		<text name="COURSEPLAY_ACTIVATED" 								 text="activated" />
 		<text name="COURSEPLAY_DEACTIVATED" 							 text="deactivated" />

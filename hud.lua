@@ -197,7 +197,7 @@ function courseplay.hud:setup()
 			[8] = self.basePosX + self:pxToNormal(202, 'x');
 		};
 		[self.PAGE_COURSE_GENERATION] = {
-			[6] = self.basePosX + self:pxToNormal(509, 'x');
+			[5] = self.basePosX + self:pxToNormal(509, 'x');
 		};
 	};
 
@@ -244,7 +244,7 @@ function courseplay.hud:setup()
 	self.topIconsY = self.basePosY + self:pxToNormal(263, 'y');
 
 	self.buttonPosX = {};
-	for i=1,5 do
+	for i=1,10 do
 		self.buttonPosX[i] = self.contentMaxX + self.buttonSize.small.margin - i * (self.buttonSize.small.w + self.buttonSize.small.margin);
 	end;
 
@@ -294,6 +294,12 @@ function courseplay.hud:setup()
 		courseAdd          = {  40,252,  72,220 };
 		courseLoadAppend   = {   4,252,  36,220 };
 		courseClear        = { 184,360, 216,328 };
+		directionNorth     = { 220,396, 252,364 };
+		directionEast      = {   4,432,  36,400 };
+		directionSouth     = {  40,432,  72,400 };
+		directionWest      = {  76,432, 108,400 };
+		directionAuto      = { 220, 36, 252,  4 };
+		directionVehicle   = {   4, 72,  36, 40 };
 		eye                = { 148,180, 180,148 };
 		delete             = { 184,216, 216,184 };
 		folderNew          = { 220,216, 252,184 };
@@ -1025,7 +1031,7 @@ function courseplay.hud:loadPage(vehicle, page)
 
 	-- PAGE 8: COURSE GENERATION
 	elseif page == self.PAGE_COURSE_GENERATION then
-		-- line 1 = field edge path
+		-- line 1: field edge path
 		vehicle.cp.hud.content.pages[8][1][1].text = courseplay:loc('COURSEPLAY_FIELD_EDGE_PATH');
 		if courseplay.fields.numAvailableFields > 0 and vehicle.cp.fieldEdge.selectedField.fieldNum > 0 then
 			vehicle.cp.hud.content.pages[8][1][2].text = courseplay.fields.fieldData[vehicle.cp.fieldEdge.selectedField.fieldNum].name;
@@ -1035,41 +1041,51 @@ function courseplay.hud:loadPage(vehicle, page)
 			vehicle.cp.hud.content.pages[8][1][2].text = '---';
 		end;
 
-		-- line 2 = work width
+		-- line 2: work width
 		vehicle.cp.hud.content.pages[8][2][1].text = courseplay:loc('COURSEPLAY_WORK_WIDTH');
 		vehicle.cp.hud.content.pages[8][2][2].text = vehicle.cp.workWidth ~= nil and string.format('%.1fm', vehicle.cp.workWidth) or '---';
 
-		-- line 3 = starting corner
-		vehicle.cp.hud.content.pages[8][3][1].text = courseplay:loc('COURSEPLAY_STARTING_CORNER');
-		-- 1 = SW, 2 = NW, 3 = NE, 4 = SE
+		-- line 3: return to first point
+		vehicle.cp.hud.content.pages[8][3][1].text = courseplay:loc('COURSEPLAY_RETURN_TO_FIRST_POINT');
+		vehicle.cp.hud.content.pages[8][3][2].text = vehicle.cp.returnToFirstPoint and courseplay:loc('COURSEPLAY_ACTIVATED') or courseplay:loc('COURSEPLAY_DEACTIVATED');
+
+		-- line 4: direction variance
+		vehicle.cp.hud.content.pages[8][4][1].text = 'Direction variance'; -- TODO i18n
+		vehicle.cp.hud.content.pages[8][4][2].text = ('%.1f (tt=%.1f, ht=%.1f)'):format(vehicle.cp.directionVariance, 35 * (2 - vehicle.cp.directionVariance), 3*90 * (2 - vehicle.cp.directionVariance)); -- TODO: slider
+
+		-- line 5: headland
+		vehicle.cp.hud.content.pages[8][5][1].text = courseplay:loc('COURSEPLAY_HEADLAND');
+		if vehicle.cp.headland.numLanes == 0 then
+			vehicle.cp.hud.content.pages[8][5][2].text = '-';
+		elseif vehicle.cp.headland.numLanes == 1 then
+			vehicle.cp.hud.content.pages[8][5][2].text = vehicle.cp.headland.numLanes .. ' lane'; -- TODO i18n
+		else
+			vehicle.cp.hud.content.pages[8][5][2].text = vehicle.cp.headland.numLanes .. ' lanes'; -- TODO i18n
+		end;
+
+		--[[ line 7: starting point
+		vehicle.cp.hud.content.pages[8][7][1].text = courseplay:loc('COURSEPLAY_STARTING_CORNER');
 		if vehicle.cp.hasStartingCorner then
-			vehicle.cp.hud.content.pages[8][3][2].text = courseplay:loc(string.format('COURSEPLAY_CORNER_%d', vehicle.cp.startingCorner)); -- NE/SE/SW/NW
+			vehicle.cp.hud.content.pages[8][7][2].text = courseplay:loc(string.format('COURSEPLAY_CORNER_%d', vehicle.cp.startingCorner)); -- NE/SE/SW/NW
 		else
-			vehicle.cp.hud.content.pages[8][3][2].text = '---';
+			vehicle.cp.hud.content.pages[8][7][2].text = '---';
+		end;
+		]]
+
+		-- line 8: starting direction
+		vehicle.cp.hud.content.pages[8][8][1].text = courseplay:loc('COURSEPLAY_STARTING_DIRECTION');
+		if vehicle.cp.startingDirectionIsAuto then
+			vehicle.cp.hud.content.pages[8][8][2].text = 'Auto';
+		else
+			vehicle.cp.hud.content.pages[8][8][2].text = courseplay:loc('COURSEPLAY_DIRECTION_DEG'):format(vehicle.cp.startingDirection); -- TODO i18n
 		end;
 
-		-- line 4 = starting direction
-		vehicle.cp.hud.content.pages[8][4][1].text = courseplay:loc('COURSEPLAY_STARTING_DIRECTION');
-		-- 1 = North, 2 = East, 3 = South, 4 = West
-		if vehicle.cp.hasStartingDirection then
-			vehicle.cp.hud.content.pages[8][4][2].text = courseplay:loc(string.format('COURSEPLAY_DIRECTION_%d', vehicle.cp.startingDirection)); -- East/South/West/North
-		else
-			vehicle.cp.hud.content.pages[8][4][2].text = '---';
-		end;
-
-		-- line 5 = return to first point
-		vehicle.cp.hud.content.pages[8][5][1].text = courseplay:loc('COURSEPLAY_RETURN_TO_FIRST_POINT');
-		vehicle.cp.hud.content.pages[8][5][2].text = vehicle.cp.returnToFirstPoint and courseplay:loc('COURSEPLAY_ACTIVATED') or courseplay:loc('COURSEPLAY_DEACTIVATED');
-
-		-- line 6 = headland
-		vehicle.cp.hud.content.pages[8][6][1].text = courseplay:loc('COURSEPLAY_HEADLAND');
-		vehicle.cp.hud.content.pages[8][6][2].text = vehicle.cp.headland.numLanes ~= 0 and tostring(vehicle.cp.headland.numLanes) or '-';
-
-		-- line 7 = Douglas-Peucker epsilon
+		--[[ line 7: Douglas-Peucker epsilon
 		if CpManager.isDeveloper then
 			vehicle.cp.hud.content.pages[8][7][1].text = 'Douglas-Peucker epsilon';
 			vehicle.cp.hud.content.pages[8][7][2].text = ('%.1f m'):format(vehicle.cp.fieldEdge.douglasPeuckerEpsilon);
 		end;
+		]]
 
 
 	-- PAGE 9: SHOVEL SETTINGS
@@ -1548,47 +1564,76 @@ function courseplay.hud:setupVehicleHud(vehicle)
 
 	-- ##################################################
 	-- Page 8: Course generation
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	-- Note: line 1 (field edges) will be applied in first updateTick() runthrough
 
+
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	-- line 2 (workWidth)
 	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'calculator' }, 'calculateWorkWidth', nil, self.buttonPosX[3], self.linesButtonPosY[2], wSmall, hSmall, 2, nil, false);
 	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navMinus' }, 'changeWorkWidth', -0.1, self.buttonPosX[2], self.linesButtonPosY[2], wSmall, hSmall, 2, -0.5, false);
 	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navPlus' },  'changeWorkWidth',  0.1, self.buttonPosX[1], self.linesButtonPosY[2], wSmall, hSmall, 2,  0.5, false);
 	courseplay.button:new(vehicle, 8, nil, 'changeWorkWidth', 0.1, mouseWheelArea.x, self.linesButtonPosY[2], mouseWheelArea.w, mouseWheelArea.h, 2, 0.5, true, true);
 
-	-- line 3 (starting corner)
-	courseplay.button:new(vehicle, 8, nil, 'switchStartingCorner',     nil, self.col1posX, self.linesPosY[3], self.contentMaxWidth, self.lineHeight, 3, nil, true);
 
-	-- line 4 (starting direction)
-	courseplay.button:new(vehicle, 8, nil, 'changeStartingDirection',  nil, self.col1posX, self.linesPosY[4], self.contentMaxWidth, self.lineHeight, 4, nil, true);
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	-- line 3 (return to first point)
+	courseplay.button:new(vehicle, 8, nil, 'toggleReturnToFirstPoint', nil, self.col1posX, self.linesPosY[3], self.contentMaxWidth, self.lineHeight, 3, nil, true);
 
-	-- line 5 (return to first point)
-	courseplay.button:new(vehicle, 8, nil, 'toggleReturnToFirstPoint', nil, self.col1posX, self.linesPosY[5], self.contentMaxWidth, self.lineHeight, 5, nil, true);
 
-	-- line 6 (headland)
-	-- 6.1 direction
-	local orderBtnX = self.col2posXforce[8][6] - self.buttonSize.small.margin - wBig;
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	-- line 4 (direction variance)
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navPlus' },  'changeDirectionVariance',  0.1, self.buttonPosX[1], self.linesButtonPosY[4], wSmall, hSmall, 4,  0.5, false);
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navMinus' }, 'changeDirectionVariance', -0.1, self.buttonPosX[2], self.linesButtonPosY[4], wSmall, hSmall, 4, -0.5, false);
+
+
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	-- line 5 (headland)
+	-- 5.1 direction
+	local orderBtnX = self.col2posXforce[8][5] - self.buttonSize.small.margin - wBig;
 	local dirBtnX = orderBtnX - self:pxToNormal(4, 'x') - wSmall;
-	vehicle.cp.headland.directionButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'headlandDirCW' }, 'toggleHeadlandDirection', nil, dirBtnX, self.linesButtonPosY[6], wSmall, hSmall, 6, nil, false, nil, nil, 'Headland counter-/clockwise'); -- TODO (Jakob): i18n
+	vehicle.cp.headland.directionButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'headlandDirCW' }, 'toggleHeadlandDirection', nil, dirBtnX, self.linesButtonPosY[5], wSmall, hSmall, 5, nil, false, nil, nil, 'Headland counter-/clockwise'); -- TODO (Jakob): i18n
 
-	-- 6.2 order
-	vehicle.cp.headland.orderButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'headlandOrdBef' }, 'toggleHeadlandOrder', nil, orderBtnX, self.linesButtonPosY[6], wBig, hSmall, 6, nil, false, nil, nil, 'Headland before/after field course'); -- TODO (Jakob): i18n
+	-- 5.2 order
+	vehicle.cp.headland.orderButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'headlandOrdBef' }, 'toggleHeadlandOrder', nil, orderBtnX, self.linesButtonPosY[5], wBig, hSmall, 5, nil, false, nil, nil, 'Headland before/after field course'); -- TODO (Jakob): i18n
 
-	-- 6.3: numLanes
-	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navDown' }, 'changeHeadlandNumLanes',  -1, self.buttonPosX[2], self.linesButtonPosY[6], wSmall, hSmall, 6, nil, false);
-	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navUp' },   'changeHeadlandNumLanes',   1, self.buttonPosX[1], self.linesButtonPosY[6], wSmall, hSmall, 6, nil, false);
+	-- 5.3: numLanes
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navPlus' },  'changeHeadlandNumLanes',  1, self.buttonPosX[1], self.linesButtonPosY[5], wSmall, hSmall, 5, nil, false);
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navMinus' }, 'changeHeadlandNumLanes', -1, self.buttonPosX[2], self.linesButtonPosY[5], wSmall, hSmall, 5, nil, false);
 
-	-- 7: Douglas-Peucker epsilon
+
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	-- line 7 (starting point)
+	-- courseplay.button:new(vehicle, 8, nil, 'switchStartingCorner', nil, self.col1posX, self.linesPosY[7], self.contentMaxWidth, self.lineHeight, 7, nil, true);
+
+
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	-- line 8 (starting direction)
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navPlus' },  'changeStartingDirection',  1, self.buttonPosX[1], self.linesButtonPosY[8], wSmall, hSmall, 8,  5, false, false, false, nil);
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navMinus' }, 'changeStartingDirection', -1, self.buttonPosX[2], self.linesButtonPosY[8], wSmall, hSmall, 8, -5, false, false, false, nil);
+	vehicle.cp.setStartingDirectionWestButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'directionWest' }, 'setStartingDirection', 270, self.buttonPosX[3], self.linesButtonPosY[8], wSmall, hSmall, 8, 270, false, false, false, 'West');
+	vehicle.cp.setStartingDirectionSouthButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'directionSouth' }, 'setStartingDirection', 180, self.buttonPosX[4], self.linesButtonPosY[8], wSmall, hSmall, 8, 180, false, false, false, 'South');
+	vehicle.cp.setStartingDirectionEastButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'directionEast' }, 'setStartingDirection',  90, self.buttonPosX[5], self.linesButtonPosY[8], wSmall, hSmall, 8, 90, false, false, false, 'East');
+	vehicle.cp.setStartingDirectionNorthButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'directionNorth' }, 'setStartingDirection',  0, self.buttonPosX[6], self.linesButtonPosY[8], wSmall, hSmall, 8, 0, false, false, false, 'North');
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'directionVehicle' }, 'setStartingDirection', -1, self.buttonPosX[7], self.linesButtonPosY[8], wSmall, hSmall, 8, -1, false, false, false, 'From vehicle direction'); -- from vehicle
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'directionAuto' }, 'setStartingDirection', -2, self.buttonPosX[8], self.linesButtonPosY[8], wSmall, hSmall, 8, -2, false, false, false, 'Automatic'); -- automatic
+	courseplay.button:new(vehicle, 8, nil, 'changeStartingDirection', 1, mouseWheelArea.x, self.linesButtonPosY[8], mouseWheelArea.w, mouseWheelArea.h, 8, 5, true, true);
+
+	--[[-- 7: Douglas-Peucker epsilon
 	if CpManager.isDeveloper then
 		courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navMinus' }, 'changeDouglasPeuckerEpsilon', -0.5, self.buttonPosX[2], self.linesButtonPosY[7], wSmall, hSmall, 7, -1, false);
 		courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navPlus' },  'changeDouglasPeuckerEpsilon',  0.5, self.buttonPosX[1], self.linesButtonPosY[7], wSmall, hSmall, 7,  1, false);
 		courseplay.button:new(vehicle, 8, nil, 'changeDouglasPeuckerEpsilon', 0.5, mouseWheelArea.x, self.linesButtonPosY[7], mouseWheelArea.w, mouseWheelArea.h, 7, 1, true, true);
 	end;
+	]]
 
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	-- generation action button
 	local toolTip = 'Generate field course'; -- TODO: i18n
 	vehicle.cp.hud.generateCourseButton = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'generateCourse' }, 'generateCourse', nil, topIconsX[2], self.topIconsY, wMiddle, hMiddle, nil, nil, false, false, false, toolTip);
 
+
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	-- Clear current course
 	vehicle.cp.hud.clearCurrentCourseButton8 = courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'courseClear' }, 'clearCurrentLoadedCourse', nil, topIconsX[0], self.topIconsY, wMiddle, hMiddle, nil, nil, false, false, false, courseplay:loc('COURSEPLAY_CLEAR_COURSE'));
 
