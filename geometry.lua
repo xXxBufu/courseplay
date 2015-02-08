@@ -124,6 +124,10 @@ function courseplay.geometry:cleanPline(pline,boundingPline,offset,vehicle, doRe
 	return newPline;
 end;
 
+function courseplay.geometry:degrees2DToDegrees3D(degrees)
+	return (90 - degrees) % 360;
+end;
+
 -- Douglas-Peucker adapted from http://quangnle.wordpress.com/2012/12/30/corona-sdk-curve-fitting-1-implementation-of-ramer-douglas-peucker-algorithm-to-reduce-points-of-a-curve/
 function courseplay.geometry:douglasPeucker(points, firstPointNum, lastPointNum, tolerance, pointIndices)
 	local maxDistance = 0;
@@ -2445,4 +2449,3 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 ]]
-

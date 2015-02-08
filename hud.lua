@@ -1063,6 +1063,12 @@ function courseplay.hud:loadPage(vehicle, page)
 			vehicle.cp.hud.content.pages[8][5][2].text = vehicle.cp.headland.numLanes .. ' lanes'; -- TODO i18n
 		end;
 
+		--line 6: Douglas-Peucker epsilon
+		if CpManager.isDeveloper then
+			vehicle.cp.hud.content.pages[8][6][1].text = 'Douglas-Peucker epsilon';
+			vehicle.cp.hud.content.pages[8][6][2].text = ('%.1f m'):format(vehicle.cp.fieldEdge.douglasPeuckerEpsilon);
+		end;
+
 		--[[ line 7: starting point
 		vehicle.cp.hud.content.pages[8][7][1].text = courseplay:loc('COURSEPLAY_STARTING_CORNER');
 		if vehicle.cp.hasStartingCorner then
@@ -1079,13 +1085,6 @@ function courseplay.hud:loadPage(vehicle, page)
 		else
 			vehicle.cp.hud.content.pages[8][8][2].text = courseplay:loc('COURSEPLAY_DIRECTION_DEG'):format(vehicle.cp.startingDirection); -- TODO i18n
 		end;
-
-		--[[ line 7: Douglas-Peucker epsilon
-		if CpManager.isDeveloper then
-			vehicle.cp.hud.content.pages[8][7][1].text = 'Douglas-Peucker epsilon';
-			vehicle.cp.hud.content.pages[8][7][2].text = ('%.1f m'):format(vehicle.cp.fieldEdge.douglasPeuckerEpsilon);
-		end;
-		]]
 
 
 	-- PAGE 9: SHOVEL SETTINGS
@@ -1603,6 +1602,13 @@ function courseplay.hud:setupVehicleHud(vehicle)
 
 
 	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+	-- 6: Douglas-Peucker epsilon
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navMinus' }, 'changeDouglasPeuckerEpsilon', -0.5, self.buttonPosX[2], self.linesButtonPosY[6], wSmall, hSmall, 6, -1, false);
+	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navPlus' },  'changeDouglasPeuckerEpsilon',  0.5, self.buttonPosX[1], self.linesButtonPosY[6], wSmall, hSmall, 6,  1, false);
+	courseplay.button:new(vehicle, 8, nil, 'changeDouglasPeuckerEpsilon', 0.5, mouseWheelArea.x, self.linesButtonPosY[6], mouseWheelArea.w, mouseWheelArea.h, 6, 1, true, true);
+
+
+	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	-- line 7 (starting point)
 	-- courseplay.button:new(vehicle, 8, nil, 'switchStartingCorner', nil, self.col1posX, self.linesPosY[7], self.contentMaxWidth, self.lineHeight, 7, nil, true);
 
@@ -1618,14 +1624,6 @@ function courseplay.hud:setupVehicleHud(vehicle)
 	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'directionVehicle' }, 'setStartingDirection', -1, self.buttonPosX[7], self.linesButtonPosY[8], wSmall, hSmall, 8, -1, false, false, false, 'From vehicle direction'); -- from vehicle
 	courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'directionAuto' }, 'setStartingDirection', -2, self.buttonPosX[8], self.linesButtonPosY[8], wSmall, hSmall, 8, -2, false, false, false, 'Automatic'); -- automatic
 	courseplay.button:new(vehicle, 8, nil, 'changeStartingDirection', 1, mouseWheelArea.x, self.linesButtonPosY[8], mouseWheelArea.w, mouseWheelArea.h, 8, 5, true, true);
-
-	--[[-- 7: Douglas-Peucker epsilon
-	if CpManager.isDeveloper then
-		courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navMinus' }, 'changeDouglasPeuckerEpsilon', -0.5, self.buttonPosX[2], self.linesButtonPosY[7], wSmall, hSmall, 7, -1, false);
-		courseplay.button:new(vehicle, 8, { 'iconSprite.png', 'navPlus' },  'changeDouglasPeuckerEpsilon',  0.5, self.buttonPosX[1], self.linesButtonPosY[7], wSmall, hSmall, 7,  1, false);
-		courseplay.button:new(vehicle, 8, nil, 'changeDouglasPeuckerEpsilon', 0.5, mouseWheelArea.x, self.linesButtonPosY[7], mouseWheelArea.w, mouseWheelArea.h, 7, 1, true, true);
-	end;
-	]]
 
 	-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 	-- generation action button
