@@ -57,12 +57,13 @@ function courseplay:mouseEvent(posX, posY, isDown, isUp, mouseButton)
 
 		if buttonToHandle then
 			buttonToHandle:setClicked(isDown);
-			if buttonToHandle.hoverText and buttonToHandle.functionToCall ~= nil then
+			if not buttonToHandle.isDisabled and buttonToHandle.hoverText and buttonToHandle.functionToCall ~= nil then
 				self.cp.hud.content.pages[buttonToHandle.page][buttonToHandle.row][1].isClicked = isDown;
 			end;
 			if isUp then
 				buttonToHandle:handleMouseClick();
 			end;
+			return;
 		end;
 
 
@@ -117,7 +118,7 @@ function courseplay:mouseEvent(posX, posY, isDown, isUp, mouseButton)
 					end;
 				end;
 
-				if button.hoverText then
+				if button.hoverText and not button.isDisabled then
 					self.cp.hud.content.pages[button.page][button.row][1].isHovered = button.isHovered;
 				end;
 			end;
@@ -134,6 +135,25 @@ function courseplay:mouseEvent(posX, posY, isDown, isUp, mouseButton)
 					end;
 				end;
 			end;
+		end;
+	end;
+
+
+	-- ##################################################
+	-- 2D COURSE WINDOW: DRAG + DROP MOVE
+	if self.cp.course2dDrawData and (self.cp.drawCourseMode == courseplay.COURSE_2D_DISPLAY_2DONLY or self.cp.drawCourseMode == courseplay.COURSE_2D_DISPLAY_BOTH) then
+		local plot = CpManager.course2dPlotField;
+		if isDown and mouseButton == courseplay.inputBindings.mouse.primaryButtonId and self.cp.mouseCursorActive and self.isEntered and courseplay:mouseIsInArea(posX, posY, plot.x, plot.x + plot.width, plot.y, plot.y + plot.height) then
+			CpManager.course2dDragDropMouseDown = { posX, posY };
+			if self.cp.course2dPdaMapOverlay then
+				self.cp.course2dPdaMapOverlay.origPos = { self.cp.course2dPdaMapOverlay.x, self.cp.course2dPdaMapOverlay.y };
+			else
+				self.cp.course2dBackground.origPos = { self.cp.course2dBackground.x, self.cp.course2dBackground.y };
+			end;
+		elseif isUp and CpManager.course2dDragDropMouseDown ~= nil then
+			courseplay.utils:move2dCoursePlotField(self, posX, posY);
+		elseif not isUp and not isDown and CpManager.course2dDragDropMouseDown ~= nil then
+			courseplay.utils:update2dCourseBackgroundPos(self, posX, posY);
 		end;
 	end;
 end; --END mouseEvent()
@@ -193,7 +213,9 @@ function courseplay:executeFunction(self, func, value, page)
 		--courseplay:debug("					"..tostring(func)..": "..tostring(value),5)
 		return
 	end
-	playSample(courseplay.hud.clickSound, 1, 1, 0);
+	if self.isEntered then
+		playSample(courseplay.hud.clickSound, 1, 1, 0);
+	end
 	courseplay:debug(('%s: calling function "%s(%s)"'):format(nameNum(self), tostring(func), tostring(value)), 18);
 
 	if func ~= "rowButton" then
@@ -205,8 +227,8 @@ function courseplay:executeFunction(self, func, value, page)
 		local line = value;
 		if page == 0 then
 			local combine = self;
-			if self.cp.attachedCombineIdx ~= nil and self.cp.workTools ~= nil and self.cp.workTools[self.cp.attachedCombineIdx] ~= nil then
-				combine = self.cp.workTools[self.cp.attachedCombineIdx];
+			if self.cp.attachedCombine ~= nil then
+				combine = self.cp.attachedCombine;
 			end;
 
 			if not combine.cp.isChopper then
@@ -252,7 +274,7 @@ function courseplay:executeFunction(self, func, value, page)
 					if line == 1 then
 						courseplay:stop(self);
 					elseif line == 2 and self.cp.HUD1wait then
-						if self.cp.stopAtEnd and (self.recordnumber == self.maxnumber or self.cp.currentTipTrigger ~= nil) then
+						if self.cp.stopAtEnd and (self.cp.waypointIndex == self.cp.numWaypoints or self.cp.currentTipTrigger ~= nil) then
 							courseplay:setStopAtEnd(self, false);
 						else
 							courseplay:cancelWait(self);
@@ -276,7 +298,7 @@ function courseplay:executeFunction(self, func, value, page)
 
 
 			elseif not self:getIsCourseplayDriving() then
-				if not self.cp.isRecording and not self.cp.recordingIsPaused and not self.cp.canDrive and #(self.Waypoints) == 0 then
+				if not self.cp.isRecording and not self.cp.recordingIsPaused and not self.cp.canDrive and self.cp.numWaypoints == 0 then
 					if line == 1 then
 						courseplay:start_record(self);
 					elseif line == 3 then

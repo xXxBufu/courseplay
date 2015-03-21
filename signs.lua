@@ -12,6 +12,11 @@ local signData = {
 	wait =   {  1000, 'current',  4.5 }, -- orig height=3
 	cross =  {  2000, 'crossing', 4.0 }
 };
+local diamondColors = {
+	regular   = { 1.000, 0.212, 0.000, 1.000 }; -- orange
+	turnStart = { 0.200, 0.900, 0.000, 1.000 }; -- green
+	turnEnd   = { 0.896, 0.000, 0.000, 1.000 }; -- red
+};
 
 function courseplay.signs:setup()
 	print('## Courseplay: setting up signs');
@@ -42,7 +47,7 @@ function courseplay.signs:setup()
 end;
 
 
-function courseplay.signs:addSign(vehicle, signType, x, z, rotX, rotY, insertIndex, distanceToNext)
+function courseplay.signs:addSign(vehicle, signType, x, z, rotX, rotY, insertIndex, distanceToNext, diamondColor)
 	signType = signType or 'normal';
 
 	local sign;
@@ -73,6 +78,10 @@ function courseplay.signs:addSign(vehicle, signType, x, z, rotX, rotY, insertInd
 	setVisibility(sign, true);
 
 	local signData = { type = signType, sign = sign, posX = x, posZ = z, rotY = rotY };
+	if diamondColor and signType ~= 'cross' then
+		self:setSignColor(signData, diamondColor);
+	end;
+
 	local section = self.sections[signType];
 	insertIndex = insertIndex or (#vehicle.cp.signs[section] + 1);
 	table.insert(vehicle.cp.signs[section], insertIndex, signData);
@@ -102,7 +111,7 @@ function courseplay.signs:changeSignType(vehicle, vehicleIndex, oldType, newType
 	local section = self.sections[oldType];
 	local signData = vehicle.cp.signs[section][vehicleIndex];
 	self:moveToBuffer(vehicle, vehicleIndex, signData);
-	self:addSign(vehicle, newType, signData.posX, signData.posZ, signData.rotX, signData.rotY, vehicleIndex);
+	self:addSign(vehicle, newType, signData.posX, signData.posZ, signData.rotX, signData.rotY, vehicleIndex, nil, 'regular');
 end;
 
 function courseplay.signs:setWaypointSignLine(sign, distance, vis)
@@ -122,10 +131,11 @@ function courseplay.signs:updateWaypointSigns(vehicle, section)
 
 	vehicle.cp.numWaitPoints = 0;
 	vehicle.cp.numCrossingPoints = 0;
-	vehicle.maxnumber = #vehicle.Waypoints;
+	
+	vehicle.cp.numWaypoints = #vehicle.Waypoints;
 
 	if section == 'all' or section == 'current' then
-		local neededPoints = vehicle.maxnumber;
+		local neededPoints = vehicle.cp.numWaypoints;
 
 		--move not needed ones to buffer
 		if #vehicle.cp.signs.current > neededPoints then
@@ -140,7 +150,7 @@ function courseplay.signs:updateWaypointSigns(vehicle, section)
 			local neededSignType = 'normal';
 			if i == 1 then
 				neededSignType = 'start';
-			elseif i == vehicle.maxnumber then
+			elseif i == vehicle.cp.numWaypoints then
 				neededSignType = 'stop';
 			elseif wp.wait then
 				neededSignType = 'wait';
@@ -152,7 +162,7 @@ function courseplay.signs:updateWaypointSigns(vehicle, section)
 				wp.cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, wp.cx, 0, wp.cz);
 			end;
 
-			if i < vehicle.maxnumber then
+			if i < vehicle.cp.numWaypoints then
 				np = vehicle.Waypoints[i + 1];
 				if np.cy == nil or np.cy == 0 then
 					np.cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode, np.cx, 0, np.cz);
@@ -176,6 +186,13 @@ function courseplay.signs:updateWaypointSigns(vehicle, section)
 				wp.rotY = pp.rotY;
 			end;
 
+			local diamondColor = 'regular';
+			if wp.turnStart then
+				diamondColor = 'turnStart';
+			elseif wp.turnEnd then
+				diamondColor = 'turnEnd';
+			end;
+
 			local existingSignData = vehicle.cp.signs.current[i];
 			if existingSignData ~= nil then
 				if existingSignData.type == neededSignType then
@@ -189,13 +206,16 @@ function courseplay.signs:updateWaypointSigns(vehicle, section)
 							end;
 							self:setWaypointSignLine(existingSignData.sign, wp.distToNextPoint, true);
 						end;
+						if neededSignType ~= 'cross' then
+							self:setSignColor(existingSignData, diamondColor);
+						end;
 					end;
 				else
 					self:moveToBuffer(vehicle, i, existingSignData);
-					self:addSign(vehicle, neededSignType, wp.cx, wp.cz, deg(wp.rotX), wp.angle, i, wp.distToNextPoint);
+					self:addSign(vehicle, neededSignType, wp.cx, wp.cz, deg(wp.rotX), wp.angle, i, wp.distToNextPoint, diamondColor);
 				end;
 			else
-				self:addSign(vehicle, neededSignType, wp.cx, wp.cz, deg(wp.rotX), wp.angle, i, wp.distToNextPoint);
+				self:addSign(vehicle, neededSignType, wp.cx, wp.cz, deg(wp.rotX), wp.angle, i, wp.distToNextPoint, diamondColor);
 			end;
 
 			if wp.wait then
@@ -231,6 +251,15 @@ function courseplay.signs:updateWaypointSigns(vehicle, section)
 	self:setSignsVisibility(vehicle);
 end;
 
+function courseplay.signs:setSignColor(signData, colorName)
+	if signData.type ~= 'cross' and (signData.color == nil or signData.color ~= colorName) then
+		local x,y,z,w = unpack(diamondColors[colorName]);
+		-- print(('setSignColor (%q): sign=%s, x=%.3f, y=%.3f, z=%.3f, w=%d'):format(color, tostring(sign), x, y, z, w));
+		setShaderParameter(signData.sign, 'diffuseColor', x,y,z,w, false);
+		signData.color = colorName;
+	end;
+end;
+
 
 function courseplay.signs:deleteSign(sign)
 	unlink(sign);
@@ -242,18 +271,26 @@ function courseplay.signs:setSignsVisibility(vehicle, forceHide)
 		return;
 	end;
 
-	local mode = vehicle.cp.visualWaypointsMode;
-	-- waypointModes: 1 = Start and end, 2 = Start and end [without crossing], 3 = all own waypoints [with crossing], 4 = none
 	local numSigns = #vehicle.cp.signs.current;
+	local vis, isStartEndPoint;
 	for k,signData in pairs(vehicle.cp.signs.current) do
-		local vis = false;
+		vis = false;
+		isStartEndPoint = k <= 2 or k >= (numSigns - 2);
 
-		if mode == 1 or mode == 2 then
-			vis = k <= 3 or k >= (numSigns - 2) or signData.type == 'wait';
-		elseif mode == 3 then
+		if signData.type == 'wait' and (vehicle.cp.visualWaypointsStartEnd or vehicle.cp.visualWaypointsAll) then
 			vis = true;
-		elseif mode == 4 then
-			vis = false;
+			local line = getChildAt(signData.sign, 0);
+			if vehicle.cp.visualWaypointsStartEnd then
+				setVisibility(line, isStartEndPoint);
+			else
+				setVisibility(line, true);
+			end;
+		else
+			if vehicle.cp.visualWaypointsAll then
+				vis = true;
+			elseif vehicle.cp.visualWaypointsStartEnd and isStartEndPoint then
+				vis = true;
+			end;
 		end;
 
 		if vehicle.cp.isRecording then
@@ -263,19 +300,10 @@ function courseplay.signs:setSignsVisibility(vehicle, forceHide)
 		end;
 
 		setVisibility(signData.sign, vis);
-
-		if signData.type == 'wait' then
-			local line = getChildAt(signData.sign, 0);
-			if mode == 1 or mode == 2 then
-				setVisibility(line, k <= 2 or k >= (numSigns - 2));
-			elseif vis then
-				setVisibility(line, true);
-			end;
-		end;
 	end;
 
 	for k,signData in pairs(vehicle.cp.signs.crossing) do
-		local vis = mode == 1 or mode == 3;
+		local vis = vehicle.cp.visualWaypointsCrossing;
 		if forceHide or not vehicle.isEntered then
 			vis = false;
 		end;

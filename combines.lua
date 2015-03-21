@@ -101,12 +101,12 @@ function courseplay:registerAtCombine(callerVehicle, combine)
 	else
 		
 		if callerVehicle.cp.realisticDriving then
-			if combine.cp.wantsCourseplayer == true or combine.fillLevel == combine.capacity then
-				courseplay:debug(string.format("%s: combine.cp.wantsCourseplayer(%s) or combine.fillLevel == combine.capacity (%s)",nameNum(callerVehicle),tostring(combine.cp.wantsCourseplayer),tostring(combine.fillLevel == combine.capacity)),4)
+			if combine.cp.wantsCourseplayer == true or combine.fillLevel >= combine.capacity then
+				courseplay:debug(string.format("%s: combine.cp.wantsCourseplayer(%s) or combine.fillLevel >= combine.capacity (%s)",nameNum(callerVehicle),tostring(combine.cp.wantsCourseplayer),tostring(combine.fillLevel >= 0.99*combine.capacity)),4)
 			else
 				-- force unload when combine is full
 				-- is the pipe on the correct side?
-				if combine.turnStage == 1 or combine.turnStage == 2 or combine.cp.turnStage ~= 0 then
+				if (combine.turnStage ~= nil and combine.turnStage > 0) or combine.cp.turnStage ~= 0 then
 					courseplay:debug(nameNum(callerVehicle)..": combine is turning -> don't register tractor",4)
 					return false
 				end
@@ -124,6 +124,12 @@ function courseplay:registerAtCombine(callerVehicle, combine)
 				local pipeIsInFruit = (combine.cp.pipeSide == 1 and fruitSide == "left") or (combine.cp.pipeSide == -1 and fruitSide == "right")
 				if pipeIsInFruit then
 					courseplay:debug(nameNum(callerVehicle)..": path finding active and pipe(pipeSide "..tostring(combine.cp.pipeSide)..") is in fruit -> don't register tractor",4)
+					for k, reachableCombine in pairs(callerVehicle.cp.reachableCombines) do
+						if reachableCombine == combine then
+							courseplay:debug(nameNum(callerVehicle).."removing combine from reachable combines list",4)
+							callerVehicle.cp.reachableCombines[k] = nil
+						end
+					end
 					return false
 				else
 					courseplay:debug(nameNum(callerVehicle)..": path finding active and pipe(pipeSide "..tostring(combine.cp.pipeSide)..") is not in fruit -> register tractor",4)
@@ -410,7 +416,22 @@ end;
 
 function courseplay:getSpecialCombineOffset(combine)
 	if combine.cp == nil then return nil; end;
-
+	if combine.cp.isChopper then
+		for _,dolly in pairs(combine.cp.workTools) do
+			if dolly.haeckseldolly then
+				combine.haeckseldolly = true
+				if dolly.bunkerrechts then
+					return 6;
+				else
+					return -6;
+				end
+			end
+		end
+		if combine.haeckseldolly then
+			combine.haeckseldolly = nil
+		end
+	end
+	
 	if combine.cp.isCaseIH7130 then
 		return  8.0;
 	elseif combine.cp.isCaseIH9230Crawler then
@@ -423,6 +444,8 @@ function courseplay:getSpecialCombineOffset(combine)
 		return 4.8;
 	elseif combine.cp.isGrimmeRootster604 then
 		return -4.3;
+	elseif combine.cp.isGrimmeSE260 then
+		return 4.2;
 	elseif combine.cp.isPoettingerMex5 then
 		combine.cp.offset = 5.9;
 		return 5.9;

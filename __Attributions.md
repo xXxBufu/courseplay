@@ -1,4 +1,4 @@
-## Developer version
+## Courseplay v4.01
 
 * Tractor icon by Olivier Guin - under "CC BY 3.0" license
 * Globe icon by Nicholas Menghini - under "CC BY 3.0" license
@@ -27,6 +27,7 @@ ___
 * French: Gui7545
 * Hungarian: Chris von Bone
 * Italian: JD7530, Cristiano Magro
+* Polish: Ziuta
 * Portuguese (BR): Admilson
 * Portuguese (PT): PTAzores
 * Russian: Bernelli

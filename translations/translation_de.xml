@@ -74,16 +74,12 @@
 		<text name="COURSEPLAY_SPEED_TURN" 								 text="Wendemanöver:" />
 		<text name="COURSEPLAY_SPEED_FIELD" 							 text="Auf dem Feld:" />
 		<text name="COURSEPLAY_SPEED_MAX" 								 text="Auf Straße:" />
-		<text name="COURSEPLAY_SPEED_UNLOAD" 							 text="Abladen (BGA):" />
+		<text name="COURSEPLAY_SPEED_REVERSING" 						 text="Rückwärts:" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE" 							 text="Geschwindigkeit:" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE_RECORDING" 				 text="wie beim einfahren" />
 		<text name="COURSEPLAY_MAX_SPEED_MODE_MAX" 						 text="maximale Geschwindigkeit" />
-		<text name="COURSEPLAY_MAX_SPEED_MODE_AUTOMATIC" 				 text="automatisch (vom Kurs)" />
-		<text name="COURSEPLAY_NO_COURSE_LOADED" 						 text="Kurs: kein Kurs geladen" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_1" 						 text="Anfang und Ende" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_2" 						 text="ohne Kreuzungspunkte" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_3" 						 text="alle eigenen" />
-		<text name="COURSEPLAY_WAYPOINT_MODE_4" 						 text="keine" />
+		<text name="COURSEPLAY_MAX_SPEED_MODE_AUTOMATIC" 				 text="automatisch (vom Kurs, max. %s)" />
+		<text name="COURSEPLAY_NO_COURSE_LOADED" 						 text="kein Kurs geladen" />
 		<text name="COURSEPLAY_WARNING_LIGHTS" 							 text="Warnleuchten:" />
 		<text name="COURSEPLAY_WARNING_LIGHTS_MODE_0" 					 text="ausgeschaltet" />
 		<text name="COURSEPLAY_WARNING_LIGHTS_MODE_1" 					 text="RUL (auf der Straße)" />
@@ -105,6 +101,7 @@
 		<text name="COURSEPLAY_DRIVE_NEXT_TO_COMBINE" 					 text="Fahre neben Drescher" />
 		<text name="COURSEPLAY_DRIVE_TO_COMBINE" 						 text="Fahre zu Drescher" />
 		<text name="COURSEPLAY_COMBINE_WANTS_ME_TO_STOP" 				 text="Drescher sagt ich soll anhalten" />
+		<text name="COURSEPLAY_WAITING_TILL_WAITING_POSITION_IS_FREE" 	 text="Warte bis die Warteposition frei ist" />
 		<text name="COURSEPLAY_TURNING_TO_COORDS" 						 text="wende in Richtung Koordinaten %d %d" />
 		<text name="COURSEPLAY_DRIVE_TO_WAYPOINT" 						 text="fahre zu Wegpunkt %d %d" />
 		<text name="COURSEPLAY_WAITING_FOR_FILL_LEVEL" 					 text="Warte bis Füllstand erreicht ist" />
@@ -153,6 +150,8 @@
 		<text name="COURSEPLAY_START" 									 text="Starten" />
 		<text name="COURSEPLAY_FINISH" 									 text="Beenden" />
 		<text name="COURSEPLAY_NO_VALID_COURSE" 						 text="Kein gültiger Kurs geladen" />
+
+		<!-- shovel stuff -->
 		<text name="COURSEPLAY_SHOVEL_NOT_FOUND" 						 text="keine Schaufel vorhanden" />
 		<text name="COURSEPLAY_SHOVEL_POSITIONS" 						 text="Schaufelstellung" />
 		<text name="COURSEPLAY_SHOVEL_POSITIONS_MISSING" 				 text="Es fehlen Schaufelstellungen" />
@@ -160,7 +159,16 @@
 		<text name="COURSEPLAY_SHOVEL_TRANSPORT_POSITION" 				 text='Position "Transport"' />
 		<text name="COURSEPLAY_SHOVEL_PRE_UNLOADING_POSITION" 			 text='Position "vor Abladen"' />
 		<text name="COURSEPLAY_SHOVEL_UNLOADING_POSITION" 				 text='Position "Abladen"' />
+		<text name="COURSEPLAY_SHOVEL_SAVE_LOADING_POSITION" 			 text='"Beladen"-Position speichern' />
+		<text name="COURSEPLAY_SHOVEL_SAVE_TRANSPORT_POSITION" 			 text='"Transport"-Position speichern' />
+		<text name="COURSEPLAY_SHOVEL_SAVE_PRE_UNLOADING_POSITION" 		 text='"Vor abladen"-Position speichern' />
+		<text name="COURSEPLAY_SHOVEL_SAVE_UNLOADING_POSITION" 			 text='"Abladen"-Position speichern' />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_LOADING_POSITION" 		 text='"Beladen"-Position setzen' />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_TRANSPORT_POSITION" 		 text='"Transport"-Position setzen' />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_PRE_UNLOADING_POSITION" 	 text='"Vor abladen"-Position setzen' />
+		<text name="COURSEPLAY_SHOVEL_MOVE_TO_UNLOADING_POSITION" 		 text='"Abladen"-Position setzen' />
 		<text name="COURSEPLAY_SHOVEL_STOP_AND_GO" 						 text="Stop &amp; Go Laden" />
+
 		<text name="COURSEPLAY_START_AT_POINT" 							 text="Kurs beginnen am" />
 		<text name="COURSEPLAY_NEAREST_POINT" 							 text="nächsten Wegpunkt" />
 		<text name="COURSEPLAY_FIRST_POINT" 							 text="ersten Wegpunkt" />
@@ -206,6 +214,7 @@
 		<text name="COURSEPLAY_RECORDING_TURN_END" 						 text="Wendemaneuver beenden" />
 		<text name="COURSEPLAY_RECORDING_REVERSE_START" 				 text="Rückwärtsfahren beginnen" />
 		<text name="COURSEPLAY_RECORDING_REVERSE_STOP" 					 text="Rückwärtsfahren beenden" />
+		<text name="COURSEPLAY_RECORDING_ADD_SPLIT_POINTS"				 text="Zwischenpunkte hinzufügen" />
 		<text name="COURSEPLAY_INGAMEMAP_ICONS_SHOWTEXT" 				 text="Karten-Icons: Text anzeigen" />
 		<text name="COURSEPLAY_ALWAYS_USE_4WD" 							 text="Allrad immer anschalten" />
 		<text name="COURSEPLAY_YES_NO_FIELDSCAN" 						 text="Möchtest du dass die Felder automatisch gescanned werden?" />
@@ -214,6 +223,10 @@
 		<text name="COURSEPLAY_SEEDUSAGECALCULATOR_FIELD" 				 text="Feld: %d (%s %s)" />
 		<text name="COURSEPLAY_SEEDUSAGECALCULATOR_SEEDTYPE" 			 text="Saattyp: %s" />
 		<text name="COURSEPLAY_SEEDUSAGECALCULATOR_USAGE" 				 text="Verbrauch: %s %s (%s)" />
+		<text name="COURSEPLAY_VISUALWAYPOINTS_STARTEND"				 text="Start- und Endpunkte anzeigen/verstecken" />
+		<text name="COURSEPLAY_VISUALWAYPOINTS_ALL"						 text="Alle Punkte anzeigen/verstecken" />
+		<text name="COURSEPLAY_VISUALWAYPOINTS_CROSSING"				 text="Kreuzungspunkte anzeigen/verstecken" />
+
 		<text name="COURSEPLAY_HUD_OPEN" 								 text="Courseplay HUD öffnen" />
 		<text name="COURSEPLAY_HUD_CLOSE" 								 text="Courseplay HUD schließen" />
 		<text name="COURSEPLAY_FUNCTIONS" 								 text="Courseplay-Funktionen" />
@@ -223,6 +236,8 @@
 		<text name="COURSEPLAY_START_STOP" 								 text="Courseplay: Abfahrer einstellen/entlassen" />
 		<text name="COURSEPLAY_CANCELWAIT" 								 text="Courseplay: Warten am letzten Wegpunkt oder Trigger" />
 		<text name="COURSEPLAY_DRIVENOW" 								 text="Courseplay: sofort abfahren" />
+		<text name="COURSEPLAY_NEXTMODE" 								 text="Courseplay: nächster Modus" />
+		<text name="COURSEPLAY_PREVMODE" 								 text="Courseplay: voriger Modus" />
 		<text name="COURSEPLAY_MOUSEACTION_PRIMARY" 					 text="Courseplay: Maus-Aktion" />
 		<text name="COURSEPLAY_MOUSEACTION_SECONDARY" 					 text="Courseplay: sekundäre Maus-Aktion" />
 		<text name="COURSEPLAY_MOUSEARROW_SHOW" 						 text="Mauszeiger anzeigen" />

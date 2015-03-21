@@ -36,6 +36,8 @@ local sonOfaBangSonOfaBoom = {
 	['6fbb6a98a4054b1d603bd8c591d572af'] = true;
 	['87a96c3bb39fa285d7ed2fb5beaffc16'] = true;
 	['d4043d2f9265e18c794be4159faaef5c'] = true;
+	['f4a77acf03e969bbb2b99fee35d137fb'] = true;
+	['7fdd2fa7e858ae062946bbbc1143567c'] = true;
 };
 CpManager.isDeveloper = sonOfaBangSonOfaBoom[getMD5(g_settingsNickname)];
 if CpManager.isDeveloper then
@@ -94,7 +96,7 @@ local function initialize()
 		--print('\t### Courseplay: ' .. filePath .. ' has been loaded');
 		numFilesLoaded = numFilesLoaded + 1;
 	end;
-
+	
 	print(('### Courseplay: initialized %d/%d files (v%s)'):format(numFilesLoaded, numFiles, courseplay.version));
 end;
 
@@ -132,8 +134,7 @@ local function setGlobalData()
 	courseplay.MODE_COMBINE_SELF_UNLOADING = 7;
 	courseplay.MODE_LIQUIDMANURE_TRANSPORT = 8;
 	courseplay.MODE_SHOVEL_FILL_AND_EMPTY = 9;
-	courseplay.numAiModes = 9;
-
+	courseplay.NUM_MODES = 9;
 	------------------------------------------------------------
 
 
@@ -148,6 +149,13 @@ local function setGlobalData()
 	courseplay.WARNING_LIGHTS_BEACON_HAZARD_ON_STREET = 2;
 	courseplay.WARNING_LIGHTS_BEACON_ALWAYS = 3;
 
+	-- 2D/debug lines display options
+	courseplay.COURSE_2D_DISPLAY_OFF	 = 0;
+	courseplay.COURSE_2D_DISPLAY_2DONLY	 = 1;
+	courseplay.COURSE_2D_DISPLAY_DBGONLY = 2;
+	courseplay.COURSE_2D_DISPLAY_BOTH	 = 3;
+
+	-- number separators
 	local langNumData = {
 		br = { '.', ',' },
 		cs = { ',', '.' },
@@ -170,6 +178,7 @@ local function setGlobalData()
 	end;
 
 	--MULTIPLAYER
+	--[[
 	courseplay.checkValues = {
 		"infoText",
 		"HUD0noCourseplayer",
@@ -186,9 +195,9 @@ local function setGlobalData()
 		"HUD4combineName",
 		"HUD4hasActiveCombine",
 		"HUD4savedCombine",
-		"HUD4savedCombineName",
-		"HUDrecordnumber"
-	};
+		"HUD4savedCombineName"
+		
+	};]]
 
 
 	--UTF8

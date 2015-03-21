@@ -31,7 +31,7 @@ function courseplay:showSaveCourseForm(vehicle, saveWhat) -- fn is in courseplay
 	saveWhat = saveWhat or 'course'
 	
 	if saveWhat == 'course' then
-		if #(vehicle.Waypoints) > 0 then
+		if vehicle.cp.numWaypoints > 0 then
 			courseplay.vehicleToSaveCourseIn = vehicle;
 			if vehicle.cp.imWriting then
 				vehicle.cp.saveWhat = 'course'
@@ -132,7 +132,7 @@ function courseplay:loadCourse(vehicle, id, useRealId, addCourseAtEnd) -- fn is 
 			vehicle.cp.numCourses = 1;
 			vehicle.Waypoints = course.waypoints
 			vehicle.cp.numWaypoints = #vehicle.Waypoints;
-			vehicle.cp.currentCourseName = course.name
+			vehicle:setCpVar('currentCourseName',course.name,courseplay.isClient)
 			courseplay:debug(string.format("course_management %d: %s: no course was loaded -> new course = course -> currentCourseName=%q, numCourses=%s", debug.getinfo(1).currentline, nameNum(vehicle), tostring(vehicle.cp.currentCourseName), tostring(vehicle.cp.numCourses)), 8);
 
 		else -- add new course to old course
@@ -231,13 +231,13 @@ function courseplay:loadCourse(vehicle, id, useRealId, addCourseAtEnd) -- fn is 
 
 			vehicle.cp.numWaypoints = #vehicle.Waypoints;
 			vehicle.cp.numCourses = vehicle.cp.numCourses + 1;
-			vehicle.cp.currentCourseName = string.format("%d %s", vehicle.cp.numCourses, courseplay:loc('COURSEPLAY_COMBINED_COURSES'));
+			vehicle:setCpVar('currentCourseName',string.format("%d %s", vehicle.cp.numCourses, courseplay:loc('COURSEPLAY_COMBINED_COURSES')),courseplay.isClient);
 			courseplay:debug(string.format('%s: adding course done -> numWaypoints=%d, numCourses=%s, currentCourseName=%q', nameNum(vehicle), vehicle.cp.numWaypoints, vehicle.cp.numCourses, vehicle.cp.currentCourseName), 8);
 		end;
 
 		vehicle.cp.canDrive = true;
 
-		courseplay:setRecordNumber(vehicle, 1);
+		courseplay:setWaypointIndex(vehicle, 1);
 		courseplay:setModeState(vehicle, 0);
 		courseplay.signs:updateWaypointSigns(vehicle, "current");
 
@@ -245,6 +245,9 @@ function courseplay:loadCourse(vehicle, id, useRealId, addCourseAtEnd) -- fn is 
 		courseplay:validateCourseGenerationData(vehicle);
 
 		courseplay:validateCanSwitchMode(vehicle);
+
+		-- SETUP 2D COURSE DRAW DATA
+		vehicle.cp.course2dUpdateDrawData = true;
 	end
 end
 
@@ -622,7 +625,8 @@ function courseplay.courses:deleteSaveAll()
 				header = header .. ('\t<courseplayFields automaticScan=%q onlyScanOwnedFields=%q debugScannedFields=%q debugCustomLoadedFields=%q scanStep="%d" />\n'):format(tostring(courseplay.fields.automaticScan), tostring(courseplay.fields.onlyScanOwnedFields), tostring(courseplay.fields.debugScannedFields), tostring(courseplay.fields.debugCustomLoadedFields), courseplay.fields.scanStep);
 				header = header .. ('\t<courseplayWages active=%q wagePerHour="%d" />\n'):format(tostring(CpManager.wagesActive), CpManager.wagePerHour);
 				header = header .. ('\t<courseplayIngameMap active=%q showName=%q showCourse=%q />\n'):format(tostring(CpManager.ingameMapIconActive), tostring(CpManager.ingameMapIconShowName),tostring(CpManager.ingameMapIconShowCourse));
-				header = header .. ('\t<courseManagement batchWriteSize="%d" />'):format(self.batchWriteSize);
+				header = header .. ('\t<courseManagement batchWriteSize="%d" />\n'):format(self.batchWriteSize);
+				header = header .. ('\t<course2D posX="%.3f" posY="%.3f" opacity="%.2f" />\n'):format(CpManager.course2dPlotPosX, CpManager.course2dPlotPosY, CpManager.course2dPdaMapOpacity);
 
 				file:write(header);
 
@@ -665,7 +669,7 @@ function courseplay.courses:deleteSaveAll()
 						if wp.turnStart then
 							wpContent = wpContent .. ' turnstart="1"';
 						end;
-						if wp.turnStart then
+						if wp.turnEnd then
 							wpContent = wpContent .. ' turnend="1"';
 						end;
 						if wp.ridgeMarker ~= nil and wp.ridgeMarker ~= 0 then
@@ -700,6 +704,10 @@ function courseplay.courses:saveAllToXml(recreateXML)
 -- recreateXML (bool): 	if nil or true the xml file will be overwritten. While saving each course/folder it is saved without 
 --							checking if the id already exists in the file (it should not as the file was deleted and therefore empty).  This is faster than
 --						if false, the xml file will only be created if it doesn't exist. If there exists already a course/folder with the specific id in the xml, it will be overwritten
+	if g_server == nil then
+		return
+	end
+	
 	if recreateXML == nil then
 		recreateXML = true
 	end
@@ -820,7 +828,7 @@ function courseplay:linkParent(vehicle, index)
 			vehicle.cp.hud.choose_parent = false
 		end
 	end -- if type(vehicle.cp.hud.courses[index]) ~= nil
-	--courseplay:buttonsActiveEnabled(vehicle, "page2");
+	--courseplay.buttons:setActiveEnabled(vehicle, "page2");
 end
 
 function courseplay.courses:getNextCourse(vehicle, index, rev)

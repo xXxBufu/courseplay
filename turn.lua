@@ -13,6 +13,7 @@ function courseplay:turn(self, dt) --!!!
 	local moveForwards = true;
 	local updateWheels = true;
 	local turnOutTimer = 1500
+	local turnTimer = 1500
 	--local frontMarker = Utils.getNoNil(self.cp.backMarkerOffset, -3)
 	--local backMarker = Utils.getNoNil(self.cp.aiFrontMarker,0)
 	local frontMarker = Utils.getNoNil(self.cp.aiFrontMarker, -3)
@@ -52,7 +53,7 @@ function courseplay:turn(self, dt) --!!!
 				end
 				if myDirX*dirX + myDirZ*dirZ > 0.2 or self.turnStageTimer < 0 then
 					if self.cp.aiTurnNoBackward or
-					(courseplay:distance(newTargetX, newTargetZ, self.Waypoints[self.recordnumber-1].cx, self.Waypoints[self.recordnumber-1].cz) > self.cp.turnDiameter * 1.2) then
+					(courseplay:distance(newTargetX, newTargetZ, self.Waypoints[self.cp.waypointIndex-1].cx, self.Waypoints[self.cp.waypointIndex-1].cz) > self.cp.turnDiameter * 1.2) then
 						self.cp.turnStage = 4;
 					else
 						self.cp.turnStage = 3;
@@ -113,24 +114,24 @@ function courseplay:turn(self, dt) --!!!
 				end
 				if -dot < moveback  then
 					self.cp.turnStage = 0;
-					local _,_,z1 = worldToLocal(self.cp.DirectionNode, self.Waypoints[self.recordnumber+1].cx, backY, self.Waypoints[self.recordnumber+1].cz);
-					local _,_,z2 = worldToLocal(self.cp.DirectionNode, self.Waypoints[self.recordnumber+2].cx, backY, self.Waypoints[self.recordnumber+2].cz);
-					local _,_,z3 = worldToLocal(self.cp.DirectionNode, self.Waypoints[self.recordnumber+3].cx, backY, self.Waypoints[self.recordnumber+3].cz);
+					local _,_,z1 = worldToLocal(self.cp.DirectionNode, self.Waypoints[self.cp.waypointIndex+1].cx, backY, self.Waypoints[self.cp.waypointIndex+1].cz);
+					local _,_,z2 = worldToLocal(self.cp.DirectionNode, self.Waypoints[self.cp.waypointIndex+2].cx, backY, self.Waypoints[self.cp.waypointIndex+2].cz);
+					local _,_,z3 = worldToLocal(self.cp.DirectionNode, self.Waypoints[self.cp.waypointIndex+3].cx, backY, self.Waypoints[self.cp.waypointIndex+3].cz);
 					if self.cp.isCombine then
 						if z2 > 6 then
-							courseplay:setRecordNumber(self, self.recordnumber + 2);
+							courseplay:setWaypointIndex(self, self.cp.waypointIndex + 2);
 						elseif z3 > 6 then
-							courseplay:setRecordNumber(self, self.recordnumber + 3);
+							courseplay:setWaypointIndex(self, self.cp.waypointIndex + 3);
 						else
-							courseplay:setRecordNumber(self, self.recordnumber + 4);
+							courseplay:setWaypointIndex(self, self.cp.waypointIndex + 4);
 						end
 					else
 						if z1 > 0 then
-							courseplay:setRecordNumber(self, self.recordnumber + 1);
+							courseplay:setWaypointIndex(self, self.cp.waypointIndex + 1);
 						elseif z2 > 0 then
-							courseplay:setRecordNumber(self, self.recordnumber + 2);
+							courseplay:setWaypointIndex(self, self.cp.waypointIndex + 2);
 						else
-							courseplay:setRecordNumber(self, self.recordnumber + 3);
+							courseplay:setWaypointIndex(self, self.cp.waypointIndex + 3);
 						end
 					end;
 					courseplay:lowerImplements(self, true, true)
@@ -177,7 +178,7 @@ function courseplay:turn(self, dt) --!!!
 			else
 				self.aiTractorTurnLeft = true;
 			end;
-			local cx,cz = self.Waypoints[self.recordnumber+1].cx, self.Waypoints[self.recordnumber+1].cz;
+			local cx,cz = self.Waypoints[self.cp.waypointIndex+1].cx, self.Waypoints[self.cp.waypointIndex+1].cz;
 			if (self.cp.laneOffset ~= nil and self.cp.laneOffset ~= 0) or (self.cp.toolOffsetX ~= nil and self.cp.toolOffsetX ~= 0) then
 				cx,cz = courseplay:turnWithOffset(self)
 			end;
@@ -194,10 +195,10 @@ function courseplay:turn(self, dt) --!!!
 			self.turnStageTimer = Utils.getNoNil(self.turnStage2Timeout,20000)
 
 		-- TURN STAGE ??? --TODO (Jakob): what's the situation here? turnStage not > 1 and not > 0 ? When do we get to this point?
-		else
+		else              -- The situation is when a turn timeout appears...
 			self.cp.turnStage = 1;
 			if self.cp.noStopOnTurn == false then
-				self.waitForTurnTime = self.timer + 1500;
+				self.waitForTurnTime = self.timer + turnTimer;
 			end
 			courseplay:lowerImplements(self, false, true)
 			updateWheels = false;
@@ -205,13 +206,22 @@ function courseplay:turn(self, dt) --!!!
 
 	-- TURN STAGE 0
 	else
+		if self.isStrawEnabled then 
+			self.cp.savedNoStopOnTurn = self.cp.noStopOnTurn
+			self.cp.noStopOnTurn = false
+			turnTimer = self.strawToggleTime or 5;
+		elseif self.cp.savedNoStopOnTurn ~= nil then
+			self.cp.noStopOnTurn = self.cp.savedNoStopOnTurn
+			self.cp.savedNoStopOnTurn = nil
+		end
+		
 		local offset = Utils.getNoNil(self.cp.totalOffsetX, 0)
 		local x,y,z = localToWorld(self.cp.DirectionNode, offset, 0, backMarker)
-		local dist = courseplay:distance(self.Waypoints[self.recordnumber].cx, self.Waypoints[self.recordnumber].cz, x, z)
+		local dist = courseplay:distance(self.Waypoints[self.cp.waypointIndex].cx, self.Waypoints[self.cp.waypointIndex].cz, x, z)
 		if backMarker <= 0 then
 			if  dist < 0.5 then
 				if not self.cp.noStopOnTurn then
-					self.cp.waitForTurnTime = self.timer + 1500
+					self.cp.waitForTurnTime = self.timer + turnTimer
 				end
 				courseplay:lowerImplements(self, false, false)
 				updateWheels = false;
@@ -224,7 +234,7 @@ function courseplay:turn(self, dt) --!!!
 			end
 			if dist > backMarker and self.cp.turnStage == -1 then
 				if self.cp.noStopOnTurn == false then
-					self.cp.waitForTurnTime = self.timer + 1500
+					self.cp.waitForTurnTime = self.timer + turnTimer
 				end
 				updateWheels = false;
 				self.cp.turnStage = 1;
@@ -307,9 +317,9 @@ function courseplay:lowerImplements(self, moveDown, workToolonOff)
 			self:setFoldState(state, true);
 		end;
 		if self.cp.mode == 4 then
-			for _,workTool in pairs(self.cp.workTools) do
-				if workTool.setIsTurnedOn ~= nil and not courseplay:isFolding(workTool) and workTool ~= self and workTool.isTurnedOn ~= workToolonOff then
-					workTool:setIsTurnedOn(workToolonOff, false);
+			for _,workTool in pairs(self.cp.workTools) do								 --vvTODO (Tom) why is this here vv?
+				if workTool.setIsTurnedOn ~= nil and not courseplay:isFolding(workTool) and (true or workTool ~= self) and workTool.isTurnedOn ~= workToolonOff then
+					workTool:setIsTurnedOn(workToolonOff, false);                          -- disabled for Pantera
 				end;
 			end;
 		end;
@@ -334,7 +344,7 @@ function courseplay:turnWithOffset(self)
 		end;
 	end;
 
-	local curPoint = self.Waypoints[self.recordnumber+1]
+	local curPoint = self.Waypoints[self.cp.waypointIndex+1]
 	local cx, cz = curPoint.cx, curPoint.cz;
 	local offsetX = self.cp.totalOffsetX
 	if curPoint.turnEnd and curPoint.laneDir ~= nil then --TODO (Jakob): use point's direction to next point to get the proper offset
