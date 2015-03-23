@@ -15,6 +15,7 @@ function courseplay:generateCourse(vehicle)
 	-----------------------------------
 	local workWidth = vehicle.cp.workWidth;
 	local epsilon = vehicle.cp.fieldEdge.douglasPeuckerEpsilon or 2;
+	local startPoint = vehicle.cp.startingPointCoordsManual;
 	-----------------------------------
 	if not vehicle.cp.overlap then vehicle.cp.overlap = 1/4 end; --TODO add this in the menu
 	if not vehicle.cp.headland.minPointDistance then vehicle.cp.headland.minPointDistance = .5 end;
@@ -174,7 +175,7 @@ function courseplay:generateCourse(vehicle)
 	---#################################################################
 	-- (3) DIMENSIONS, ALL PATH POINTS
 	--------------------------------------------------------------------
-	local StartPoint = {};
+
 
 	------------------------------------------------------------------
 	-- (3.1) DEF POINT IN FIELD CORNER FOR TURN AROUND

@@ -550,7 +550,9 @@ end;
 function courseplay.geometry:newPolyFromIndices(polyIn, indices)
 	local polyOut = {};
 	for _,index in pairs(indices) do
-		local point = { cx = polyIn[index].cx, cz = polyIn[index].cz };
+		local point = { cx = polyIn[index].cx,
+						cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode,polyIn[index].cx, 1, polyIn[index].cz),
+						cz = polyIn[index].cz };
 		table.insert(polyOut, point);
 	end;
 	polyOut = self:setPolyCounterClockwise(polyOut);
@@ -563,6 +565,7 @@ function courseplay.geometry:offsetPoint(point, normal, offset)
 	--courseplay:debug(string.format(' point %.4f, %.4f offset to %.4f, %.4f', point.cx,point.cz,x,z),7);
 	return {
 		cx = x,
+		cy = getTerrainHeightAtWorldPos(g_currentMission.terrainRootNode,x, 1, z),
 		cz = z
 	};
 end;
